@@ -10,7 +10,7 @@ export function Profile() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [message, setMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null)
-    const { trades } = useWalletStore()
+    const { trades, wallets } = useWalletStore()
 
     useEffect(() => {
         if (!isSupabaseConfigured()) {
@@ -18,17 +18,37 @@ export function Profile() {
             return
         }
 
+        // Check active session
         supabase.auth.getSession().then(({ data: { session } }) => {
             setUser(session?.user ?? null)
             setLoading(false)
+        }).catch(err => {
+            console.error("Session check failed:", err)
+            setLoading(false)
         })
 
+        // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             setUser(session?.user ?? null)
         })
 
         return () => subscription.unsubscribe()
     }, [])
+
+    // Auto-login anonymously when wallet is connected (if not already logged in)
+    useEffect(() => {
+        if (wallets.length > 0 && !user && !loading && isSupabaseConfigured()) {
+            const loginAnonymously = async () => {
+                console.log("Wallet connected, signing in anonymously...")
+                const { error } = await supabase.auth.signInAnonymously()
+                if (error) {
+                    console.error("Anon login failed:", error)
+                    setMessage({ type: 'error', text: error.message })
+                }
+            }
+            loginAnonymously()
+        }
+    }, [wallets, user, loading])
 
     const handleSocialLogin = async (provider: 'google' | 'apple' | 'twitter' | 'github' | 'discord') => {
         if (!isSupabaseConfigured()) {
@@ -93,6 +113,9 @@ export function Profile() {
 
     // AUTHENTICATED VIEW
     if (user) {
+        const userEmail = user.email || "Anonymous User"
+        const userId = user.id ? user.id.slice(0, 8) : "Unknown"
+
         return (
             <div className="max-w-md mx-auto pt-8 pb-20 px-4">
                 <div className="flex items-center justify-between mb-8">
@@ -108,11 +131,11 @@ export function Profile() {
                 {/* User Card */}
                 <div className="p-6 rounded-3xl bg-[#14141b] border border-white/5 backdrop-blur-xl mb-6 flex items-center gap-4">
                     <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-2xl font-bold text-white shadow-xl">
-                        {user.email?.[0].toUpperCase() || <User />}
+                        {user.email?.[0]?.toUpperCase() || <User />}
                     </div>
                     <div>
                         <div className="text-sm text-gray-400 font-bold uppercase tracking-wider mb-1">Signed in as</div>
-                        <div className="text-white font-bold truncate max-w-[200px]">{user.email}</div>
+                        <div className="text-white font-bold truncate max-w-[200px]">{userEmail}</div>
                         <div className="flex items-center gap-2 mt-2 text-[10px] font-black uppercase tracking-widest text-green-400">
                             <Cloud className="w-3 h-3" />
                             Sync Active
@@ -128,7 +151,7 @@ export function Profile() {
                     </div>
                     <div className="p-5 rounded-[2rem] bg-[#14141b] border border-white/5">
                         <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-2">Account ID</div>
-                        <div className="text-xs font-mono text-gray-400 truncate">#{user.id.slice(0, 8)}</div>
+                        <div className="text-xs font-mono text-gray-400 truncate">#{userId}</div>
                     </div>
                 </div>
             </div>
