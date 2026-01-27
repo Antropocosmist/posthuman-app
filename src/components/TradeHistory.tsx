@@ -1,0 +1,90 @@
+import { motion } from 'framer-motion'
+import { ArrowRight, ExternalLink, Clock, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { useWalletStore } from '../store/walletStore'
+import { formatDistanceToNow } from 'date-fns'
+
+export function TradeHistory() {
+    const { trades } = useWalletStore()
+
+    if (trades.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center py-20 text-gray-700">
+                <Clock className="w-12 h-12 mb-4 opacity-20" />
+                <div className="text-xs font-black uppercase tracking-widest opacity-50 text-center">No trades yet</div>
+            </div>
+        )
+    }
+
+    return (
+        <div className="space-y-4">
+            {trades.map((trade) => (
+                <motion.div
+                    key={trade.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-5 rounded-[1.5rem] bg-[#14141b] border border-white/5 hover:border-white/10 transition-all group"
+                >
+                    <div className="flex justify-between items-start mb-4">
+                        <div className="flex items-center gap-2">
+                            <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-wider flex items-center gap-1 ${trade.status === 'completed' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
+                                }`}>
+                                {trade.status === 'completed' ? <CheckCircle2 className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                                {trade.status === 'completed' ? 'Success' : 'Failed'}
+                            </span>
+                            <span className="text-[10px] text-gray-600 font-bold">
+                                {formatDistanceToNow(trade.timestamp, { addSuffix: true })}
+                            </span>
+                        </div>
+                        {trade.txHash && (
+                            <a
+                                href="#" // Ideally link to scanner based on chain
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-500 hover:text-blue-400 transition-colors"
+                            >
+                                <ExternalLink className="w-4 h-4" />
+                            </a>
+                        )}
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                        {/* Source */}
+                        <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-full overflow-hidden bg-black/40 border border-white/10">
+                                    <img src={trade.sourceAsset.logo} className="w-full h-full object-cover" />
+                                </div>
+                                <span className="text-sm font-bold text-white">{trade.sourceAsset.symbol}</span>
+                            </div>
+                            <span className="text-xs font-mono text-gray-400 pl-8">
+                                -{parseFloat(trade.sourceAsset.amount).toFixed(4)}
+                            </span>
+                        </div>
+
+                        <ArrowRight className="w-4 h-4 text-gray-700" />
+
+                        {/* Dest */}
+                        <div className="flex flex-col gap-1 items-end">
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold text-white">{trade.destAsset.symbol}</span>
+                                <div className="w-6 h-6 rounded-full overflow-hidden bg-black/40 border border-white/10">
+                                    <img src={trade.destAsset.logo} className="w-full h-full object-cover" />
+                                </div>
+                            </div>
+                            <span className="text-xs font-mono text-blue-400 pr-8">
+                                +{parseFloat(trade.destAsset.amount).toFixed(4)}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="mt-4 pt-4 border-t border-white/5 flex justify-between items-center">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-gray-600">Value at Trade</span>
+                        <span className="text-xs font-bold text-gray-400">
+                            {trade.usdValue.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                        </span>
+                    </div>
+                </motion.div>
+            ))}
+        </div>
+    )
+}

@@ -1,12 +1,17 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowDown, ArrowUp, RefreshCw, ChevronDown, CheckCircle2, Search, X, Info, AlertTriangle, Clock, Zap, Globe, Coins } from 'lucide-react'
+import { ArrowDown, ArrowUp, RefreshCw, ChevronDown, CheckCircle2, Search, X, Info, AlertTriangle, Clock, Zap, Globe, Coins, History } from 'lucide-react'
 import { useWalletStore } from '../store/walletStore'
 import { SkipService } from '../services/skip'
 import type { SkipChain, SkipAsset } from '../services/skip'
+import { TradeHistory } from '../components/TradeHistory'
+import { PriceService } from '../services/price'
 
 export function Trade() {
-    const { wallets, getChainForWallet } = useWalletStore()
+    const { wallets, getChainForWallet, addTrade } = useWalletStore()
+
+    // Tab State
+    const [activeTab, setActiveTab] = useState<'swap' | 'history'>('swap')
 
     // Selection State
     const [sourceChain, setSourceChain] = useState<SkipChain | null>(null)
@@ -149,18 +154,42 @@ export function Trade() {
 
             // 2. Get execution messages from Skip
             const addressArray = requiredChainIds.map((cid: string) => addressList[cid])
-            console.log("Fetching msgs with addresses:", addressArray)
-
             const msgsResponse = await SkipService.getMessages(route, addressArray)
 
             if (!msgsResponse || !msgsResponse.msgs || msgsResponse.msgs.length === 0) {
                 throw new Error(msgsResponse?.message || "No execution messages returned from Skip.")
             }
 
-            console.log("Executing msgs:", msgsResponse.msgs)
-
             // 3. Execute messages via Wallet Store
-            await useWalletStore.getState().executeSkipMessages(msgsResponse.msgs)
+            const txHash = (await useWalletStore.getState().executeSkipMessages(msgsResponse.msgs))[0] // Get first hash
+
+            // 4. Save Trade to History
+            if (sourceAsset && destAsset && sourceChain && destChain) {
+                // Get Prices for USD Value
+                const prices = await PriceService.getPrices()
+                const price = prices[sourceAsset.symbol] || 0
+                const usdValue = parseFloat(amountIn) * price
+
+                addTrade({
+                    id: Math.random().toString(36).substr(2, 9),
+                    timestamp: Date.now(),
+                    sourceAsset: {
+                        symbol: sourceAsset.symbol,
+                        logo: sourceAsset.logo_uri || '',
+                        amount: amountIn,
+                        chainId: sourceChain.chain_id
+                    },
+                    destAsset: {
+                        symbol: destAsset.symbol,
+                        logo: destAsset.logo_uri || '',
+                        amount: (parseFloat(route.amount_out || route.estimated_amount_out) / Math.pow(10, destAsset.decimals)).toString(),
+                        chainId: destChain.chain_id
+                    },
+                    usdValue,
+                    status: 'completed',
+                    txHash
+                })
+            }
 
             setSwapComplete(true)
             await useWalletStore.getState().refreshBalances()
@@ -206,205 +235,222 @@ export function Trade() {
                     <h1 className="text-3xl font-bold text-white tracking-tight">Trade</h1>
                     <p className="text-xs text-blue-400 font-black uppercase tracking-widest mt-1">Smarter Routing</p>
                 </div>
-                <button
-                    onClick={() => { setAmountIn(''); setDestAsset(null); setRoute(null); }}
-                    className="p-3 rounded-2xl bg-white/5 hover:bg-white/10 text-gray-400 transition-colors"
-                >
-                    <RefreshCw className={`w-5 h-5 ${isFetchingRoute || isSwapping ? 'animate-spin text-blue-400' : ''}`} />
-                </button>
-            </div>
-
-            {/* Swap Interface */}
-            <div className="relative space-y-2">
-                {/* Pay Card */}
-                <div className="p-6 rounded-3xl bg-[#14141b] border border-white/5 backdrop-blur-xl transition-all hover:border-white/10 shadow-2xl">
-                    <div className="flex justify-between items-center mb-4">
-                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">From</span>
-                        <div className="flex gap-3 items-baseline">
-                            {sourceBalance !== null && (
-                                <span className="text-[10px] font-bold text-gray-600">
-                                    Balance: <span className="text-gray-400">{sourceBalance.toFixed(4)}</span>
-                                </span>
-                            )}
-                            <button
-                                onClick={() => sourceBalance !== null && setAmountIn(sourceBalance.toString())}
-                                className="text-[10px] font-bold text-blue-400 hover:text-white transition-colors"
-                            >
-                                MAX
-                            </button>
-                            <button
-                                onClick={async () => {
-                                    setIsRefreshingBalance(true)
-                                    await useWalletStore.getState().refreshBalances()
-                                    setTimeout(() => setIsRefreshingBalance(false), 1000)
-                                }}
-                                className="p-1 hover:bg-white/10 rounded-full text-gray-500 hover:text-white transition-colors"
-                                title="Refresh Balance"
-                            >
-                                <RefreshCw className={`w-3 h-3 ${isRefreshingBalance ? 'animate-spin' : ''}`} />
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                        <input
-                            type="number"
-                            placeholder="0.0"
-                            className="bg-transparent text-4xl font-bold text-white outline-none w-full placeholder:text-white/5"
-                            value={amountIn}
-                            onChange={(e) => setAmountIn(e.target.value)}
-                        />
-                        <div className="flex flex-col gap-1 items-end">
-                            <button
-                                onClick={() => setSelectingFor({ type: 'source', mode: 'chain' })}
-                                className="flex items-center gap-2 pl-2 pr-3 py-1 rounded-full bg-white/5 hover:bg-white/10 text-[10px] text-gray-400 font-bold uppercase tracking-wider transition-all border border-white/5"
-                            >
-                                <Globe className="w-3 h-3" />
-                                {sourceChain?.pretty_name || 'Network'}
-                            </button>
-                            <button
-                                onClick={() => setSelectingFor({ type: 'source', mode: 'asset' })}
-                                className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold transition-all shadow-lg min-w-[120px]"
-                            >
-                                {sourceAsset ? (
-                                    <>
-                                        <div className="w-6 h-6 rounded-full overflow-hidden border border-white/10 bg-black/50">
-                                            <img src={sourceAsset.logo_uri} className="w-full h-full object-cover" />
-                                        </div>
-                                        <span className="text-sm">{sourceAsset.symbol}</span>
-                                    </>
-                                ) : <span className="text-sm">Select</span>}
-                                <ChevronDown className="w-4 h-4 text-gray-500 ml-auto" />
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Swap Arrow */}
-                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none">
+                <div className="flex p-1 bg-white/5 rounded-full border border-white/5">
                     <button
-                        onClick={switchSide}
-                        className="pointer-events-auto p-3 rounded-2xl bg-[#0a0a0f] border-4 border-[#050505] text-blue-400 hover:text-white hover:scale-110 transition-all shadow-xl group flex flex-row items-center justify-center gap-[2px]"
+                        onClick={() => setActiveTab('swap')}
+                        className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${activeTab === 'swap' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
+                            }`}
                     >
-                        <ArrowUp className="w-4 h-4" />
-                        <ArrowDown className="w-4 h-4" />
+                        Swap
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('history')}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${activeTab === 'history' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
+                            }`}
+                    >
+                        <History className="w-3 h-3" />
+                        History
                     </button>
                 </div>
-
-                {/* Receive Card */}
-                <div className="p-6 rounded-3xl bg-[#14141b] border border-white/5 backdrop-blur-xl transition-all hover:border-white/10 shadow-2xl">
-                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500 block mb-4">To</span>
-                    <div className="flex items-center gap-4">
-                        <div className={`text-4xl font-bold w-full truncate ${route ? 'text-white' : 'text-white/5'}`}>
-                            {route ? (parseFloat(route.amount_out || route.estimated_amount_out) / Math.pow(10, destAsset?.decimals || 6)).toFixed(4) : '0.00'}
-                        </div>
-                        <div className="flex flex-col gap-1 items-end">
-                            <button
-                                onClick={() => setSelectingFor({ type: 'dest', mode: 'chain' })}
-                                className="flex items-center gap-2 pl-2 pr-3 py-1 rounded-full bg-white/5 hover:bg-white/10 text-[10px] text-gray-400 font-bold uppercase tracking-wider transition-all border border-white/5"
-                            >
-                                <Globe className="w-3 h-3" />
-                                {destChain?.pretty_name || 'Network'}
-                            </button>
-                            <button
-                                onClick={() => setSelectingFor({ type: 'dest', mode: 'asset' })}
-                                className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition-all shadow-lg min-w-[120px]"
-                            >
-                                {destAsset ? (
-                                    <>
-                                        <div className="w-6 h-6 rounded-full overflow-hidden border border-white/10 bg-black/50">
-                                            <img src={destAsset.logo_uri} className="w-full h-full object-cover" />
-                                        </div>
-                                        <span className="text-sm">{destAsset.symbol}</span>
-                                    </>
-                                ) : <span className="text-sm">Select</span>}
-                                <ChevronDown className="w-4 h-4 text-white/50 ml-auto" />
-                            </button>
-                        </div>
-                    </div>
-                </div>
             </div>
 
-            {/* Route & Error Messages */}
-            <AnimatePresence mode="wait">
-                {error && (
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="mt-4 p-4 rounded-2xl bg-red-950/20 border border-red-500/20 text-red-500 text-xs flex items-center gap-3 font-medium"
-                    >
-                        <AlertTriangle className="w-4 h-4 shrink-0" />
-                        {error}
-                    </motion.div>
-                )}
-
-                {route && !isSwapping && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="mt-6 space-y-3"
-                    >
-                        <div className="p-5 rounded-[2rem] border border-white/5 bg-white/[0.02] space-y-4">
-                            <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-gray-500">
-                                <div className="flex items-center gap-2">
-                                    <Zap className="w-3 h-3 text-blue-400" />
-                                    Optimized Route
-                                </div>
-                                <div className="font-mono text-white/30 truncate max-w-[180px]">
-                                    1 {sourceAsset?.symbol} ≈ {(parseFloat(route.amount_out || route.estimated_amount_out) / Math.pow(10, destAsset?.decimals || 6) / parseFloat(amountIn)).toFixed(6)} {destAsset?.symbol}
+            {activeTab === 'history' ? (
+                <TradeHistory />
+            ) : (
+                <>
+                    {/* Swap Interface */}
+                    <div className="relative space-y-2">
+                        {/* Pay Card */}
+                        <div className="p-6 rounded-3xl bg-[#14141b] border border-white/5 backdrop-blur-xl transition-all hover:border-white/10 shadow-2xl">
+                            <div className="flex justify-between items-center mb-4">
+                                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">From</span>
+                                <div className="flex gap-3 items-baseline">
+                                    {sourceBalance !== null && (
+                                        <span className="text-[10px] font-bold text-gray-600">
+                                            Balance: <span className="text-gray-400">{sourceBalance.toFixed(4)}</span>
+                                        </span>
+                                    )}
+                                    <button
+                                        onClick={() => sourceBalance !== null && setAmountIn(sourceBalance.toString())}
+                                        className="text-[10px] font-bold text-blue-400 hover:text-white transition-colors"
+                                    >
+                                        MAX
+                                    </button>
+                                    <button
+                                        onClick={async () => {
+                                            setIsRefreshingBalance(true)
+                                            await useWalletStore.getState().refreshBalances()
+                                            setTimeout(() => setIsRefreshingBalance(false), 1000)
+                                        }}
+                                        className="p-1 hover:bg-white/10 rounded-full text-gray-500 hover:text-white transition-colors"
+                                        title="Refresh Balance"
+                                    >
+                                        <RefreshCw className={`w-3 h-3 ${isRefreshingBalance ? 'animate-spin' : ''}`} />
+                                    </button>
                                 </div>
                             </div>
 
-                            <div className="h-px bg-white/5 w-full" />
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1">
-                                    <div className="text-[9px] text-gray-600 uppercase font-black tracking-[0.2em]">Gas Fees</div>
-                                    <div className="text-xs text-white/80 font-bold flex items-center gap-1">
-                                        ~$0.15 - $2.50 <Info className="w-3 h-3 text-gray-700" />
-                                    </div>
-                                </div>
-                                <div className="space-y-1 text-right">
-                                    <div className="text-[9px] text-gray-600 uppercase font-black tracking-[0.2em]">Arrival</div>
-                                    <div className="text-xs text-white/80 font-bold flex items-center gap-1 justify-end">
-                                        <Clock className="w-3 h-3 text-gray-700" />
-                                        {sourceChain?.chain_type === 'evm' ? 'Fast (~30s)' : 'Insntant (<10s)'}
-                                    </div>
+                            <div className="flex items-center gap-4">
+                                <input
+                                    type="number"
+                                    placeholder="0.0"
+                                    className="bg-transparent text-4xl font-bold text-white outline-none w-full placeholder:text-white/5"
+                                    value={amountIn}
+                                    onChange={(e) => setAmountIn(e.target.value)}
+                                />
+                                <div className="flex flex-col gap-1 items-end">
+                                    <button
+                                        onClick={() => setSelectingFor({ type: 'source', mode: 'chain' })}
+                                        className="flex items-center gap-2 pl-2 pr-3 py-1 rounded-full bg-white/5 hover:bg-white/10 text-[10px] text-gray-400 font-bold uppercase tracking-wider transition-all border border-white/5"
+                                    >
+                                        <Globe className="w-3 h-3" />
+                                        {sourceChain?.pretty_name || 'Network'}
+                                    </button>
+                                    <button
+                                        onClick={() => setSelectingFor({ type: 'source', mode: 'asset' })}
+                                        className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold transition-all shadow-lg min-w-[120px]"
+                                    >
+                                        {sourceAsset ? (
+                                            <>
+                                                <div className="w-6 h-6 rounded-full overflow-hidden border border-white/10 bg-black/50">
+                                                    <img src={sourceAsset.logo_uri} className="w-full h-full object-cover" />
+                                                </div>
+                                                <span className="text-sm">{sourceAsset.symbol}</span>
+                                            </>
+                                        ) : <span className="text-sm">Select</span>}
+                                        <ChevronDown className="w-4 h-4 text-gray-500 ml-auto" />
+                                    </button>
                                 </div>
                             </div>
                         </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
 
-            {/* Swap Button */}
-            <button
-                disabled={!route || isSwapping || isFetchingRoute}
-                onClick={handleSwapExecute}
-                className={`w-full mt-6 py-5 rounded-[2rem] font-black text-lg transition-all flex items-center justify-center gap-3 active:scale-95 uppercase tracking-widest
-                    ${(!route || isSwapping || isFetchingRoute) ? 'bg-white/5 text-gray-700 cursor-not-allowed border border-white/5' :
-                        'bg-blue-600 text-white hover:bg-blue-500 shadow-[0_20px_40px_rgba(37,99,235,0.2)] border border-blue-400/20'}
-                `}
-            >
-                {isFetchingRoute ? (
-                    <>
-                        <RefreshCw className="w-5 h-5 animate-spin" />
-                        <span>Scanning Hubs...</span>
-                    </>
-                ) : isSwapping ? (
-                    <>
-                        <RefreshCw className="w-5 h-5 animate-spin" />
-                        <span>Transacting...</span>
-                    </>
-                ) : swapComplete ? (
-                    <>
-                        <CheckCircle2 className="w-5 h-5" />
-                        <span>Done!</span>
-                    </>
-                ) : (
-                    'Confirm Swap'
-                )}
-            </button>
+                        {/* Swap Arrow */}
+                        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none">
+                            <button
+                                onClick={switchSide}
+                                className="pointer-events-auto p-3 rounded-2xl bg-[#0a0a0f] border-4 border-[#050505] text-blue-400 hover:text-white hover:scale-110 transition-all shadow-xl group flex flex-row items-center justify-center gap-[2px]"
+                            >
+                                <ArrowUp className="w-4 h-4" />
+                                <ArrowDown className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        {/* Receive Card */}
+                        <div className="p-6 rounded-3xl bg-[#14141b] border border-white/5 backdrop-blur-xl transition-all hover:border-white/10 shadow-2xl">
+                            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500 block mb-4">To</span>
+                            <div className="flex items-center gap-4">
+                                <div className={`text-4xl font-bold w-full truncate ${route ? 'text-white' : 'text-white/5'}`}>
+                                    {route ? (parseFloat(route.amount_out || route.estimated_amount_out) / Math.pow(10, destAsset?.decimals || 6)).toFixed(4) : '0.00'}
+                                </div>
+                                <div className="flex flex-col gap-1 items-end">
+                                    <button
+                                        onClick={() => setSelectingFor({ type: 'dest', mode: 'chain' })}
+                                        className="flex items-center gap-2 pl-2 pr-3 py-1 rounded-full bg-white/5 hover:bg-white/10 text-[10px] text-gray-400 font-bold uppercase tracking-wider transition-all border border-white/5"
+                                    >
+                                        <Globe className="w-3 h-3" />
+                                        {destChain?.pretty_name || 'Network'}
+                                    </button>
+                                    <button
+                                        onClick={() => setSelectingFor({ type: 'dest', mode: 'asset' })}
+                                        className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition-all shadow-lg min-w-[120px]"
+                                    >
+                                        {destAsset ? (
+                                            <>
+                                                <div className="w-6 h-6 rounded-full overflow-hidden border border-white/10 bg-black/50">
+                                                    <img src={destAsset.logo_uri} className="w-full h-full object-cover" />
+                                                </div>
+                                                <span className="text-sm">{destAsset.symbol}</span>
+                                            </>
+                                        ) : <span className="text-sm">Select</span>}
+                                        <ChevronDown className="w-4 h-4 text-white/50 ml-auto" />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Route & Error Messages */}
+                    <AnimatePresence mode="wait">
+                        {error && (
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                className="mt-4 p-4 rounded-2xl bg-red-950/20 border border-red-500/20 text-red-500 text-xs flex items-center gap-3 font-medium"
+                            >
+                                <AlertTriangle className="w-4 h-4 shrink-0" />
+                                {error}
+                            </motion.div>
+                        )}
+
+                        {route && !isSwapping && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="mt-6 space-y-3"
+                            >
+                                <div className="p-5 rounded-[2rem] border border-white/5 bg-white/[0.02] space-y-4">
+                                    <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-gray-500">
+                                        <div className="flex items-center gap-2">
+                                            <Zap className="w-3 h-3 text-blue-400" />
+                                            Optimized Route
+                                        </div>
+                                        <div className="font-mono text-white/30 truncate max-w-[180px]">
+                                            1 {sourceAsset?.symbol} ≈ {(parseFloat(route.amount_out || route.estimated_amount_out) / Math.pow(10, destAsset?.decimals || 6) / parseFloat(amountIn)).toFixed(6)} {destAsset?.symbol}
+                                        </div>
+                                    </div>
+
+                                    <div className="h-px bg-white/5 w-full" />
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1">
+                                            <div className="text-[9px] text-gray-600 uppercase font-black tracking-[0.2em]">Gas Fees</div>
+                                            <div className="text-xs text-white/80 font-bold flex items-center gap-1">
+                                                ~$0.15 - $2.50 <Info className="w-3 h-3 text-gray-700" />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1 text-right">
+                                            <div className="text-[9px] text-gray-600 uppercase font-black tracking-[0.2em]">Arrival</div>
+                                            <div className="text-xs text-white/80 font-bold flex items-center gap-1 justify-end">
+                                                <Clock className="w-3 h-3 text-gray-700" />
+                                                {sourceChain?.chain_type === 'evm' ? 'Fast (~30s)' : 'Insntant (<10s)'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    {/* Swap Button */}
+                    <button
+                        disabled={!route || isSwapping || isFetchingRoute}
+                        onClick={handleSwapExecute}
+                        className={`w-full mt-6 py-5 rounded-[2rem] font-black text-lg transition-all flex items-center justify-center gap-3 active:scale-95 uppercase tracking-widest
+                        ${(!route || isSwapping || isFetchingRoute) ? 'bg-white/5 text-gray-700 cursor-not-allowed border border-white/5' :
+                                'bg-blue-600 text-white hover:bg-blue-500 shadow-[0_20px_40px_rgba(37,99,235,0.2)] border border-blue-400/20'}
+                    `}
+                    >
+                        {isFetchingRoute ? (
+                            <>
+                                <RefreshCw className="w-5 h-5 animate-spin" />
+                                <span>Scanning Hubs...</span>
+                            </>
+                        ) : isSwapping ? (
+                            <>
+                                <RefreshCw className="w-5 h-5 animate-spin" />
+                                <span>Transacting...</span>
+                            </>
+                        ) : swapComplete ? (
+                            <>
+                                <CheckCircle2 className="w-5 h-5" />
+                                <span>Done!</span>
+                            </>
+                        ) : (
+                            'Confirm Swap'
+                        )}
+                    </button>
+                </>
+            )}
 
             {/* Universal Selection Modal */}
             <AnimatePresence>

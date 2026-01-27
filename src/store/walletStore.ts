@@ -2,8 +2,20 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { RpcService, RPC_URLS } from '../services/rpc'
 import { PriceService } from '../services/price'
+import { supabase, isSupabaseConfigured } from '../services/supa'
 
 export type ChainType = 'EVM' | 'Cosmos' | 'Solana'
+
+export interface Trade {
+    id: string
+    timestamp: number
+    sourceAsset: { symbol: string, logo: string, amount: string, chainId: string }
+    destAsset: { symbol: string, logo: string, amount: string, chainId: string }
+    usdValue: number
+    status: 'completed' | 'failed'
+    txHash?: string
+    user_id?: string // Supabase user ID
+}
 
 export interface ConnectedWallet {
     id: string
@@ -57,6 +69,7 @@ interface WalletState {
     isSendModalOpen: boolean
     isReceiveModalOpen: boolean
     selectedAssetId: string | null
+    trades: Trade[]
 
     toggleModal: () => void
     toggleSendModal: (id?: string) => void
@@ -68,6 +81,7 @@ interface WalletState {
     executeSkipMessages: (messages: any[]) => Promise<string[]>
     refreshBalances: () => Promise<void>
     getChainForWallet: (wallet: ConnectedWallet) => any
+    addTrade: (trade: Trade) => void
     _toCamelCase: (str: string) => string
     _convertKeysToCamelCase: (obj: any) => any
 }
@@ -80,6 +94,7 @@ export const useWalletStore = create<WalletState>()(
             isSendModalOpen: false,
             isReceiveModalOpen: false,
             selectedAssetId: null,
+            trades: [],
 
             toggleModal: () => set((state) => ({ isModalOpen: !state.isModalOpen })),
             toggleSendModal: (id) => set((state) => ({
@@ -103,6 +118,27 @@ export const useWalletStore = create<WalletState>()(
                     if (wallet.address.startsWith('atone')) return { chain_id: 'atomone-1', chain_name: 'atomone', chain_type: 'cosmos' }
                 }
                 return null
+            },
+
+            addTrade: async (trade) => {
+                set((state) => ({ trades: [trade, ...state.trades] }))
+
+                if (isSupabaseConfigured()) {
+                    const { data: { session } } = await supabase.auth.getSession()
+                    if (session?.user) {
+                        await supabase.from('trades').insert({
+                            user_id: session.user.id,
+                            source_symbol: trade.sourceAsset.symbol,
+                            source_amount: trade.sourceAsset.amount,
+                            dest_symbol: trade.destAsset.symbol,
+                            dest_amount: trade.destAsset.amount,
+                            usd_value: trade.usdValue,
+                            tx_hash: trade.txHash,
+                            timestamp: trade.timestamp,
+                            status: trade.status
+                        })
+                    }
+                }
             },
 
             connectWallet: async (name, chain) => {
