@@ -10,7 +10,7 @@ const Browser = () => <div className="text-2xl font-bold">dApp Browser</div>
 
 function App() {
   return (
-    <Router>
+    <Router basename={import.meta.env.BASE_URL}>
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Dashboard />} />
