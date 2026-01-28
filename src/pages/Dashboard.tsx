@@ -52,7 +52,7 @@ const DonutChart = ({ wallets }: { wallets: any[] }) => {
             className="p-6 rounded-2xl border border-white/10 bg-[#16161e] flex flex-col items-center justify-center relative overflow-hidden"
         >
             <div className="absolute top-0 right-0 p-4 opacity-5">
-                <img src="/logo.png" alt="bg" className="w-32 h-32 blur-xl" />
+                <img src={`${import.meta.env.BASE_URL}logo.png`} alt="bg" className="w-32 h-32 blur-xl" />
             </div>
 
             <h3 className="w-full text-sm font-bold text-gray-400 mb-6 flex items-center gap-2 z-10">
@@ -157,7 +157,7 @@ export function Dashboard() {
                         className="relative p-6 rounded-2xl overflow-hidden border border-white/10 bg-gradient-to-br from-white/5 to-transparent backdrop-blur-xl flex flex-col justify-between"
                     >
                         <div className="absolute top-0 right-0 p-4 opacity-20">
-                            <img src="/logo.png" alt="bg" className="w-32 h-32 blur-xl" />
+                            <img src={`${import.meta.env.BASE_URL}logo.png`} alt="bg" className="w-32 h-32 blur-xl" />
                         </div>
 
                         <div className="relative z-10 space-y-2 mb-6">

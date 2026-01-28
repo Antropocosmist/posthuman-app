@@ -85,11 +85,11 @@ export function ConnectWalletModal() {
                                 </h3>
                                 <div className="grid grid-cols-1 gap-3">
                                     {[
-                                        { name: 'MetaMask', chain: 'EVM' as ChainType, icon: '/icons/metamask.png', color: 'bg-orange-500/10 border-orange-500/20 hover:border-orange-500 hover:shadow-[0_0_20px_rgba(249,115,22,0.1)]' },
-                                        { name: 'Rabby', chain: 'EVM' as ChainType, icon: '/icons/rabby.png', color: 'bg-blue-600/10 border-blue-600/20 hover:border-blue-600 hover:shadow-[0_0_20px_rgba(37,99,235,0.1)]' },
-                                        { name: 'Phantom', chain: 'Solana' as ChainType, icon: '/icons/phantom.png', color: 'bg-purple-500/10 border-purple-500/20 hover:border-purple-500 hover:shadow-[0_0_20px_rgba(168,85,247,0.1)]' },
-                                        { name: 'Solflare', chain: 'Solana' as ChainType, icon: '/icons/solflare.png', color: 'bg-orange-400/10 border-orange-400/20 hover:border-orange-400 hover:shadow-[0_0_20px_rgba(251,146,60,0.1)]' },
-                                        { name: 'Keplr', chain: 'Cosmos' as ChainType, icon: '/icons/keplr.png', color: 'bg-blue-500/10 border-blue-500/20 hover:border-blue-500 hover:shadow-[0_0_20px_rgba(59,130,246,0.1)]' },
+                                        { name: 'MetaMask', chain: 'EVM' as ChainType, icon: `${import.meta.env.BASE_URL}icons/metamask.png`, color: 'bg-orange-500/10 border-orange-500/20 hover:border-orange-500 hover:shadow-[0_0_20px_rgba(249,115,22,0.1)]' },
+                                        { name: 'Rabby', chain: 'EVM' as ChainType, icon: `${import.meta.env.BASE_URL}icons/rabby.png`, color: 'bg-blue-600/10 border-blue-600/20 hover:border-blue-600 hover:shadow-[0_0_20px_rgba(37,99,235,0.1)]' },
+                                        { name: 'Phantom', chain: 'Solana' as ChainType, icon: `${import.meta.env.BASE_URL}icons/phantom.png`, color: 'bg-purple-500/10 border-purple-500/20 hover:border-purple-500 hover:shadow-[0_0_20px_rgba(168,85,247,0.1)]' },
+                                        { name: 'Solflare', chain: 'Solana' as ChainType, icon: `${import.meta.env.BASE_URL}icons/solflare.png`, color: 'bg-orange-400/10 border-orange-400/20 hover:border-orange-400 hover:shadow-[0_0_20px_rgba(251,146,60,0.1)]' },
+                                        { name: 'Keplr', chain: 'Cosmos' as ChainType, icon: `${import.meta.env.BASE_URL}icons/keplr.png`, color: 'bg-blue-500/10 border-blue-500/20 hover:border-blue-500 hover:shadow-[0_0_20px_rgba(59,130,246,0.1)]' },
                                     ]
                                         .filter(option => !wallets.some(w => w.walletProvider === option.name)) // FILTER: Hide if already connected
                                         .map(option => (

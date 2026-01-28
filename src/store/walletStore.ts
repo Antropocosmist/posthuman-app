@@ -86,6 +86,9 @@ interface WalletState {
     _convertKeysToCamelCase: (obj: any) => any
 }
 
+// Define Base URL for assets
+const BASE_URL = import.meta.env.BASE_URL
+
 export const useWalletStore = create<WalletState>()(
     persist(
         (set, get) => ({
@@ -188,7 +191,7 @@ export const useWalletStore = create<WalletState>()(
                                                     chainConfig.id === 'atomone-1' ? 'Atom One' : 'Neutron',
                                         chain: 'Cosmos',
                                         address: cosmosAddress,
-                                        icon: '/icons/keplr.png',
+                                        icon: `${BASE_URL}icons/keplr.png`,
                                         balance: usdBal,
                                         nativeBalance: nativeBal,
                                         symbol: chainConfig.symbol,
@@ -233,7 +236,7 @@ export const useWalletStore = create<WalletState>()(
                                             name: `Posthuman (${phmnType})`,
                                             chain: 'Cosmos',
                                             address: cosmosAddress,
-                                            icon: '/icons/keplr.png',
+                                            icon: `${BASE_URL}icons/keplr.png`,
                                             balance: phmnUsd,
                                             nativeBalance: phmnBal,
                                             symbol: 'PHMN',
@@ -256,7 +259,7 @@ export const useWalletStore = create<WalletState>()(
                                                 name: `Atom One (Photon)`,
                                                 chain: 'Cosmos',
                                                 address: cosmosAddress,
-                                                icon: '/icons/keplr.png',
+                                                icon: `${BASE_URL}icons/keplr.png`,
                                                 balance: photonBal * 1, // Price unknown, default 1 or fetch
                                                 nativeBalance: photonBal,
                                                 symbol: 'PHOTON',
@@ -290,7 +293,7 @@ export const useWalletStore = create<WalletState>()(
                                                     name: `${chainCfg.name} (Keplr)`,
                                                     chain: 'EVM',
                                                     address: evmAddress,
-                                                    icon: '/icons/keplr.png',
+                                                    icon: `${BASE_URL}icons/keplr.png`,
                                                     balance: nativeBal * price,
                                                     nativeBalance: nativeBal,
                                                     symbol: chainCfg.symbol,
@@ -316,7 +319,7 @@ export const useWalletStore = create<WalletState>()(
                                                             name: `${token.symbol} on ${chainCfg.name} (Keplr)`,
                                                             chain: 'EVM',
                                                             address: evmAddress,
-                                                            icon: '/icons/keplr.png',
+                                                            icon: `${BASE_URL}icons/keplr.png`,
                                                             balance: tokenBal * tokenPrice,
                                                             nativeBalance: tokenBal,
                                                             symbol: token.symbol,
@@ -431,7 +434,7 @@ export const useWalletStore = create<WalletState>()(
                                             name: `${chainCfg.name} (${name})`,
                                             chain: 'EVM',
                                             address,
-                                            icon: name === 'MetaMask' ? '/icons/metamask.png' : '/icons/rabby.png',
+                                            icon: name === 'MetaMask' ? `${BASE_URL}icons/metamask.png` : `${BASE_URL}icons/rabby.png`,
                                             balance: nativeBal * price,
                                             nativeBalance: nativeBal,
                                             symbol: chainCfg.symbol,
@@ -452,7 +455,7 @@ export const useWalletStore = create<WalletState>()(
                                                     name: `${token.symbol} on ${chainCfg.name}`,
                                                     chain: 'EVM',
                                                     address,
-                                                    icon: name === 'MetaMask' ? '/icons/metamask.png' : '/icons/rabby.png',
+                                                    icon: name === 'MetaMask' ? `${BASE_URL}icons/metamask.png` : `${BASE_URL}icons/rabby.png`,
                                                     balance: tokenBal * tokenPrice,
                                                     nativeBalance: tokenBal,
                                                     symbol: token.symbol,
@@ -495,7 +498,7 @@ export const useWalletStore = create<WalletState>()(
                                 name,
                                 chain: 'Solana',
                                 address,
-                                icon: name === 'Phantom' ? '/icons/phantom.png' : '/icons/solflare.png',
+                                icon: name === 'Phantom' ? `${BASE_URL}icons/phantom.png` : `${BASE_URL}icons/solflare.png`,
                                 balance: realBalance * price,
                                 nativeBalance: realBalance,
                                 symbol: 'SOL',
@@ -526,7 +529,7 @@ export const useWalletStore = create<WalletState>()(
                                             name: `${token.symbol} (Solana)`,
                                             chain: 'Solana',
                                             address,
-                                            icon: name === 'Phantom' ? '/icons/phantom.png' : '/icons/solflare.png',
+                                            icon: name === 'Phantom' ? `${BASE_URL}icons/phantom.png` : `${BASE_URL}icons/solflare.png`,
                                             balance: tokenBal * tokenPrice,
                                             nativeBalance: tokenBal,
                                             symbol: token.symbol,
