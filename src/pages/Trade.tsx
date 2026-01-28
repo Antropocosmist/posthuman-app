@@ -636,7 +636,22 @@ export function Trade() {
                                         ) : (
                                             <div className="flex flex-col items-center justify-center py-20 text-gray-800">
                                                 <Info className="w-8 h-8 mb-4 opacity-20" />
-                                                <div className="text-[10px] font-black uppercase tracking-widest opacity-50 text-center">No assets found on this network</div>
+                                                <div className="text-[10px] font-black uppercase tracking-widest opacity-50 text-center mb-4">No assets found on this network</div>
+
+                                                {/* Smart Helper for Cross-Chain Intent */}
+                                                {['eth', 'sol', 'base', 'arb', 'poly', 'avax', 'bsc'].some(k => searchTerm.toLowerCase().includes(k)) && (
+                                                    <button
+                                                        onClick={() => {
+                                                            setTradeMode('evm')
+                                                            setSelectingFor(null)
+                                                            setSearchTerm('')
+                                                        }}
+                                                        className="px-6 py-3 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-bold uppercase tracking-wider hover:bg-purple-500/20 transition-all shadow-lg flex items-center gap-2"
+                                                    >
+                                                        <span>Switch to Cross-Chain</span>
+                                                        <ArrowDown className="w-3 h-3 -rotate-90" />
+                                                    </button>
+                                                )}
                                             </div>
                                         )}
                                     </div>
