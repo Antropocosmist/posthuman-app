@@ -6,6 +6,7 @@ import { ConnectWalletModal } from './ConnectWalletModal'
 import { SendModal } from './SendModal'
 import { ReceiveModal } from './ReceiveModal'
 import { useWalletStore } from '../store/walletStore'
+import { LoadingOverlay } from './LoadingOverlay'
 
 export function Layout() {
     const location = useLocation()
@@ -38,6 +39,7 @@ export function Layout() {
 
     return (
         <div className="flex h-screen w-full bg-black text-white overflow-hidden font-sans">
+            <LoadingOverlay />
             <ConnectWalletModal />
             <SendModal isOpen={isSendModalOpen} onClose={toggleSendModal} />
             <ReceiveModal isOpen={isReceiveModalOpen} onClose={toggleReceiveModal} />

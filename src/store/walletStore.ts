@@ -70,6 +70,9 @@ interface WalletState {
     isReceiveModalOpen: boolean
     selectedAssetId: string | null
     trades: Trade[]
+    isLoading: boolean
+
+    setIsLoading: (isLoading: boolean) => void
 
     toggleModal: () => void
     toggleSendModal: (id?: string) => void
@@ -98,6 +101,9 @@ export const useWalletStore = create<WalletState>()(
             isReceiveModalOpen: false,
             selectedAssetId: null,
             trades: [],
+            isLoading: false,
+
+            setIsLoading: (isLoading) => set({ isLoading }),
 
             toggleModal: () => set((state) => ({ isModalOpen: !state.isModalOpen })),
             toggleSendModal: (id) => set((state) => ({
@@ -152,6 +158,7 @@ export const useWalletStore = create<WalletState>()(
                 }
 
                 try {
+                    set({ isLoading: true })
                     // Fetch latest prices first
                     const prices = await PriceService.getPrices()
 
@@ -552,6 +559,8 @@ export const useWalletStore = create<WalletState>()(
                 } catch (error) {
                     console.error("Connection Failed:", error)
                     alert('Failed to connect wallet. Check console for details.')
+                } finally {
+                    set({ isLoading: false })
                 }
             },
 
@@ -565,200 +574,210 @@ export const useWalletStore = create<WalletState>()(
             },
 
             sendTransaction: async (walletId, recipient, amount, memo) => {
-                const wallet = get().wallets.find(w => w.id === walletId)
-                if (!wallet) throw new Error("Wallet not found")
+                set({ isLoading: true })
+                try {
+                    const wallet = get().wallets.find(w => w.id === walletId)
+                    if (!wallet) throw new Error("Wallet not found")
 
-                // ---------------------------------------------------------
-                // Cosmos (Keplr) - Native/IBC & CW20
-                // ---------------------------------------------------------
-                if (wallet.chain === 'Cosmos') {
-                    if (!window.keplr) throw new Error("Keplr not found")
+                    // ---------------------------------------------------------
+                    // Cosmos (Keplr) - Native/IBC & CW20
+                    // ---------------------------------------------------------
+                    if (wallet.chain === 'Cosmos') {
+                        if (!window.keplr) throw new Error("Keplr not found")
 
-                    // Determine Chain ID from wallet ID (prefix)
-                    let chainId = ''
-                    if (wallet.id.startsWith('cosmoshub')) chainId = 'cosmoshub-4'
-                    else if (wallet.id.startsWith('juno')) chainId = 'juno-1'
-                    else if (wallet.id.startsWith('neutron')) chainId = 'neutron-1'
-                    else if (wallet.id.startsWith('osmosis')) chainId = 'osmosis-1'
-                    else if (wallet.id.startsWith('phmn-juno')) chainId = 'juno-1' // PHMN CW20
-                    else if (wallet.id.startsWith('phmn-neutron')) chainId = 'neutron-1'
-                    else if (wallet.id.startsWith('phmn-osmosis')) chainId = 'osmosis-1'
+                        // Determine Chain ID from wallet ID (prefix)
+                        let chainId = ''
+                        if (wallet.id.startsWith('cosmoshub')) chainId = 'cosmoshub-4'
+                        else if (wallet.id.startsWith('juno')) chainId = 'juno-1'
+                        else if (wallet.id.startsWith('neutron')) chainId = 'neutron-1'
+                        else if (wallet.id.startsWith('osmosis')) chainId = 'osmosis-1'
+                        else if (wallet.id.startsWith('phmn-juno')) chainId = 'juno-1' // PHMN CW20
+                        else if (wallet.id.startsWith('phmn-neutron')) chainId = 'neutron-1'
+                        else if (wallet.id.startsWith('phmn-osmosis')) chainId = 'osmosis-1'
 
-                    if (!chainId) throw new Error("Unknown chain ID for wallet")
+                        if (!chainId) throw new Error("Unknown chain ID for wallet")
 
-                    await window.keplr.enable(chainId)
-                    const offlineSigner = window.keplr.getOfflineSigner(chainId)
+                        await window.keplr.enable(chainId)
+                        const offlineSigner = window.keplr.getOfflineSigner(chainId)
 
-                    // 1. PHMN CW20 on Juno
-                    if (wallet.symbol === 'PHMN' && chainId === 'juno-1' && !wallet.id.includes('neutron') && !wallet.id.includes('osmosis')) {
-                        const { SigningCosmWasmClient } = await import('@cosmjs/cosmwasm-stargate')
-                        const rpc = 'https://juno-rpc.polkachu.com'
-                        const client = await SigningCosmWasmClient.connectWithSigner(rpc, offlineSigner)
+                        // 1. PHMN CW20 on Juno
+                        if (wallet.symbol === 'PHMN' && chainId === 'juno-1' && !wallet.id.includes('neutron') && !wallet.id.includes('osmosis')) {
+                            const { SigningCosmWasmClient } = await import('@cosmjs/cosmwasm-stargate')
+                            const rpc = 'https://juno-rpc.polkachu.com'
+                            const client = await SigningCosmWasmClient.connectWithSigner(rpc, offlineSigner)
 
-                        const contract = 'juno1rws84uz7969aaa7pej303udhlkt3j9ca0l3egpcae98jwak9quzq8szn2l'
-                        // CW20 Send amount is integer (6 decimals)
-                        const microAmount = (parseFloat(amount) * 1_000_000).toString()
+                            const contract = 'juno1rws84uz7969aaa7pej303udhlkt3j9ca0l3egpcae98jwak9quzq8szn2l'
+                            // CW20 Send amount is integer (6 decimals)
+                            const microAmount = (parseFloat(amount) * 1_000_000).toString()
 
-                        const msg = {
-                            transfer: {
-                                recipient: recipient,
-                                amount: microAmount
+                            const msg = {
+                                transfer: {
+                                    recipient: recipient,
+                                    amount: microAmount
+                                }
                             }
+
+                            const fee = { amount: [{ denom: 'ujuno', amount: '5000' }], gas: '200000' }
+                            const result = await client.execute(wallet.address, contract, msg, fee, memo || '')
+                            return result.transactionHash
                         }
 
-                        const fee = { amount: [{ denom: 'ujuno', amount: '5000' }], gas: '200000' }
-                        const result = await client.execute(wallet.address, contract, msg, fee, memo || '')
-                        return result.transactionHash
-                    }
-
-                    // 2. Native / IBC (ATOM, JUNO, OSMO, NTRN, IBC PHMN)
-                    else {
-                        const { SigningStargateClient } = await import('@cosmjs/stargate')
-                        const rpcs: Record<string, string> = {
-                            'cosmoshub-4': 'https://cosmos-rpc.publicnode.com',
-                            'juno-1': 'https://juno-rpc.polkachu.com',
-                            'neutron-1': 'https://neutron-rpc.publicnode.com',
-                            'osmosis-1': 'https://osmosis-rpc.publicnode.com:443'
-                        }
-
-                        const client = await SigningStargateClient.connectWithSigner(rpcs[chainId], offlineSigner)
-
-                        // Determine denom
-                        let denom = ''
-                        if (wallet.symbol === 'ATOM') denom = 'uatom'
-                        else if (wallet.symbol === 'JUNO') denom = 'ujuno'
-                        else if (wallet.symbol === 'OSMO') denom = 'uosmo'
-                        else if (wallet.symbol === 'NTRN') denom = 'untrn'
-                        else if (wallet.symbol === 'PHMN') {
-                            // IBC Denoms
-                            if (chainId === 'neutron-1') denom = 'ibc/4698B7C533CB50F4120691368F71A0E7161DA26F58376262ADF3F44AAAA6EF9E'
-                            else if (chainId === 'osmosis-1') denom = 'ibc/D3B574938631B0A1BA704879020C696E514CFADAA7643CDE4BD5EB010BDE327B'
-                        }
-
-                        if (!denom) throw new Error("Denom not found for symbol")
-
-                        const microAmount = (parseFloat(amount) * 1_000_000).toString()
-                        const fee = { amount: [{ denom: chainId === 'juno-1' ? 'ujuno' : chainId === 'osmosis-1' ? 'uosmo' : chainId === 'neutron-1' ? 'untrn' : 'uatom', amount: '5000' }], gas: '200000' }
-
-                        const result = await client.sendTokens(wallet.address, recipient, [{ denom, amount: microAmount }], fee, memo || '')
-                        return result.transactionHash
-                    }
-                }
-
-                // ---------------------------------------------------------
-                // EVM (MetaMask/Rabby)
-                // ---------------------------------------------------------
-                if (wallet.chain === 'EVM') {
-                    const { ethers } = await import('ethers')
-
-                    // Explicitly select the provider based on the wallet name to avoid conflicts
-                    let web3Provider: any;
-                    if (wallet.name.toLowerCase().includes('rabby')) {
-                        web3Provider = (window as any).rabby || (window as any).ethereum;
-                    } else if (wallet.name.toLowerCase().includes('keplr')) {
-                        web3Provider = (window as any).keplr?.ethereum || (window as any).ethereum;
-                    } else {
-                        // MetaMask or Generic
-                        web3Provider = (window as any).ethereum;
-                    }
-
-                    if (!web3Provider) throw new Error("No EVM provider found for the selected wallet.");
-
-                    // 1. Network Validation & Switching (Raw check to avoid ethers network mismatch error)
-                    const targetChainId = wallet.chainId || '0x1';
-                    const currentChainIdHex = await web3Provider.request({ method: 'eth_chainId' });
-
-                    if (currentChainIdHex !== targetChainId) {
-                        try {
-                            await web3Provider.request({
-                                method: 'wallet_switchEthereumChain',
-                                params: [{ chainId: targetChainId }],
-                            });
-                        } catch (switchError: any) {
-                            if (switchError.code === 4902) {
-                                const chainCfg = EVM_CHAINS.find(c => c.id === targetChainId)
-                                throw new Error(`Please add the ${chainCfg?.name || 'correct'} network to your wallet.`);
-                            }
-                            throw switchError;
-                        }
-                    }
-
-                    // 2. Initialize Ethers after network is confirmed
-                    const provider = new ethers.BrowserProvider(web3Provider)
-                    const signer = await provider.getSigner()
-
-                    try {
-                        // 2. ERC20 Transfer
-                        if (wallet.symbol === 'USDC' || wallet.symbol === 'USDT') {
-                            const token = ERC20_TOKENS.find(t => t.symbol === wallet.symbol)
-                            const contractAddr = (token?.contracts as any)[targetChainId]
-                            if (!contractAddr) throw new Error(`Contract address not found for ${wallet.symbol} on this chain`)
-
-                            const abi = ["function transfer(address, uint256) returns (bool)", "function decimals() view returns (uint8)"]
-                            const contract = new ethers.Contract(contractAddr, abi, signer)
-
-                            const decimals = await contract.decimals().catch(() => 6) // stablecoins often 6
-                            const tx = await contract.transfer(recipient, ethers.parseUnits(amount.toString(), decimals))
-                            return tx.hash
-                        }
-
-                        // 3. Native Transfer
+                        // 2. Native / IBC (ATOM, JUNO, OSMO, NTRN, IBC PHMN)
                         else {
-                            const tx = await signer.sendTransaction({
-                                to: recipient,
-                                value: ethers.parseUnits(amount.toString(), 18),
-                                gasLimit: 21000
+                            const { SigningStargateClient } = await import('@cosmjs/stargate')
+                            const rpcs: Record<string, string> = {
+                                'cosmoshub-4': 'https://cosmos-rpc.publicnode.com',
+                                'juno-1': 'https://juno-rpc.polkachu.com',
+                                'neutron-1': 'https://neutron-rpc.publicnode.com',
+                                'osmosis-1': 'https://osmosis-rpc.publicnode.com:443'
+                            }
+
+                            const client = await SigningStargateClient.connectWithSigner(rpcs[chainId], offlineSigner)
+
+                            // Determine denom
+                            let denom = ''
+                            if (wallet.symbol === 'ATOM') denom = 'uatom'
+                            else if (wallet.symbol === 'JUNO') denom = 'ujuno'
+                            else if (wallet.symbol === 'OSMO') denom = 'uosmo'
+                            else if (wallet.symbol === 'NTRN') denom = 'untrn'
+                            else if (wallet.symbol === 'PHMN') {
+                                // IBC Denoms
+                                if (chainId === 'neutron-1') denom = 'ibc/4698B7C533CB50F4120691368F71A0E7161DA26F58376262ADF3F44AAAA6EF9E'
+                                else if (chainId === 'osmosis-1') denom = 'ibc/D3B574938631B0A1BA704879020C696E514CFADAA7643CDE4BD5EB010BDE327B'
+                            }
+
+                            if (!denom) throw new Error("Denom not found for symbol")
+
+                            const microAmount = (parseFloat(amount) * 1_000_000).toString()
+                            const fee = { amount: [{ denom: chainId === 'juno-1' ? 'ujuno' : chainId === 'osmosis-1' ? 'uosmo' : chainId === 'neutron-1' ? 'untrn' : 'uatom', amount: '5000' }], gas: '200000' }
+
+                            const result = await client.sendTokens(wallet.address, recipient, [{ denom, amount: microAmount }], fee, memo || '')
+                            return result.transactionHash
+                        }
+                    }
+
+                    // ---------------------------------------------------------
+                    // EVM (MetaMask/Rabby)
+                    // ---------------------------------------------------------
+                    if (wallet.chain === 'EVM') {
+                        const { ethers } = await import('ethers')
+
+                        // Explicitly select the provider based on the wallet name to avoid conflicts
+                        let web3Provider: any;
+                        if (wallet.name.toLowerCase().includes('rabby')) {
+                            web3Provider = (window as any).rabby || (window as any).ethereum;
+                        } else if (wallet.name.toLowerCase().includes('keplr')) {
+                            web3Provider = (window as any).keplr?.ethereum || (window as any).ethereum;
+                        } else {
+                            // MetaMask or Generic
+                            web3Provider = (window as any).ethereum;
+                        }
+
+                        if (!web3Provider) throw new Error("No EVM provider found for the selected wallet.");
+
+                        // 1. Network Validation & Switching (Raw check to avoid ethers network mismatch error)
+                        const targetChainId = wallet.chainId || '0x1';
+                        const currentChainIdHex = await web3Provider.request({ method: 'eth_chainId' });
+
+                        if (currentChainIdHex !== targetChainId) {
+                            try {
+                                await web3Provider.request({
+                                    method: 'wallet_switchEthereumChain',
+                                    params: [{ chainId: targetChainId }],
+                                });
+                            } catch (switchError: any) {
+                                if (switchError.code === 4902) {
+                                    const chainCfg = EVM_CHAINS.find(c => c.id === targetChainId)
+                                    throw new Error(`Please add the ${chainCfg?.name || 'correct'} network to your wallet.`);
+                                }
+                                throw switchError;
+                            }
+                        }
+
+                        // 2. Initialize Ethers after network is confirmed
+                        const provider = new ethers.BrowserProvider(web3Provider)
+                        const signer = await provider.getSigner()
+
+                        try {
+                            // 2. ERC20 Transfer
+                            if (wallet.symbol === 'USDC' || wallet.symbol === 'USDT') {
+                                const token = ERC20_TOKENS.find(t => t.symbol === wallet.symbol)
+                                const contractAddr = (token?.contracts as any)[targetChainId]
+                                if (!contractAddr) throw new Error(`Contract address not found for ${wallet.symbol} on this chain`)
+
+                                const abi = ["function transfer(address, uint256) returns (bool)", "function decimals() view returns (uint8)"]
+                                const contract = new ethers.Contract(contractAddr, abi, signer)
+
+                                const decimals = await contract.decimals().catch(() => 6) // stablecoins often 6
+                                const tx = await contract.transfer(recipient, ethers.parseUnits(amount.toString(), decimals))
+                                return tx.hash
+                            }
+
+                            // 3. Native Transfer
+                            else {
+                                const tx = await signer.sendTransaction({
+                                    to: recipient,
+                                    value: ethers.parseUnits(amount.toString(), 18),
+                                    gasLimit: 21000
+                                })
+                                return tx.hash
+                            }
+                        } catch (err: any) {
+                            if (err.code === 'INSUFFICIENT_FUNDS' || err.message?.toLowerCase().includes('insufficient funds')) {
+                                throw new Error(`Insufficient ${wallet.symbol} for transaction + gas fees.`);
+                            }
+                            throw err;
+                        }
+                    }
+
+                    // ---------------------------------------------------------
+                    // Solana (Phantom/Solflare)
+                    // ---------------------------------------------------------
+                    if (wallet.chain === 'Solana') {
+                        const { Transaction, SystemProgram, LAMPORTS_PER_SOL, PublicKey, Connection } = await import('@solana/web3.js')
+
+                        const connection = new Connection('https://solana-rpc.publicnode.com')
+                        const fromPubkey = new PublicKey(wallet.address)
+
+                        const transaction = new Transaction().add(
+                            SystemProgram.transfer({
+                                fromPubkey,
+                                toPubkey: new PublicKey(recipient),
+                                lamports: Math.floor(parseFloat(amount) * LAMPORTS_PER_SOL),
                             })
-                            return tx.hash
+                        )
+
+                        // Fix: Recent Blockhash and Fee Payer are required
+                        const { blockhash } = await connection.getLatestBlockhash()
+                        transaction.recentBlockhash = blockhash
+                        transaction.feePayer = fromPubkey
+
+                        // Select the correct provider based on the wallet name to avoid conflicts
+                        let provider: any;
+                        if (wallet.name === 'Solflare') {
+                            provider = (window as any).solflare;
+                        } else if (wallet.name === 'Phantom') {
+                            provider = (window as any).solana;
+                        } else {
+                            // Fallback for any other or untracked Solana wallets
+                            provider = (window as any).solana || (window as any).solflare;
                         }
-                    } catch (err: any) {
-                        if (err.code === 'INSUFFICIENT_FUNDS' || err.message?.toLowerCase().includes('insufficient funds')) {
-                            throw new Error(`Insufficient ${wallet.symbol} for transaction + gas fees.`);
-                        }
-                        throw err;
-                    }
-                }
 
-                // ---------------------------------------------------------
-                // Solana (Phantom/Solflare)
-                // ---------------------------------------------------------
-                if (wallet.chain === 'Solana') {
-                    const { Transaction, SystemProgram, LAMPORTS_PER_SOL, PublicKey, Connection } = await import('@solana/web3.js')
+                        if (!provider) throw new Error(`${wallet.name} wallet not found`);
 
-                    const connection = new Connection('https://solana-rpc.publicnode.com')
-                    const fromPubkey = new PublicKey(wallet.address)
-
-                    const transaction = new Transaction().add(
-                        SystemProgram.transfer({
-                            fromPubkey,
-                            toPubkey: new PublicKey(recipient),
-                            lamports: Math.floor(parseFloat(amount) * LAMPORTS_PER_SOL),
-                        })
-                    )
-
-                    // Fix: Recent Blockhash and Fee Payer are required
-                    const { blockhash } = await connection.getLatestBlockhash()
-                    transaction.recentBlockhash = blockhash
-                    transaction.feePayer = fromPubkey
-
-                    // Select the correct provider based on the wallet name to avoid conflicts
-                    let provider: any;
-                    if (wallet.name === 'Solflare') {
-                        provider = (window as any).solflare;
-                    } else if (wallet.name === 'Phantom') {
-                        provider = (window as any).solana;
-                    } else {
-                        // Fallback for any other or untracked Solana wallets
-                        provider = (window as any).solana || (window as any).solflare;
+                        const { signature } = await provider.signAndSendTransaction(transaction)
+                        return signature
                     }
 
-                    if (!provider) throw new Error(`${wallet.name} wallet not found`);
-
-                    const { signature } = await provider.signAndSendTransaction(transaction)
-                    return signature
+                    if (wallet.chain === 'Solana') {
+                        // ... (keeping existing content implied? No, I must replace exact content)
+                        // Wait, I can't replace lines 722-759 easily if I don't include them.
+                        // I'll just match the END of the function.
+                        throw new Error("Unsupported chain for sending")
+                    }
+                } finally {
+                    set({ isLoading: false })
                 }
-
-                throw new Error("Unsupported chain for sending")
             },
 
             // Helper to convert snake_case to camelCase for CosmJS compatibility
@@ -787,201 +806,210 @@ export const useWalletStore = create<WalletState>()(
             },
 
             executeSkipMessages: async (messages: any[]) => {
-                console.log("🚀 Starting executeSkipMessages", { count: messages.length, messages })
-                const results: string[] = []
-                const { wallets, getChainForWallet } = get()
+                set({ isLoading: true })
+                try {
+                    console.log("🚀 Starting executeSkipMessages", { count: messages.length, messages })
+                    const results: string[] = []
+                    const { wallets, getChainForWallet } = get()
 
-                for (let i = 0; i < messages.length; i++) {
-                    const m = messages[i]
+                    for (let i = 0; i < messages.length; i++) {
+                        const m = messages[i]
 
-                    // RESOLVE CHAIN ID AND MESSAGE CONTENT
-                    let chainId = m.chain_id
-                    let cosmosMsgWrapper = m.cosmos_msg
+                        // RESOLVE CHAIN ID AND MESSAGE CONTENT
+                        let chainId = m.chain_id
+                        let cosmosMsgWrapper = m.cosmos_msg
 
-                    if (m.multi_chain_msg) {
-                        console.log(`📦 Detected 'multi_chain_msg' wrapper`)
-                        chainId = m.multi_chain_msg.chain_id
-                        cosmosMsgWrapper = {
-                            msg: m.multi_chain_msg.msg,
-                            msg_type_url: m.multi_chain_msg.msg_type_url
-                        }
-                    } else if (m.cosmos_msg) {
-                        if (m.cosmos_msg.chain_id) chainId = m.cosmos_msg.chain_id
-                    }
-
-                    console.log(`\n📦 Processing message ${i + 1}/${messages.length} for chain: ${chainId}`, m)
-
-                    if (!chainId) {
-                        console.error(`❌ Chain ID missing for message ${i}`, m)
-                        throw new Error(`Chain ID missing for message ${i}`)
-                    }
-
-                    const wallet = wallets.find(w => getChainForWallet(w)?.chain_id === chainId)
-
-                    if (!wallet) {
-                        console.error(`❌ Wallet not connected for chain ${chainId}`)
-                        throw new Error(`Wallet not connected for chain ${chainId}`)
-                    }
-
-                    console.log(`✅ Found wallet for ${chainId}:`, { address: wallet.address, name: wallet.name })
-
-                    // ---------------------------------------------------------
-                    // Cosmos Message Execution
-                    // ---------------------------------------------------------
-                    if (cosmosMsgWrapper) {
-                        console.log(`🔷 Processing Cosmos message for ${chainId}`)
-
-                        if (!window.keplr) {
-                            console.error("❌ Keplr not found")
-                            throw new Error("Keplr not found")
+                        if (m.multi_chain_msg) {
+                            console.log(`📦 Detected 'multi_chain_msg' wrapper`)
+                            chainId = m.multi_chain_msg.chain_id
+                            cosmosMsgWrapper = {
+                                msg: m.multi_chain_msg.msg,
+                                msg_type_url: m.multi_chain_msg.msg_type_url
+                            }
+                        } else if (m.cosmos_msg) {
+                            if (m.cosmos_msg.chain_id) chainId = m.cosmos_msg.chain_id
                         }
 
-                        console.log(`🔓 Enabling Keplr for ${chainId}...`)
-                        try {
-                            await window.keplr.enable(chainId)
-                            console.log(`✅ Keplr enabled for ${chainId}`)
-                        } catch (err) {
-                            console.error(`❌ Failed to enable Keplr for ${chainId}:`, err)
-                            throw err
+                        console.log(`\n📦 Processing message ${i + 1}/${messages.length} for chain: ${chainId}`, m)
+
+                        if (!chainId) {
+                            console.error(`❌ Chain ID missing for message ${i}`, m)
+                            throw new Error(`Chain ID missing for message ${i}`)
                         }
 
-                        const offlineSigner = window.keplr.getOfflineSigner(chainId)
-                        console.log(`✅ Got offline signer for ${chainId}`)
+                        const wallet = wallets.find(w => getChainForWallet(w)?.chain_id === chainId)
 
-                        const { SigningStargateClient } = await import('@cosmjs/stargate')
-                        const { SigningCosmWasmClient } = await import('@cosmjs/cosmwasm-stargate')
-
-                        // Determine RPC via Chain ID mapping
-                        const chainIdToRpcKey: Record<string, keyof typeof RPC_URLS> = {
-                            'cosmoshub-4': 'COSMOS_HUB',
-                            'juno-1': 'JUNO',
-                            'neutron-1': 'NEUTRON',
-                            'osmosis-1': 'OSMOSIS',
-                            'atomone-1': 'ATOM_ONE'
+                        if (!wallet) {
+                            console.error(`❌ Wallet not connected for chain ${chainId}`)
+                            throw new Error(`Wallet not connected for chain ${chainId}`)
                         }
-                        const rpcKey = chainIdToRpcKey[chainId]
-                        const rpc = rpcKey ? (RPC_URLS as any)[rpcKey] : `https://${chainId.split('-')[0]}-rpc.publicnode.com`
-                        console.log(`🌐 Using RPC: ${rpc}`)
 
-                        console.log(`📝 Raw message data:`, cosmosMsgWrapper.msg)
-                        console.log(`📝 Message type:`, typeof cosmosMsgWrapper.msg)
-                        console.log(`📝 Message type URL:`, cosmosMsgWrapper.msg_type_url)
+                        console.log(`✅ Found wallet for ${chainId}:`, { address: wallet.address, name: wallet.name })
 
-                        // Handle both string and object formats from Skip Protocol
-                        let msgObj: any
-                        if (typeof cosmosMsgWrapper.msg === 'string') {
-                            console.log(`🔄 Parsing message from JSON string...`)
+                        // ---------------------------------------------------------
+                        // Cosmos Message Execution
+                        // ---------------------------------------------------------
+                        if (cosmosMsgWrapper) {
+                            console.log(`🔷 Processing Cosmos message for ${chainId}`)
+
+                            if (!window.keplr) {
+                                console.error("❌ Keplr not found")
+                                throw new Error("Keplr not found")
+                            }
+
+                            console.log(`🔓 Enabling Keplr for ${chainId}...`)
                             try {
-                                msgObj = JSON.parse(cosmosMsgWrapper.msg)
-                            } catch (parseErr) {
-                                console.error(`❌ Failed to parse message JSON:`, parseErr)
-                                throw new Error(`Invalid message format from Skip Protocol: ${parseErr}`)
+                                await window.keplr.enable(chainId)
+                                console.log(`✅ Keplr enabled for ${chainId}`)
+                            } catch (err) {
+                                console.error(`❌ Failed to enable Keplr for ${chainId}:`, err)
+                                throw err
                             }
-                        } else {
-                            console.log(`✅ Message already parsed as object`)
-                            msgObj = cosmosMsgWrapper.msg
-                        }
-                        // FIX: Convert snake_case keys to camelCase for CosmJS compatibility
-                        console.log(`🔄 Converting keys to camelCase...`)
-                        const camelMsgObj = (get() as any)._convertKeysToCamelCase(msgObj)
 
-                        // FIX: Handle specific type requirements (e.g. Wasm msg as Uint8Array)
-                        if (cosmosMsgWrapper.msg_type_url?.includes('wasm') || cosmosMsgWrapper.msg_type_url?.includes('MsgExecuteContract')) {
-                            console.log(`⚙️ Handling Wasm message conversion (msg -> Uint8Array)...`)
-                            // For MsgExecuteContract, the 'msg' field is a JSON object in Skip response
-                            // but must be encoded as Uint8Array for CosmJS
-                            if (camelMsgObj.msg && (typeof camelMsgObj.msg === 'object' || typeof camelMsgObj.msg === 'string')) {
-                                const { toUtf8 } = await import('@cosmjs/encoding')
-                                const msgString = typeof camelMsgObj.msg === 'string' ? camelMsgObj.msg : JSON.stringify(camelMsgObj.msg)
-                                camelMsgObj.msg = toUtf8(msgString)
-                                console.log(`✅ Converted 'msg' field to Uint8Array`)
+                            const offlineSigner = window.keplr.getOfflineSigner(chainId)
+                            console.log(`✅ Got offline signer for ${chainId}`)
+
+                            const { SigningStargateClient } = await import('@cosmjs/stargate')
+                            const { SigningCosmWasmClient } = await import('@cosmjs/cosmwasm-stargate')
+
+                            // Determine RPC via Chain ID mapping
+                            const chainIdToRpcKey: Record<string, keyof typeof RPC_URLS> = {
+                                'cosmoshub-4': 'COSMOS_HUB',
+                                'juno-1': 'JUNO',
+                                'neutron-1': 'NEUTRON',
+                                'osmosis-1': 'OSMOSIS',
+                                'atomone-1': 'ATOM_ONE'
                             }
-                        }
+                            const rpcKey = chainIdToRpcKey[chainId]
+                            const rpc = rpcKey ? (RPC_URLS as any)[rpcKey] : `https://${chainId.split('-')[0]}-rpc.publicnode.com`
+                            console.log(`🌐 Using RPC: ${rpc}`)
 
-                        console.log(`✅ Final message object (camelCase):`, JSON.stringify(camelMsgObj, null, 2))
+                            console.log(`📝 Raw message data:`, cosmosMsgWrapper.msg)
+                            console.log(`📝 Message type:`, typeof cosmosMsgWrapper.msg)
+                            console.log(`📝 Message type URL:`, cosmosMsgWrapper.msg_type_url)
 
-                        // Create the encoded message for CosmJS
-                        const encodeMsg = {
-                            typeUrl: cosmosMsgWrapper.msg_type_url,
-                            value: camelMsgObj
-                        }
-                        console.log(`📨 Encoded message for signing:`, JSON.stringify(encodeMsg, null, 2))
-
-                        // If it's a wasm execute, use CosmWasm client
-                        let txHash = ''
-                        try {
-                            // Create explicit fee instead of 'auto' to avoid gas estimation issues
-                            const fee = {
-                                amount: [{ denom: chainId === 'osmosis-1' ? 'uosmo' : chainId === 'juno-1' ? 'ujuno' : chainId === 'neutron-1' ? 'untrn' : 'uatom', amount: '50000' }],
-                                gas: '500000'
-                            }
-                            console.log(`💰 Using fee:`, fee)
-
-                            if (cosmosMsgWrapper.msg_type_url?.includes('cosmwasm')) {
-                                console.log(`🔧 Using CosmWasm client for wasm message`)
-                                const client = await SigningCosmWasmClient.connectWithSigner(rpc, offlineSigner)
-                                console.log(`✅ Connected CosmWasm client`)
-                                console.log(`✍️ Calling signAndBroadcast with explicit fee... (Keplr should prompt now)`)
-                                const result = await client.signAndBroadcast(wallet.address, [encodeMsg], fee)
-                                txHash = result.transactionHash
-                                console.log(`✅ Transaction broadcast! Hash: ${txHash}`)
+                            // Handle both string and object formats from Skip Protocol
+                            let msgObj: any
+                            if (typeof cosmosMsgWrapper.msg === 'string') {
+                                console.log(`🔄 Parsing message from JSON string...`)
+                                try {
+                                    msgObj = JSON.parse(cosmosMsgWrapper.msg)
+                                } catch (parseErr) {
+                                    console.error(`❌ Failed to parse message JSON:`, parseErr)
+                                    throw new Error(`Invalid message format from Skip Protocol: ${parseErr}`)
+                                }
                             } else {
-                                console.log(`🔧 Using Stargate client for standard message`)
-                                const client = await SigningStargateClient.connectWithSigner(rpc, offlineSigner)
-                                console.log(`✅ Connected Stargate client`)
-                                console.log(`✍️ Calling signAndBroadcast with explicit fee... (Keplr should prompt now)`)
-                                const result = await client.signAndBroadcast(wallet.address, [encodeMsg], fee)
-                                txHash = result.transactionHash
-                                console.log(`✅ Transaction broadcast! Hash: ${txHash}`)
+                                console.log(`✅ Message already parsed as object`)
+                                msgObj = cosmosMsgWrapper.msg
+                            }
+                            // FIX: Convert snake_case keys to camelCase for CosmJS compatibility
+                            console.log(`🔄 Converting keys to camelCase...`)
+                            const camelMsgObj = (get() as any)._convertKeysToCamelCase(msgObj)
+
+                            // FIX: Handle specific type requirements (e.g. Wasm msg as Uint8Array)
+                            if (cosmosMsgWrapper.msg_type_url?.includes('wasm') || cosmosMsgWrapper.msg_type_url?.includes('MsgExecuteContract')) {
+                                console.log(`⚙️ Handling Wasm message conversion (msg -> Uint8Array)...`)
+                                // For MsgExecuteContract, the 'msg' field is a JSON object in Skip response
+                                // but must be encoded as Uint8Array for CosmJS
+                                if (camelMsgObj.msg && (typeof camelMsgObj.msg === 'object' || typeof camelMsgObj.msg === 'string')) {
+                                    const { toUtf8 } = await import('@cosmjs/encoding')
+                                    const msgString = typeof camelMsgObj.msg === 'string' ? camelMsgObj.msg : JSON.stringify(camelMsgObj.msg)
+                                    camelMsgObj.msg = toUtf8(msgString)
+                                    console.log(`✅ Converted 'msg' field to Uint8Array`)
+                                }
                             }
 
-                            results.push(txHash)
-                        } catch (err: any) {
-                            console.error(`❌ Error during signAndBroadcast:`, err)
-                            console.error(`❌ Error details:`, {
-                                message: err.message,
-                                code: err.code,
-                                stack: err.stack
+                            console.log(`✅ Final message object (camelCase):`, JSON.stringify(camelMsgObj, null, 2))
+
+                            // Create the encoded message for CosmJS
+                            const encodeMsg = {
+                                typeUrl: cosmosMsgWrapper.msg_type_url,
+                                value: camelMsgObj
+                            }
+                            console.log(`📨 Encoded message for signing:`, JSON.stringify(encodeMsg, null, 2))
+
+                            // If it's a wasm execute, use CosmWasm client
+                            let txHash = ''
+                            try {
+                                // Create explicit fee instead of 'auto' to avoid gas estimation issues
+                                const fee = {
+                                    amount: [{ denom: chainId === 'osmosis-1' ? 'uosmo' : chainId === 'juno-1' ? 'ujuno' : chainId === 'neutron-1' ? 'untrn' : 'uatom', amount: '50000' }],
+                                    gas: '500000'
+                                }
+                                console.log(`💰 Using fee:`, fee)
+
+                                if (cosmosMsgWrapper.msg_type_url?.includes('cosmwasm')) {
+                                    console.log(`🔧 Using CosmWasm client for wasm message`)
+                                    const client = await SigningCosmWasmClient.connectWithSigner(rpc, offlineSigner)
+                                    console.log(`✅ Connected CosmWasm client`)
+                                    console.log(`✍️ Calling signAndBroadcast with explicit fee... (Keplr should prompt now)`)
+                                    const result = await client.signAndBroadcast(wallet.address, [encodeMsg], fee)
+                                    txHash = result.transactionHash
+                                    console.log(`✅ Transaction broadcast! Hash: ${txHash}`)
+                                } else {
+                                    console.log(`🔧 Using Stargate client for standard message`)
+                                    const client = await SigningStargateClient.connectWithSigner(rpc, offlineSigner)
+                                    console.log(`✅ Connected Stargate client`)
+                                    console.log(`✍️ Calling signAndBroadcast with explicit fee... (Keplr should prompt now)`)
+                                    const result = await client.signAndBroadcast(wallet.address, [encodeMsg], fee)
+                                    txHash = result.transactionHash
+                                    console.log(`✅ Transaction broadcast! Hash: ${txHash}`)
+                                }
+
+                                results.push(txHash)
+                            } catch (err: any) {
+                                console.error(`❌ Error during signAndBroadcast:`, err)
+                                console.error(`❌ Error details:`, {
+                                    message: err.message,
+                                    code: err.code,
+                                    stack: err.stack
+                                })
+                                throw err
+                            }
+                        }
+
+                        // ---------------------------------------------------------
+                        // EVM Message Execution
+                        // ---------------------------------------------------------
+                        else if (m.evm_msg) {
+                            console.log(`🔶 Processing EVM message`)
+                            const { ethers } = await import('ethers')
+                            let web3Provider = (window as any).ethereum
+                            if (wallet.name.toLowerCase().includes('rabby')) web3Provider = (window as any).rabby || web3Provider
+
+                            const provider = new ethers.BrowserProvider(web3Provider)
+                            const signer = await provider.getSigner()
+
+                            console.log(`✍️ Sending EVM transaction...`)
+                            const tx = await signer.sendTransaction({
+                                to: m.evm_msg.to,
+                                data: m.evm_msg.data,
+                                value: m.evm_msg.value
                             })
-                            throw err
+
+                            console.log(`⏳ Waiting for confirmation...`)
+                            const receipt = await tx.wait()
+                            if (receipt) {
+                                console.log(`✅ EVM transaction confirmed! Hash: ${receipt.hash}`)
+                                results.push(receipt.hash)
+                            }
                         }
                     }
 
-                    // ---------------------------------------------------------
-                    // EVM Message Execution
-                    // ---------------------------------------------------------
-                    else if (m.evm_msg) {
-                        console.log(`🔶 Processing EVM message`)
-                        const { ethers } = await import('ethers')
-                        let web3Provider = (window as any).ethereum
-                        if (wallet.name.toLowerCase().includes('rabby')) web3Provider = (window as any).rabby || web3Provider
-
-                        const provider = new ethers.BrowserProvider(web3Provider)
-                        const signer = await provider.getSigner()
-
-                        console.log(`✍️ Sending EVM transaction...`)
-                        const tx = await signer.sendTransaction({
-                            to: m.evm_msg.to,
-                            data: m.evm_msg.data,
-                            value: m.evm_msg.value
-                        })
-
-                        console.log(`⏳ Waiting for confirmation...`)
-                        const receipt = await tx.wait()
-                        if (receipt) {
-                            console.log(`✅ EVM transaction confirmed! Hash: ${receipt.hash}`)
-                            results.push(receipt.hash)
-                        }
-                    }
+                    console.log(`🎉 All messages executed successfully!`, results)
+                    return results
+                } finally {
+                    set({ isLoading: false })
                 }
-
-                console.log(`🎉 All messages executed successfully!`, results)
-                return results
             },
 
             refreshBalances: async () => {
+                set({ isLoading: true })
                 const { wallets } = get()
-                if (wallets.length === 0) return
+                if (wallets.length === 0) {
+                    set({ isLoading: false })
+                    return
+                }
 
                 try {
                     const prices = await PriceService.getPrices()
@@ -1051,6 +1079,8 @@ export const useWalletStore = create<WalletState>()(
                     set({ wallets: updatedWallets })
                 } catch (err) {
                     console.error("Failed to refresh balances:", err)
+                } finally {
+                    set({ isLoading: false })
                 }
             }
         }),
