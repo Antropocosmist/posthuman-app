@@ -232,6 +232,31 @@ export const useWalletStore = create<WalletState>()(
                                         phmnBal = await RpcService.getCosmosBalance('OSMOSIS', cosmosAddress, PHMN_IBC)
                                         phmnType = 'Osmosis'
                                         phmnFound = true
+
+                                        // ----------------------------------------------------
+                                        // USDC on Osmosis (Noble USDC)
+                                        // ----------------------------------------------------
+                                        const USDC_IBC_OSMOSIS = 'ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B8733DCEB'
+                                        const usdcBal = await RpcService.getCosmosBalance('OSMOSIS', cosmosAddress, USDC_IBC_OSMOSIS)
+
+                                        if (usdcBal > 0) {
+                                            const usdcPrice = prices['USDC'] || 1
+                                            const usdcWallet: ConnectedWallet = {
+                                                id: `usdc-osmosis-1-${cosmosAddress.substr(-4)}`,
+                                                name: `Osmosis (USDC)`,
+                                                chain: 'Cosmos',
+                                                address: cosmosAddress,
+                                                icon: `${BASE_URL}icons/keplr.png`, // Or specific USDC icon if available
+                                                balance: usdcBal * usdcPrice,
+                                                nativeBalance: usdcBal,
+                                                symbol: 'USDC',
+                                                walletProvider: 'Keplr'
+                                            }
+
+                                            if (!get().wallets.find(w => w.id === usdcWallet.id)) {
+                                                set((state) => ({ wallets: [...state.wallets, usdcWallet] }))
+                                            }
+                                        }
                                     }
 
                                     if (phmnFound && phmnBal >= 0) {
