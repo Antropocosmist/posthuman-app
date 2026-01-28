@@ -234,21 +234,33 @@ export const useWalletStore = create<WalletState>()(
                                         phmnFound = true
 
                                         // ----------------------------------------------------
-                                        // USDC on Osmosis (Noble USDC)
+                                        // USDC on Osmosis (Noble & Axelar)
                                         // ----------------------------------------------------
-                                        const USDC_IBC_OSMOSIS = 'ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B8733DCEB'
-                                        const usdcBal = await RpcService.getCosmosBalance('OSMOSIS', cosmosAddress, USDC_IBC_OSMOSIS)
+                                        const USDC_NOBLE = 'ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B8733DCEB'
+                                        const USDC_AXELAR = 'ibc/D189335C6E4A68B513C10AB227BF1C1D38C746766278BA3EEB4FB14124F1D858'
 
-                                        if (usdcBal > 0) {
+                                        console.log("🔍 Checking Osmosis USDC Balance for:", cosmosAddress)
+
+                                        const nobleBal = await RpcService.getCosmosBalance('OSMOSIS', cosmosAddress, USDC_NOBLE)
+                                        const axelarBal = await RpcService.getCosmosBalance('OSMOSIS', cosmosAddress, USDC_AXELAR)
+
+                                        console.log(`💰 Osmosis USDC: Noble=${nobleBal}, Axelar=${axelarBal}`)
+
+                                        const totalUsdc = nobleBal + axelarBal
+
+                                        if (totalUsdc > 0) {
                                             const usdcPrice = prices['USDC'] || 1
+                                            // Determine which icon/name to show or merge them?
+                                            // For now, let's just show one entry "Osmosis (USDC)" aggregating both
+
                                             const usdcWallet: ConnectedWallet = {
                                                 id: `usdc-osmosis-1-${cosmosAddress.substr(-4)}`,
                                                 name: `Osmosis (USDC)`,
                                                 chain: 'Cosmos',
                                                 address: cosmosAddress,
-                                                icon: `${BASE_URL}icons/keplr.png`, // Or specific USDC icon if available
-                                                balance: usdcBal * usdcPrice,
-                                                nativeBalance: usdcBal,
+                                                icon: `${BASE_URL}icons/keplr.png`,
+                                                balance: totalUsdc * usdcPrice,
+                                                nativeBalance: totalUsdc,
                                                 symbol: 'USDC',
                                                 walletProvider: 'Keplr'
                                             }
