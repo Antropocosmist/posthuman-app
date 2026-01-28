@@ -6,6 +6,40 @@ import { formatDistanceToNow } from 'date-fns'
 export function TradeHistory() {
     const { trades } = useWalletStore()
 
+    const getExplorerLink = (chainId: string, txHash: string) => {
+        // Cosmos Chains (Mintscan)
+        const mintscanSlugs: Record<string, string> = {
+            'cosmoshub-4': 'cosmos',
+            'osmosis-1': 'osmosis',
+            'juno-1': 'juno',
+            'neutron-1': 'neutron',
+            'atomone-1': 'atomone', // Verify if supported or assume generic
+            'stargaze-1': 'stargaze',
+            'noble-1': 'noble',
+            'chihuahua-1': 'chihuahua',
+            'celestia': 'celestia',
+            'dydx-mainnet-1': 'dydx'
+        }
+
+        if (mintscanSlugs[chainId]) {
+            return `https://www.mintscan.io/${mintscanSlugs[chainId]}/tx/${txHash}`
+        }
+
+        // EVM Chains
+        if (chainId === '0x1') return `https://etherscan.io/tx/${txHash}`
+        if (chainId === '0x38') return `https://bscscan.com/tx/${txHash}`
+        if (chainId === '0x89') return `https://polygonscan.com/tx/${txHash}`
+        if (chainId === '0xa4b1') return `https://arbiscan.io/tx/${txHash}`
+        if (chainId === '0x2105') return `https://basescan.org/tx/${txHash}`
+
+        // Solana
+        if (chainId === 'solana') return `https://solscan.io/tx/${txHash}`
+
+        // Fallback for unknown Cosmos chains (try direct chainId or Mintscan search)
+        // If it starts with 'osmo' etc we might guess, but the map covers main ones.
+        return `https://www.mintscan.io/${chainId}/tx/${txHash}`
+    }
+
     if (trades.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center py-20 text-gray-700">
@@ -37,7 +71,7 @@ export function TradeHistory() {
                         </div>
                         {trade.txHash && (
                             <a
-                                href="#" // Ideally link to scanner based on chain
+                                href={getExplorerLink(trade.sourceAsset.chainId, trade.txHash)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-blue-500 hover:text-blue-400 transition-colors"
