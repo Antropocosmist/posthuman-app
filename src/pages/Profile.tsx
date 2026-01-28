@@ -6,37 +6,7 @@ import { useWalletStore } from '../store/walletStore'
 export function Profile() {
     const [user, setUser] = useState<any>(null)
     const [loading, setLoading] = useState(true)
-    export function Profile() {
-        const [user, setUser] = useState<any>(null)
-        const [loading, setLoading] = useState(true)
-        const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'reset'>('signin')
-        const [email, setEmail] = useState('')
-        const [password, setPassword] = useState('')
-        const [message, setMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null)
-        const { trades, wallets } = useWalletStore()
-
-        // ... (useEffect hooks remain the same, skipped for brevity in replacement if possible, but replace_file_content needs context. 
-        // I will target the specific blocks to minimize changes, but the tool requires contiguous blocks. 
-        // Since I'm changing the state definition and adding a handler, it might be cleaner to replace the logic parts.
-        // However, the file is large. Let's try to do it in chunks using multi_replace if I can, but I only have replace_file_content available as per instructions "Use this tool ONLY when you are making a SINGLE CONTIGUOUS block...". Wait, I have multi_replace available in the declaration.
-        // Actually, I can just replace the component body parts.
-
-        // Let's stick to replace_file_content for the upper part (state) and the form part.
-        // Actually, I need to use `multi_replace_file_content` because the changes are in state def (top) and render (bottom).
-
-        // Wait, I will use `multi_replace_file_content`.
-
-        /* 
-           Plan with multi_replace:
-           1. Update useState definition.
-           2. Add handlePasswordReset function.
-           3. Update Render logic to handle 'reset' mode.
-        */
-
-        return (
-       // ...
-    )
-    }
+    const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'reset'>('signin')
 
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
@@ -308,18 +278,16 @@ export function Profile() {
                 )}
 
                 <div className="mt-6 text-center">
-                    <div className="mt-6 text-center">
-                        <button
-                            onClick={() => {
-                                if (authMode === 'reset') setAuthMode('signin');
-                                else setAuthMode(authMode === 'signin' ? 'signup' : 'signin');
-                                setMessage(null);
-                            }}
-                            className="text-xs text-gray-400 hover:text-white font-bold transition-colors"
-                        >
-                            {authMode === 'reset' ? "Back to Sign In" : (authMode === 'signin' ? "Don't have an account? Sign Up" : "Already have an account? Sign In")}
-                        </button>
-                    </div>
+                    <button
+                        onClick={() => {
+                            if (authMode === 'reset') setAuthMode('signin');
+                            else setAuthMode(authMode === 'signin' ? 'signup' : 'signin');
+                            setMessage(null);
+                        }}
+                        className="text-xs text-gray-400 hover:text-white font-bold transition-colors"
+                    >
+                        {authMode === 'reset' ? "Back to Sign In" : (authMode === 'signin' ? "Don't have an account? Sign Up" : "Already have an account? Sign In")}
+                    </button>
                 </div>
             </div>
         </div>
