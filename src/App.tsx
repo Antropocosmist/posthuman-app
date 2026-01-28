@@ -44,7 +44,8 @@ function App() {
             console.log("✅ Session established via manual parse!")
             localStorage.removeItem('posthuman_auth_redirect')
             window.location.hash = '#/profile'
-            return // Stay in loading state until redirect happens
+            setIsAuthProcessing(false)
+            return
           } else {
             throw new Error("Token present but could not be parsed.")
           }
