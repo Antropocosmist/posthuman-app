@@ -149,8 +149,10 @@ export const useWalletStore = create<WalletState>()(
                                 user_id: session.user.id,
                                 source_symbol: trade.sourceAsset.symbol,
                                 source_amount: trade.sourceAsset.amount,
+                                source_logo: trade.sourceAsset.logo, // NEW
                                 dest_symbol: trade.destAsset.symbol,
                                 dest_amount: trade.destAsset.amount,
+                                dest_logo: trade.destAsset.logo, // NEW
                                 usd_value: trade.usdValue,
                                 tx_hash: trade.txHash,
                                 timestamp: trade.timestamp,
@@ -194,13 +196,13 @@ export const useWalletStore = create<WalletState>()(
                         timestamp: Number(t.timestamp),
                         sourceAsset: {
                             symbol: t.source_symbol,
-                            logo: '',
+                            logo: t.source_logo || '', // Fetch Logo
                             amount: t.source_amount,
                             chainId: 'unknown'
                         },
                         destAsset: {
                             symbol: t.dest_symbol,
-                            logo: '',
+                            logo: t.dest_logo || '', // Fetch Logo
                             amount: t.dest_amount,
                             chainId: 'unknown'
                         },
