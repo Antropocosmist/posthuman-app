@@ -48,7 +48,7 @@ export function Layout() {
             {!isMobile && (
                 <div className="w-64 border-r border-white/10 flex flex-col p-6 bg-[#050505]">
                     <div className="flex items-center gap-3 mb-10">
-                        <img src="/logo.png" alt="Posthuman" className="w-10 h-10 object-contain" />
+                        <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Posthuman" className="w-10 h-10 object-contain" />
                         <span className="font-bold text-xl tracking-widest">POSTHUMAN</span>
                     </div>
 
@@ -83,7 +83,7 @@ export function Layout() {
                 <header className="sticky top-0 z-30 flex items-center justify-between p-4 bg-black/80 backdrop-blur-md border-b border-white/5">
                     {isMobile && (
                         <div className="flex items-center gap-2">
-                            <img src="/logo.png" alt="Logo" className="w-8 h-8" />
+                            <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Logo" className="w-8 h-8" />
                             <span className="font-bold tracking-wide">POSTHUMAN</span>
                         </div>
                     )}
