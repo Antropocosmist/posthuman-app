@@ -15,49 +15,69 @@ function App() {
   const [isAuthProcessing, setIsAuthProcessing] = useState(true) // Start true to check session first
 
   useEffect(() => {
-    // 1. Check for active session immediately
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        // If no session, but we have a hash token, let's wait a bit
-        if (window.location.hash.includes('access_token=')) {
-          console.log("🔒 Hash token detected, waiting for Supabase to parse...")
-          return
+    const handleInitialAuth = async () => {
+      // 1. Manually parse hash for access_token (HashRouter makes this tricky, but we can look at window.location.href)
+      // The hash might be like: http://.../#/access_token=... OR http://.../#access_token=...
+
+      const hash = window.location.hash
+      if (hash.includes('access_token=') && hash.includes('refresh_token=')) {
+        console.log("🔒 Manual Auth Detected: Parsing tokens...")
+
+        // Extract tokens using regex or URLSearchParams (tricky with HashRouter)
+        // Let's assume standard supabase return: #access_token=...&expires_in=...&refresh_token=...
+
+        try {
+          // Remove the starting # or #/ 
+          const paramsString = hash.replace(/^#\/?/, '')
+          const params = new URLSearchParams(paramsString)
+          const access_token = params.get('access_token')
+          const refresh_token = params.get('refresh_token')
+
+          if (access_token && refresh_token) {
+            console.log("🔑 Tokens found, setting session manually...")
+            const { error } = await supabase.auth.setSession({
+              access_token,
+              refresh_token
+            })
+
+            if (error) throw error
+
+            console.log("✅ Session established manually!")
+            window.location.hash = '#/profile'
+            localStorage.removeItem('posthuman_auth_redirect') // Clear flag
+            setIsAuthProcessing(false)
+            return
+          }
+        } catch (err) {
+          console.error("❌ Manual auth parse failed:", err)
         }
-        setIsAuthProcessing(false)
-      } else {
-        handleAuthRedirect()
-        setIsAuthProcessing(false)
       }
-    })
 
-    // 2. Listen for auth changes (this handles the hash parsing)
+      // 2. Standard Session Check
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        const wasLoggingIn = localStorage.getItem('posthuman_auth_redirect')
+        if (wasLoggingIn === 'true') {
+          console.log("🔄 Redirect flag found, going to profile...")
+          localStorage.removeItem('posthuman_auth_redirect')
+          window.location.hash = '#/profile'
+        }
+      }
+
+      setIsAuthProcessing(false)
+    }
+
+    handleInitialAuth()
+
+    // Keep listener just in case, but rely on manual for the initial redirect
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log(`Auth event: ${event}`, session?.user?.email)
-
       if (event === 'SIGNED_IN' && session) {
-        handleAuthRedirect()
-        setIsAuthProcessing(false)
-      }
-
-      if (event === 'SIGNED_OUT') {
-        setIsAuthProcessing(false)
+        // Verify we aren't already there?
       }
     })
 
     return () => subscription.unsubscribe()
   }, [])
-
-  const handleAuthRedirect = () => {
-    const wasLoggingIn = localStorage.getItem('posthuman_auth_redirect')
-    if (wasLoggingIn === 'true') {
-      console.log("✅ Completing auth redirect flow -> Profile")
-      localStorage.removeItem('posthuman_auth_redirect')
-      // Force hash change to profile
-      if (window.location.hash !== '#/profile') {
-        window.location.hash = '#/profile'
-      }
-    }
-  }
 
   if (isAuthProcessing) {
     return (
