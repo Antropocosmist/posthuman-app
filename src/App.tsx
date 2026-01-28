@@ -11,6 +11,8 @@ const Browser = () => <div className="text-2xl font-bold">dApp Browser</div>
 
 import { supabase } from './services/supa'
 
+import { useWalletStore } from './store/walletStore'
+
 function App() {
   const [isAuthProcessing, setIsAuthProcessing] = useState(true) // Start true to check session first
   const [authError, setAuthError] = useState<string | null>(null)
@@ -43,6 +45,10 @@ function App() {
 
             console.log("✅ Session established via manual parse!")
             localStorage.removeItem('posthuman_auth_redirect')
+
+            // Sync Trades
+            useWalletStore.getState().fetchTrades()
+
             window.location.hash = '#/profile'
             setIsAuthProcessing(false)
             return
@@ -60,6 +66,9 @@ function App() {
       // 2. Standard Session Check (Fallback)
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
+        // Sync Trades (Standard Load)
+        useWalletStore.getState().fetchTrades()
+
         const wasLoggingIn = localStorage.getItem('posthuman_auth_redirect')
         if (wasLoggingIn === 'true') {
           console.log("🔄 Redirect flag found (Standard Check), going to profile...")
@@ -79,12 +88,23 @@ function App() {
 
     handleInitialAuth()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, _session) => {
-      // Optional: Handle auth state changes if needed
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        useWalletStore.getState().fetchTrades()
+      }
     })
 
     return () => subscription.unsubscribe()
   }, [])
+
+  // 3. React to Hydration Completion
+  const hasHydrated = useWalletStore(state => state.hasHydrated)
+  useEffect(() => {
+    if (hasHydrated) {
+      console.log("💧 Storage hydrated, syncing trades...")
+      useWalletStore.getState().fetchTrades()
+    }
+  }, [hasHydrated])
 
   if (isAuthProcessing) {
     return (

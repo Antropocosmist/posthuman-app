@@ -71,8 +71,10 @@ interface WalletState {
     selectedAssetId: string | null
     trades: Trade[]
     isLoading: boolean
+    hasHydrated: boolean
 
     setIsLoading: (isLoading: boolean) => void
+    setHasHydrated: (hydrated: boolean) => void
 
     toggleModal: () => void
     toggleSendModal: (id?: string) => void
@@ -85,6 +87,7 @@ interface WalletState {
     refreshBalances: () => Promise<void>
     getChainForWallet: (wallet: ConnectedWallet) => any
     addTrade: (trade: Trade) => void
+    fetchTrades: () => Promise<void>
     _toCamelCase: (str: string) => string
     _convertKeysToCamelCase: (obj: any) => any
 }
@@ -102,8 +105,10 @@ export const useWalletStore = create<WalletState>()(
             selectedAssetId: null,
             trades: [],
             isLoading: false,
+            hasHydrated: false,
 
             setIsLoading: (isLoading) => set({ isLoading }),
+            setHasHydrated: (hydrated) => set({ hasHydrated: hydrated }),
 
             toggleModal: () => set((state) => ({ isModalOpen: !state.isModalOpen })),
             toggleSendModal: (id) => set((state) => ({
@@ -130,23 +135,94 @@ export const useWalletStore = create<WalletState>()(
             },
 
             addTrade: async (trade) => {
+                // Optimistic UI Update
                 set((state) => ({ trades: [trade, ...state.trades] }))
 
                 if (isSupabaseConfigured()) {
                     const { data: { session } } = await supabase.auth.getSession()
                     if (session?.user) {
-                        await supabase.from('trades').insert({
-                            user_id: session.user.id,
-                            source_symbol: trade.sourceAsset.symbol,
-                            source_amount: trade.sourceAsset.amount,
-                            dest_symbol: trade.destAsset.symbol,
-                            dest_amount: trade.destAsset.amount,
-                            usd_value: trade.usdValue,
-                            tx_hash: trade.txHash,
-                            timestamp: trade.timestamp,
-                            status: trade.status
-                        })
+                        try {
+                            const { error } = await supabase.from('trades').insert({
+                                id: trade.id, // Send local ID to DB
+                                user_id: session.user.id,
+                                source_symbol: trade.sourceAsset.symbol,
+                                source_amount: trade.sourceAsset.amount,
+                                dest_symbol: trade.destAsset.symbol,
+                                dest_amount: trade.destAsset.amount,
+                                usd_value: trade.usdValue,
+                                tx_hash: trade.txHash,
+                                timestamp: trade.timestamp,
+                                status: trade.status
+                            })
+                            if (error) console.error("Failed to sync trade to cloud:", error)
+                        } catch (e) {
+                            console.error("Supabase insert exception:", e)
+                        }
                     }
+                }
+            },
+
+            fetchTrades: async () => {
+                const { hasHydrated } = get()
+                if (!hasHydrated) {
+                    console.log("⏳ persistence not hydrated yet, skipping fetchTrades")
+                    return
+                }
+
+                if (!isSupabaseConfigured()) return;
+
+                const { data: { session } } = await supabase.auth.getSession()
+                if (!session?.user) return
+
+                console.log("☁️ Fetching trades from cloud...")
+                const { data, error } = await supabase
+                    .from('trades')
+                    .select('*')
+                    .eq('user_id', session.user.id)
+                    .order('timestamp', { ascending: false })
+
+                if (error) {
+                    console.error("Failed to fetch trades:", error)
+                    return
+                }
+
+                if (data) {
+                    const cloudTrades: Trade[] = data.map((t: any) => ({
+                        id: t.id,
+                        timestamp: Number(t.timestamp),
+                        sourceAsset: {
+                            symbol: t.source_symbol,
+                            logo: '',
+                            amount: t.source_amount,
+                            chainId: 'unknown'
+                        },
+                        destAsset: {
+                            symbol: t.dest_symbol,
+                            logo: '',
+                            amount: t.dest_amount,
+                            chainId: 'unknown'
+                        },
+                        usdValue: t.usd_value,
+                        status: t.status,
+                        txHash: t.tx_hash,
+                        user_id: t.user_id
+                    }))
+
+                    set((state) => {
+                        // Create a map of existing trades using a robust unique key
+                        // Key: ID if present, otherwise Timestamp + Hash (or 'nohash' if missing)
+                        const uniqueKey = (t: Trade) => t.id || `${t.timestamp}-${t.txHash || 'nohash'}`
+
+                        const tradeMap = new Map(state.trades.map(t => [uniqueKey(t), t]))
+
+                        cloudTrades.forEach(t => {
+                            const key = uniqueKey(t)
+                            tradeMap.set(key, t)
+                        })
+
+                        const uniqueTrades = Array.from(tradeMap.values()).sort((a, b) => b.timestamp - a.timestamp)
+                        return { trades: uniqueTrades }
+                    })
                 }
             },
 
@@ -1119,7 +1195,12 @@ export const useWalletStore = create<WalletState>()(
         }),
         {
             name: 'wallet-storage',
-            partialize: (state) => ({ wallets: state.wallets }),
+            partialize: (state) => ({ wallets: state.wallets, trades: state.trades }),
+            onRehydrateStorage: () => (state) => {
+                if (state) {
+                    state.setHasHydrated(true)
+                }
+            }
         }
     )
 )
