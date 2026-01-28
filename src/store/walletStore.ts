@@ -234,41 +234,37 @@ export const useWalletStore = create<WalletState>()(
                                         phmnFound = true
 
                                         // ----------------------------------------------------
-                                        // USDC on Osmosis (Noble & Axelar)
+                                        // Dynamic USDC Discovery on Osmosis
                                         // ----------------------------------------------------
-                                        const USDC_NOBLE = 'ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B8733DCEB'
-                                        const USDC_AXELAR = 'ibc/D189335C6E4A68B513C10AB227BF1C1D38C746766278BA3EEB4FB14124F1D858'
+                                        try {
+                                            const { SkipService } = await import('../services/skip')
+                                            const osmoAssets = await SkipService.getAssets({ chainId: 'osmosis-1', includeCw20: true, includeEvm: false })
+                                            const usdcAssets = osmoAssets.filter(a => a.symbol.toUpperCase().includes('USDC'))
+                                            let totalUsdc = 0
+                                            console.log(`🔍 Found ${usdcAssets.length} USDC variants on Osmosis`, usdcAssets.map(a => a.denom))
 
-                                        console.log("🔍 Checking Osmosis USDC Balance for:", cosmosAddress)
-
-                                        const nobleBal = await RpcService.getCosmosBalance('OSMOSIS', cosmosAddress, USDC_NOBLE)
-                                        const axelarBal = await RpcService.getCosmosBalance('OSMOSIS', cosmosAddress, USDC_AXELAR)
-
-                                        console.log(`💰 Osmosis USDC: Noble=${nobleBal}, Axelar=${axelarBal}`)
-
-                                        const totalUsdc = nobleBal + axelarBal
-
-                                        if (totalUsdc > 0) {
-                                            const usdcPrice = prices['USDC'] || 1
-                                            // Determine which icon/name to show or merge them?
-                                            // For now, let's just show one entry "Osmosis (USDC)" aggregating both
-
-                                            const usdcWallet: ConnectedWallet = {
-                                                id: `usdc-osmosis-1-${cosmosAddress.substr(-4)}`,
-                                                name: `Osmosis (USDC)`,
-                                                chain: 'Cosmos',
-                                                address: cosmosAddress,
-                                                icon: `${BASE_URL}icons/keplr.png`,
-                                                balance: totalUsdc * usdcPrice,
-                                                nativeBalance: totalUsdc,
-                                                symbol: 'USDC',
-                                                walletProvider: 'Keplr'
+                                            for (const asset of usdcAssets) {
+                                                const bal = await RpcService.getCosmosBalance('OSMOSIS', cosmosAddress, asset.denom)
+                                                if (bal > 0) totalUsdc += bal
                                             }
 
-                                            if (!get().wallets.find(w => w.id === usdcWallet.id)) {
-                                                set((state) => ({ wallets: [...state.wallets, usdcWallet] }))
+                                            if (totalUsdc > 0) {
+                                                const usdcPrice = prices['USDC'] || 1
+                                                const usdcWallet: ConnectedWallet = {
+                                                    id: `usdc-osmosis-1-${cosmosAddress.substr(-4)}`,
+                                                    name: `Osmosis (USDC)`,
+                                                    chain: 'Cosmos',
+                                                    address: cosmosAddress,
+                                                    icon: `${BASE_URL}icons/keplr.png`,
+                                                    balance: totalUsdc * usdcPrice,
+                                                    nativeBalance: totalUsdc,
+                                                    symbol: 'USDC',
+                                                    walletProvider: 'Keplr'
+                                                }
+                                                if (!get().wallets.find(w => w.id === usdcWallet.id)) set((state) => ({ wallets: [...state.wallets, usdcWallet] }))
                                             }
-                                        }
+                                        } catch (err) { console.error("Error detecting Osmosis USDC", err) }
+
                                     }
 
                                     if (phmnFound && phmnBal >= 0) {
