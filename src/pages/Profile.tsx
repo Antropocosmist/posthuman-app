@@ -68,6 +68,64 @@ export function Profile() {
         if (error) setMessage({ type: 'error', text: error.message })
     }
 
+    // Telegram Auth Handler
+    const handleTelegramLogin = async (user: any) => {
+        setLoading(true)
+        setMessage(null)
+        try {
+            // Call our Edge Function
+            const { data, error } = await supabase.functions.invoke('telegram-auth', {
+                body: user
+            })
+
+            if (error) throw error
+            if (!data.session) throw new Error("No session returned from server")
+
+            // Set session
+            const { error: authError } = await supabase.auth.setSession(data.session)
+            if (authError) throw authError
+
+            setMessage({ type: 'success', text: "Successfully logged in with Telegram!" })
+        } catch (err: any) {
+            console.error("Telegram Login Error:", err)
+            setMessage({ type: 'error', text: err.message || "Failed to log in with Telegram" })
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    // Load Telegram Widget Script
+    useEffect(() => {
+        if (user) return // Don't verify if already logged in
+
+        // Define callback
+        // @ts-ignore
+        window.onTelegramAuth = (user: any) => {
+            handleTelegramLogin(user)
+        }
+
+        // Inject script
+        const script = document.createElement('script')
+        script.src = "https://telegram.org/js/telegram-widget.js?22"
+        script.setAttribute('data-telegram-login', 'PosthumanAuthBot') // REPLACE WITH YOUR BOT USERNAME IF DIFFERENT
+        script.setAttribute('data-size', 'medium')
+        script.setAttribute('data-radius', '10')
+        script.setAttribute('data-onauth', 'onTelegramAuth(user)')
+        script.setAttribute('data-request-access', 'write')
+        script.async = true
+
+        const container = document.getElementById('telegram-login-container')
+        if (container) {
+            container.innerHTML = '' // Clear previous
+            container.appendChild(script)
+        }
+
+        return () => {
+            // @ts-ignore
+            delete window.onTelegramAuth
+        }
+    }, [user])
+
     const handleEmailAuth = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!isSupabaseConfigured()) {
@@ -210,6 +268,17 @@ export function Profile() {
                     <button onClick={() => handleSocialLogin('twitter')} className="flex items-center justify-center p-3 rounded-2xl bg-white/5 hover:bg-white/10 hover:scale-105 transition-all text-white border border-white/5">
                         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z" /></svg>
                     </button>
+
+                    {/* Telegram */}
+                    <div className="flex items-center justify-center p-1 rounded-2xl bg-white/5 border border-white/5 overflow-hidden">
+                        <div id="telegram-login-container"></div>
+                        <script async src="https://telegram.org/js/telegram-widget.js?22"
+                            data-telegram-login="PosthumanAuthBot"
+                            data-size="medium"
+                            data-radius="10"
+                            data-onauth="onTelegramAuth(user)"
+                            data-request-access="write"></script>
+                    </div>
 
 
 
