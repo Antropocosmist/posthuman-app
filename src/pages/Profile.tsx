@@ -6,7 +6,38 @@ import { useWalletStore } from '../store/walletStore'
 export function Profile() {
     const [user, setUser] = useState<any>(null)
     const [loading, setLoading] = useState(true)
-    const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin')
+    export function Profile() {
+        const [user, setUser] = useState<any>(null)
+        const [loading, setLoading] = useState(true)
+        const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'reset'>('signin')
+        const [email, setEmail] = useState('')
+        const [password, setPassword] = useState('')
+        const [message, setMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null)
+        const { trades, wallets } = useWalletStore()
+
+        // ... (useEffect hooks remain the same, skipped for brevity in replacement if possible, but replace_file_content needs context. 
+        // I will target the specific blocks to minimize changes, but the tool requires contiguous blocks. 
+        // Since I'm changing the state definition and adding a handler, it might be cleaner to replace the logic parts.
+        // However, the file is large. Let's try to do it in chunks using multi_replace if I can, but I only have replace_file_content available as per instructions "Use this tool ONLY when you are making a SINGLE CONTIGUOUS block...". Wait, I have multi_replace available in the declaration.
+        // Actually, I can just replace the component body parts.
+
+        // Let's stick to replace_file_content for the upper part (state) and the form part.
+        // Actually, I need to use `multi_replace_file_content` because the changes are in state def (top) and render (bottom).
+
+        // Wait, I will use `multi_replace_file_content`.
+
+        /* 
+           Plan with multi_replace:
+           1. Update useState definition.
+           2. Add handlePasswordReset function.
+           3. Update Render logic to handle 'reset' mode.
+        */
+
+        return (
+       // ...
+    )
+    }
+
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [message, setMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null)
@@ -90,6 +121,27 @@ export function Profile() {
                 }
                 setMessage({ type: 'error', text: msg })
             }
+        }
+        setLoading(false)
+    }
+
+    const handlePasswordReset = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!email) {
+            setMessage({ type: 'error', text: 'Please enter your email address.' })
+            return
+        }
+        setLoading(true)
+        setMessage(null)
+
+        const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+            redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}#/profile?reset=true`,
+        })
+
+        if (error) {
+            setMessage({ type: 'error', text: error.message })
+        } else {
+            setMessage({ type: 'success', text: 'Password reset link sent! Check your email.' })
         }
         setLoading(false)
     }
@@ -201,8 +253,7 @@ export function Profile() {
                     <div className="relative flex justify-center text-xs uppercase"><span className="bg-[#14141b] px-4 text-gray-500 font-bold tracking-widest">Or with email</span></div>
                 </div>
 
-                {/* Email Auth Form */}
-                <form onSubmit={handleEmailAuth} className="space-y-4">
+                <form onSubmit={authMode === 'reset' ? handlePasswordReset : handleEmailAuth} className="space-y-4">
                     <div className="space-y-4">
                         <div className="relative">
                             <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
@@ -215,17 +266,19 @@ export function Profile() {
                                 required
                             />
                         </div>
-                        <div className="relative">
-                            <Shield className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                            <input
-                                type="password"
-                                placeholder="Password"
-                                className="w-full bg-white/[0.03] border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm text-white focus:border-blue-500/50 transition-colors font-medium outline-none"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                required
-                            />
-                        </div>
+                        {authMode !== 'reset' && (
+                            <div className="relative">
+                                <Shield className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                                <input
+                                    type="password"
+                                    placeholder="Password"
+                                    className="w-full bg-white/[0.03] border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm text-white focus:border-blue-500/50 transition-colors font-medium outline-none"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                />
+                            </div>
+                        )}
                     </div>
 
                     <button
@@ -233,8 +286,18 @@ export function Profile() {
                         disabled={loading}
                         className="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black uppercase tracking-widest text-xs shadow-[0_10px_30px_-10px_rgba(37,99,235,0.5)] transition-all flex items-center justify-center gap-2"
                     >
-                        {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : (authMode === 'signin' ? 'Sign In' : 'Create Account')}
+                        {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : (authMode === 'signin' ? 'Sign In' : authMode === 'signup' ? 'Create Account' : 'Send Reset Link')}
                     </button>
+
+                    {authMode === 'signin' && (
+                        <button
+                            type="button"
+                            onClick={() => { setAuthMode('reset'); setMessage(null); }}
+                            className="w-full text-center text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                        >
+                            Forgot Password?
+                        </button>
+                    )}
                 </form>
 
                 {message && (
@@ -245,12 +308,18 @@ export function Profile() {
                 )}
 
                 <div className="mt-6 text-center">
-                    <button
-                        onClick={() => { setAuthMode(authMode === 'signin' ? 'signup' : 'signin'); setMessage(null); }}
-                        className="text-xs text-gray-400 hover:text-white font-bold transition-colors"
-                    >
-                        {authMode === 'signin' ? "Don't have an account? Sign Up" : "Already have an account? Sign In"}
-                    </button>
+                    <div className="mt-6 text-center">
+                        <button
+                            onClick={() => {
+                                if (authMode === 'reset') setAuthMode('signin');
+                                else setAuthMode(authMode === 'signin' ? 'signup' : 'signin');
+                                setMessage(null);
+                            }}
+                            className="text-xs text-gray-400 hover:text-white font-bold transition-colors"
+                        >
+                            {authMode === 'reset' ? "Back to Sign In" : (authMode === 'signin' ? "Don't have an account? Sign Up" : "Already have an account? Sign In")}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
