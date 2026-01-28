@@ -16,108 +16,100 @@ function App() {
   const [authError, setAuthError] = useState<string | null>(null)
 
   useEffect(() => {
-    const hash = window.location.hash
+    const handleInitialAuth = async () => {
+      const hash = window.location.hash
 
-    // Relaxed check: Simply look for access_token.
-    if (hash.includes('access_token')) {
-      console.log("🔒 Auth Token detected in hash")
+      // Relaxed check: Simply look for access_token.
+      if (hash.includes('access_token')) {
+        console.log("🔒 Auth Token detected in hash")
 
-      try {
-        // Aggressive cleanup: remove everything up to the first param
-        // This handles #access_token, #/access_token, #/?access_token
-        const cleanHash = hash.substring(hash.indexOf('access_token'))
-        const params = new URLSearchParams(cleanHash)
+        try {
+          // Aggressive cleanup: remove everything up to the first param
+          const cleanHash = hash.substring(hash.indexOf('access_token'))
+          const params = new URLSearchParams(cleanHash)
 
-        const access_token = params.get('access_token')
-        const refresh_token = params.get('refresh_token')
+          const access_token = params.get('access_token')
+          const refresh_token = params.get('refresh_token')
 
-        if (access_token) {
-          console.log("🔑 Access Token extracted. Refresh Token:", refresh_token ? "Found" : "Missing")
+          if (access_token) {
+            console.log("🔑 Access Token extracted. Refresh Token:", refresh_token ? "Found" : "Missing")
 
-          // Note: setSession usually requires refresh_token, but let's try.
-          // If missing, we might only get a short-lived session, but it's better than nothing.
-          const sessionParams: any = { access_token }
-          if (refresh_token) sessionParams.refresh_token = refresh_token
+            const sessionParams: any = { access_token }
+            if (refresh_token) sessionParams.refresh_token = refresh_token
 
-          const { error } = await supabase.auth.setSession(sessionParams)
+            const { error } = await supabase.auth.setSession(sessionParams)
 
-          if (error) throw error
+            if (error) throw error
 
-          console.log("✅ Session established via manual parse!")
+            console.log("✅ Session established via manual parse!")
+            localStorage.removeItem('posthuman_auth_redirect')
+            window.location.hash = '#/profile'
+            return // Stay in loading state until redirect happens
+          } else {
+            throw new Error("Token present but could not be parsed.")
+          }
+        } catch (err: any) {
+          console.error("❌ Auth Error:", err)
+          setAuthError(err.message || "Authentication Failed")
+          setTimeout(() => setIsAuthProcessing(false), 3000)
+          return
+        }
+      }
+
+      // 2. Standard Session Check (Fallback)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        const wasLoggingIn = localStorage.getItem('posthuman_auth_redirect')
+        if (wasLoggingIn === 'true') {
+          console.log("🔄 Redirect flag found (Standard Check), going to profile...")
           localStorage.removeItem('posthuman_auth_redirect')
           window.location.hash = '#/profile'
-          return // Stay in loading state until redirect happens
-        } else {
-          throw new Error("Token present but could not be parsed.")
+          return
         }
-      } catch (err: any) {
-        console.error("❌ Auth Error:", err)
-        setAuthError(err.message || "Authentication Failed")
-        // Do NOT setIsAuthProcessing(false) immediately if we want them to see the error
-        // But maybe we fallback to dashboard after a delay?
-        setTimeout(() => setIsAuthProcessing(false), 3000)
-        return
+      } else {
+        if (localStorage.getItem('posthuman_auth_redirect') === 'true') {
+          console.warn("⚠️ Redirect flag set but no session found.")
+          localStorage.removeItem('posthuman_auth_redirect')
+        }
       }
-    }
 
-    // 2. Standard Session Check (Fallback)
-    const { data: { session } } = await supabase.auth.getSession()
-    if (session) {
-      const wasLoggingIn = localStorage.getItem('posthuman_auth_redirect')
-      if (wasLoggingIn === 'true') {
-        console.log("🔄 Redirect flag found (Standard Check), going to profile...")
-        localStorage.removeItem('posthuman_auth_redirect')
-        window.location.hash = '#/profile'
-        return
-      }
-    } else {
-      // If we had a redirect flag but NO session, it failed silently.
-      if (localStorage.getItem('posthuman_auth_redirect') === 'true') {
-        console.warn("⚠️ Redirect flag set but no session found.")
-        localStorage.removeItem('posthuman_auth_redirect')
-      }
+      setIsAuthProcessing(false)
     }
-
-    setIsAuthProcessing(false)
-  }
 
     handleInitialAuth()
 
-    // Keep listener just in case, but rely on manual for the initial redirect
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-    if (event === 'SIGNED_IN' && session) {
-      // Verify we aren't already there?
-    }
-  })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, _session) => {
+      // Optional: Handle auth state changes if needed
+    })
 
-  return () => subscription.unsubscribe()
-}, [])
+    return () => subscription.unsubscribe()
+  }, [])
 
-if (isAuthProcessing) {
-  return (
-    <div className="flex h-screen w-full items-center justify-center bg-black text-white">
-      <div className="flex flex-col items-center gap-4">
-        <div className="w-12 h-12 rounded-full border-4 border-purple-500 border-t-transparent animate-spin" />
-        <p className="animate-pulse text-gray-400">{authError ? `Error: ${authError}` : 'Finalizing secure secure connection...'}</p>
+  if (isAuthProcessing) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-black text-white">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-full border-4 border-purple-500 border-t-transparent animate-spin" />
+          <p className="animate-pulse text-gray-400">{authError ? `Error: ${authError}` : 'Finalizing secure secure connection...'}</p>
+        </div>
       </div>
-    </div>
-  )
-}
+    )
+  }
 
-return (
-  <Router>
-    <Routes>
-      <Route path="/" element={<Layout />}>
-        <Route index element={<Dashboard />} />
-        <Route path="trade" element={<Trade />} />
-        <Route path="wallet" element={<Wallet />} />
-        <Route path="browser" element={<Browser />} />
-        <Route path="profile" element={<Profile />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Route>
-    </Routes>
-  </Router>
-)
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<Layout />}>
+          <Route index element={<Dashboard />} />
+          <Route path="trade" element={<Trade />} />
+          <Route path="wallet" element={<Wallet />} />
+          <Route path="browser" element={<Browser />} />
+          <Route path="profile" element={<Profile />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+      </Routes>
+    </Router>
+  )
 }
 
 export default App
