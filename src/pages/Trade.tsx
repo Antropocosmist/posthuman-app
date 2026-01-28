@@ -556,28 +556,44 @@ export function Trade() {
                                         <div className="text-[10px] font-black uppercase tracking-widest">Discovering assets...</div>
                                     </div>
                                 ) : filteredAssets.length > 0 ? (
-                                    filteredAssets.slice(0, 100).map(a => (
-                                        <button
-                                            key={a.denom + a.chain_id}
-                                            onClick={() => {
-                                                if (selectingFor.type === 'source') setSourceAsset(a)
-                                                else setDestAsset(a)
-                                                setSelectingFor(null)
-                                                setSearchTerm('')
-                                            }}
-                                            className="w-full flex items-center justify-between p-4 rounded-[1.5rem] hover:bg-white/5 transition-all group border border-transparent hover:border-white/5"
-                                        >
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 rounded-full overflow-hidden bg-black/40 border border-white/10 group-hover:rotate-[15deg] transition-transform">
-                                                    {a.logo_uri ? <img src={a.logo_uri} className="w-full h-full object-cover" /> : <Coins className="w-6 h-6 text-gray-600 m-2" />}
+                                    filteredAssets.slice(0, 100).map(a => {
+                                        const wallet = wallets.find(w =>
+                                            w.symbol === a.symbol &&
+                                            (w.chainId === (selectingFor?.type === 'source' ? sourceChain : destChain)?.chain_id ||
+                                                getChainForWallet(w)?.chain_id === (selectingFor?.type === 'source' ? sourceChain : destChain)?.chain_id)
+                                        )
+                                        const balance = wallet ? wallet.nativeBalance : 0
+                                        const usdBalance = wallet ? wallet.balance : 0
+
+                                        return (
+                                            <button
+                                                key={a.denom + a.chain_id}
+                                                onClick={() => {
+                                                    if (selectingFor.type === 'source') setSourceAsset(a)
+                                                    else setDestAsset(a)
+                                                    setSelectingFor(null)
+                                                    setSearchTerm('')
+                                                }}
+                                                className="w-full flex items-center justify-between p-4 rounded-[1.5rem] hover:bg-white/5 transition-all group border border-transparent hover:border-white/5"
+                                            >
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-10 h-10 rounded-full overflow-hidden bg-black/40 border border-white/10 group-hover:rotate-[15deg] transition-transform">
+                                                        {a.logo_uri ? <img src={a.logo_uri} className="w-full h-full object-cover" /> : <Coins className="w-6 h-6 text-gray-600 m-2" />}
+                                                    </div>
+                                                    <div className="text-left">
+                                                        <div className="text-sm font-black text-white group-hover:text-blue-400 transition-colors uppercase tracking-tight">{a.symbol}</div>
+                                                        <div className="text-[10px] text-gray-600 font-bold whitespace-nowrap overflow-hidden text-ellipsis max-w-[150px]">{a.name}</div>
+                                                    </div>
                                                 </div>
-                                                <div className="text-left">
-                                                    <div className="text-sm font-black text-white group-hover:text-blue-400 transition-colors uppercase tracking-tight">{a.symbol}</div>
-                                                    <div className="text-[10px] text-gray-600 font-bold whitespace-nowrap overflow-hidden text-ellipsis max-w-[150px]">{a.name}</div>
-                                                </div>
-                                            </div>
-                                        </button>
-                                    ))
+                                                {balance > 0 && (
+                                                    <div className="text-right">
+                                                        <div className="text-sm font-bold text-white">{balance.toLocaleString(undefined, { maximumFractionDigits: 6 })}</div>
+                                                        <div className="text-[10px] text-gray-500 font-bold">${usdBalance.toFixed(2)}</div>
+                                                    </div>
+                                                )}
+                                            </button>
+                                        )
+                                    })
                                 ) : (
                                     <div className="flex flex-col items-center justify-center py-20 text-gray-800">
                                         <Info className="w-8 h-8 mb-4 opacity-20" />
