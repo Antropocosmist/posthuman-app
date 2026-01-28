@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { LiFiWidget } from '@lifi/widget'
-import type { WidgetConfig } from '@lifi/widget'
+import type { WidgetConfig, RouteExecutionUpdate } from '@lifi/widget'
 import { TradeHistory } from './TradeHistory'
+import { useWalletStore } from '../store/walletStore'
 
 const widgetConfig: WidgetConfig = {
     integrator: 'posthuman-app',
@@ -20,6 +21,46 @@ const widgetConfig: WidgetConfig = {
 
 export function JumperTrade() {
     const [activeTab, setActiveTab] = useState<'swap' | 'history'>('swap')
+    const addTrade = useWalletStore(state => state.addTrade)
+
+    const handleRouteExecutionCompleted = (update: RouteExecutionUpdate) => {
+        if (update.route) {
+            const route = update.route
+            const step = route.steps[0] as any // Cast to any to access execution properties
+
+            // Map Jumper Route to App Trade
+            addTrade({
+                id: route.id,
+                timestamp: Date.now(),
+                sourceAsset: {
+                    symbol: step.action.fromToken.symbol,
+                    logo: step.action.fromToken.logoURI || '',
+                    amount: (Number(step.action.fromAmount) / Math.pow(10, step.action.fromToken.decimals)).toString(),
+                    chainId: step.action.fromChainId.toString()
+                },
+                destAsset: {
+                    symbol: step.action.toToken.symbol,
+                    logo: step.action.toToken.logoURI || '',
+                    amount: (Number(step.execution?.toAmount || step.estimate.toAmount) / Math.pow(10, step.action.toToken.decimals)).toString(),
+                    chainId: step.action.toChainId.toString()
+                },
+                usdValue: Number(route.toAmountUSD),
+                status: 'completed',
+                txHash: step.execution?.process.find((p: any) => p.type === 'CROSS_CHAIN' || p.type === 'SWAP')?.txHash
+            })
+            console.log("✅ Jumper Trade Captured:", route.id)
+        }
+    }
+
+    // Merge callback into config
+    const config = {
+        ...widgetConfig,
+        buildConfig: {
+            routes: {
+                onRouteExecutionCompleted: handleRouteExecutionCompleted
+            }
+        }
+    }
 
     return (
         <div className="w-full max-w-[480px] mx-auto mt-4 px-2">
@@ -45,7 +86,7 @@ export function JumperTrade() {
 
             {activeTab === 'swap' ? (
                 <div className="h-[640px]">
-                    <LiFiWidget config={widgetConfig} integrator="posthuman-app" />
+                    <LiFiWidget config={config} integrator="posthuman-app" />
                 </div>
             ) : (
                 <TradeHistory />
