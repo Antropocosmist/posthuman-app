@@ -75,6 +75,7 @@ interface WalletState {
 
     setIsLoading: (isLoading: boolean) => void
     setHasHydrated: (hydrated: boolean) => void
+    clearState: () => void
 
     toggleModal: () => void
     toggleSendModal: (id?: string) => void
@@ -109,6 +110,7 @@ export const useWalletStore = create<WalletState>()(
 
             setIsLoading: (isLoading) => set({ isLoading }),
             setHasHydrated: (hydrated) => set({ hasHydrated: hydrated }),
+            clearState: () => set({ trades: [], wallets: [], selectedAssetId: null, isModalOpen: false, isSendModalOpen: false, isReceiveModalOpen: false }),
 
             toggleModal: () => set((state) => ({ isModalOpen: !state.isModalOpen })),
             toggleSendModal: (id) => set((state) => ({

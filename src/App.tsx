@@ -88,9 +88,13 @@ function App() {
 
     handleInitialAuth()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
         useWalletStore.getState().fetchTrades()
+      }
+      if (event === 'SIGNED_OUT') {
+        console.log("👋 User signed out, clearing local state...")
+        useWalletStore.getState().clearState()
       }
     })
 
