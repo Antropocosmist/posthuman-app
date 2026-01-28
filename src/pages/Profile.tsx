@@ -107,7 +107,7 @@ export function Profile() {
         // Inject script
         const script = document.createElement('script')
         script.src = "https://telegram.org/js/telegram-widget.js?22"
-        script.setAttribute('data-telegram-login', 'PosthumanAuthBot') // REPLACE WITH YOUR BOT USERNAME IF DIFFERENT
+        script.setAttribute('data-telegram-login', 'POSTHUMANAuthBot') // Updated to user's bot name
         script.setAttribute('data-size', 'medium')
         script.setAttribute('data-radius', '10')
         script.setAttribute('data-onauth', 'onTelegramAuth(user)')
@@ -265,19 +265,17 @@ export function Profile() {
                     </button>
 
                     {/* X (Twitter) */}
-                    <button onClick={() => handleSocialLogin('twitter')} className="flex items-center justify-center p-3 rounded-2xl bg-white/5 hover:bg-white/10 hover:scale-105 transition-all text-white border border-white/5">
+                    <button onClick={() => handleSocialLogin('twitter')} title="Sign in with X (Twitter)" className="flex items-center justify-center p-3 rounded-2xl bg-white/5 hover:bg-white/10 hover:scale-105 transition-all text-white border border-white/5">
                         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z" /></svg>
                     </button>
 
                     {/* Telegram */}
-                    <div className="flex items-center justify-center p-1 rounded-2xl bg-white/5 border border-white/5 overflow-hidden">
-                        <div id="telegram-login-container"></div>
-                        <script async src="https://telegram.org/js/telegram-widget.js?22"
-                            data-telegram-login="PosthumanAuthBot"
-                            data-size="medium"
-                            data-radius="10"
-                            data-onauth="onTelegramAuth(user)"
-                            data-request-access="write"></script>
+                    <div className="flex items-center justify-center p-1 rounded-2xl bg-white/5 border border-white/5 overflow-hidden relative min-h-[50px]">
+                        {/* Fallback Icon (Visible until widget loads? Or always visible if widget fails) */}
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-white/20">
+                            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.694 24h.695z M11.944 0C5.352 0 .008 5.343.008 11.935c0 6.592 5.344 11.935 11.936 11.935 6.592 0 11.935-5.343 11.935-11.935S18.536 0 11.944 0z" /><path d="M17.25 8.25L7.5 12l2.25 1.5 1.5 4.5 3-4.5 3.75 2.25 1.5-7.5z" fill="white" transform="translate(1 1)" /></svg>
+                        </div>
+                        <div id="telegram-login-container" className="z-10 relative"></div>
                     </div>
 
 
