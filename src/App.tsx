@@ -20,14 +20,10 @@ function App() {
 
       // Allow Supabase to process the hash
       const timer = setTimeout(() => {
-        console.log("🔓 Resuming router...")
-        setIsAuthProcessing(false)
-        // Optionally clear the hash if Supabase didn't? 
-        // Typically Supabase cleans it or we explicitly redirect.
-        // For HashRouter, we want to reset to root or profile?
-        // Let's just let the router take over now that Supabase (hopefully) has the session.
+        // Explicitly redirect to profile page after auth
+        console.log("✅ Auth processing complete. Redirecting to Profile...")
         if (window.location.hash.includes('access_token=')) {
-          window.location.hash = ''
+          window.location.hash = '#/profile'
         }
       }, 1500) // Give Supabase 1.5s to grab the session
 
