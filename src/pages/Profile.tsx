@@ -211,14 +211,7 @@ export function Profile() {
                         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z" /></svg>
                     </button>
 
-                    {/* Telegram */}
-                    <button onClick={() => handleSocialLogin('telegram' as any)} className="flex items-center justify-center p-3 rounded-2xl bg-white/5 hover:bg-white/10 hover:scale-105 transition-all text-white border border-white/5">
-                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.694 24h.695z M11.944 0C5.352 0 .008 5.343.008 11.935c0 6.592 5.344 11.935 11.936 11.935 6.592 0 11.935-5.343 11.935-11.935S18.536 0 11.944 0z" /><path d="M17.25 8.25L7.5 12l2.25 1.5 1.5 4.5 3-4.5 3.75 2.25 1.5-7.5z" fill="white" transform="translate(1 1)" /></svg>
-                        {/* Simplify Telegram SVG to standard plane */}
-                        <svg className="w-5 h-5 absolute opacity-0" viewBox="0 0 24 24" fill="currentColor"><path d="M21.68,3.22l-19.46,7.5c-1.33,0.53-1.32,1.27,0.24,1.75l5,1.55l11.56-7.29c0.55-0.34,1.05-0.16,0.64,0.2L9.24,14.65 l-0.25,5.34c0.36,0,0.52-0.16,0.72-0.35l1.73-1.68l3.6,2.66c0.66,0.36,1.14,0.18,1.3-0.61l2.36-11.13 C21.49,3.61,21.94,3.15,21.68,3.22z" /></svg>
-                        {/* Actually use the clean paper plane path */}
-                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M22 2L11 13" /><path d="M22 2l-7 20-4-9-9-4 20-7z" /></svg>
-                    </button>
+
 
                     {/* Discord > Github replacement? No, keep buttons. User asked for Telegram & X */}
                     {/* Let's keep 4 slots. Google, X, Telegram, Discord/Github? */}
