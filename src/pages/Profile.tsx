@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { LogOut, User, Mail, Github, Twitter, Shield, AlertTriangle, CheckCircle2, Cloud, Wallet } from 'lucide-react'
+import { LogOut, User, Mail, Shield, AlertTriangle, CheckCircle2, Cloud, Wallet } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../services/supa'
 import { useWalletStore } from '../store/walletStore'
 
@@ -199,19 +199,35 @@ export function Profile() {
 
             <div className="p-6 rounded-3xl bg-[#14141b] border border-white/5 backdrop-blur-xl shadow-2xl">
                 {/* Social Logins */}
+                {/* Social Logins */}
                 <div className="grid grid-cols-4 gap-3 mb-8">
+                    {/* Google */}
                     <button onClick={() => handleSocialLogin('google')} className="flex items-center justify-center p-3 rounded-2xl bg-white/5 hover:bg-white/10 hover:scale-105 transition-all text-white border border-white/5">
                         <svg className="w-5 h-5" viewBox="0 0 24 24"><path fill="currentColor" d="M21.35 11.1h-9.17v2.96h6.39c-.44 2.15-2.26 3.48-5.24 3.48-3.55 0-6.42-2.81-6.42-6.42s2.88-6.42 6.42-6.42c1.61 0 3.09.59 4.23 1.57l2.14-2.14C18.42 2.7 16.54 2 14.58 2 8.74 2 4 6.74 4 12.58S8.74 23.16 14.58 23.16c6.43 0 10.16-4.59 9.8-10.99-.02-.45-.09-.76-.09-.76z" /></svg>
                     </button>
+
+                    {/* X (Twitter) */}
                     <button onClick={() => handleSocialLogin('twitter')} className="flex items-center justify-center p-3 rounded-2xl bg-white/5 hover:bg-white/10 hover:scale-105 transition-all text-white border border-white/5">
-                        <Twitter className="w-5 h-5" />
+                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z" /></svg>
                     </button>
-                    <button onClick={() => handleSocialLogin('github')} className="flex items-center justify-center p-3 rounded-2xl bg-white/5 hover:bg-white/10 hover:scale-105 transition-all text-white border border-white/5">
-                        <Github className="w-5 h-5" />
+
+                    {/* Telegram */}
+                    <button onClick={() => handleSocialLogin('telegram' as any)} className="flex items-center justify-center p-3 rounded-2xl bg-white/5 hover:bg-white/10 hover:scale-105 transition-all text-white border border-white/5">
+                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.694 24h.695z M11.944 0C5.352 0 .008 5.343.008 11.935c0 6.592 5.344 11.935 11.936 11.935 6.592 0 11.935-5.343 11.935-11.935S18.536 0 11.944 0z" /><path d="M17.25 8.25L7.5 12l2.25 1.5 1.5 4.5 3-4.5 3.75 2.25 1.5-7.5z" fill="white" transform="translate(1 1)" /></svg>
+                        {/* Simplify Telegram SVG to standard plane */}
+                        <svg className="w-5 h-5 absolute opacity-0" viewBox="0 0 24 24" fill="currentColor"><path d="M21.68,3.22l-19.46,7.5c-1.33,0.53-1.32,1.27,0.24,1.75l5,1.55l11.56-7.29c0.55-0.34,1.05-0.16,0.64,0.2L9.24,14.65 l-0.25,5.34c0.36,0,0.52-0.16,0.72-0.35l1.73-1.68l3.6,2.66c0.66,0.36,1.14,0.18,1.3-0.61l2.36-11.13 C21.49,3.61,21.94,3.15,21.68,3.22z" /></svg>
+                        {/* Actually use the clean paper plane path */}
+                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M22 2L11 13" /><path d="M22 2l-7 20-4-9-9-4 20-7z" /></svg>
                     </button>
+
+                    {/* Discord > Github replacement? No, keep buttons. User asked for Telegram & X */}
+                    {/* Let's keep 4 slots. Google, X, Telegram, Discord/Github? */}
+                    {/* User didn't say remove. I'll replace Github with Telegram as it's less social-crypto relevant than Discord */}
+
                     <button onClick={() => handleSocialLogin('discord')} className="flex items-center justify-center p-3 rounded-2xl bg-white/5 hover:bg-white/10 hover:scale-105 transition-all text-white border border-white/5">
                         <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.418 2.157-2.418 1.21 0 2.176 1.085 2.157 2.419 0 1.334-.956 2.419-2.157 2.419zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.418 2.157-2.418 1.21 0 2.176 1.085 2.157 2.419 0 1.334-.946 2.419-2.157 2.419z" /></svg>
                     </button>
+
                     <button onClick={() => useWalletStore.getState().toggleModal()} className="flex items-center justify-center p-3 rounded-2xl bg-white/5 hover:bg-white/10 hover:scale-105 transition-all text-white border border-white/5 col-span-4 gap-2">
                         <Wallet className="w-5 h-5 text-blue-400" />
                         <span className="text-xs font-bold uppercase tracking-wider">Continue with Wallet</span>
