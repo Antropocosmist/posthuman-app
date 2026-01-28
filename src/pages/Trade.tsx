@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowDown, ArrowUp, RefreshCw, ChevronDown, CheckCircle2, Search, X, Info, AlertTriangle, Clock, Zap, Globe, Coins, History } from 'lucide-react'
 import { useWalletStore } from '../store/walletStore'
@@ -222,10 +222,41 @@ export function Trade() {
     )
 
     const assetsToDisplay = selectingFor?.type === 'source' ? sourceAssets : destAssets
-    const filteredAssets = assetsToDisplay.filter(a =>
-        a.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        a.name.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+
+    // Sort assets: Balance > 0 first (descending value), then others
+    const sortedAssets = useMemo(() => {
+        let assets = assetsToDisplay.filter(a =>
+            a.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            a.name.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+
+        const attachedChainId = selectingFor?.type === 'source' ? sourceChain?.chain_id : destChain?.chain_id
+
+        return assets.sort((a, b) => {
+            // Find wallet balance for A
+            // We match by symbol AND ensuring the wallet is on the correct chain (or generic mapping)
+            const walletA = wallets.find(w =>
+                w.symbol === a.symbol &&
+                (w.chainId === attachedChainId || getChainForWallet(w)?.chain_id === attachedChainId)
+            )
+            const balanceA = walletA ? walletA.balance : 0
+
+            // Find wallet balance for B
+            const walletB = wallets.find(w =>
+                w.symbol === b.symbol &&
+                (w.chainId === attachedChainId || getChainForWallet(w)?.chain_id === attachedChainId)
+            )
+            const balanceB = walletB ? walletB.balance : 0
+
+            // Sort Logic
+            if (balanceA > 0 && balanceB > 0) return balanceB - balanceA // Both have balance: Higher first
+            if (balanceA > 0) return -1 // A has balance, B doesn't: A first
+            if (balanceB > 0) return 1  // B has balance, A doesn't: B first
+            return 0 // Neither has balance: Keep original order
+        })
+    }, [assetsToDisplay, searchTerm, wallets, sourceChain, destChain, selectingFor])
+
+    const filteredAssets = sortedAssets
 
     return (
         <div className="max-w-md mx-auto relative pt-8 pb-20">
