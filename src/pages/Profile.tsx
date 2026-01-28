@@ -61,6 +61,9 @@ export function Profile() {
                 redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}`
             }
         })
+        if (!error) {
+            localStorage.setItem('posthuman_auth_redirect', 'true')
+        }
         if (error) setMessage({ type: 'error', text: error.message })
     }
 

@@ -9,34 +9,62 @@ import { Profile } from './pages/Profile'
 const Wallet = () => <div className="text-2xl font-bold">Wallet Manager</div>
 const Browser = () => <div className="text-2xl font-bold">dApp Browser</div>
 
+import { supabase } from './services/supa'
+
 function App() {
-  const [isAuthProcessing, setIsAuthProcessing] = useState(false)
+  const [isAuthProcessing, setIsAuthProcessing] = useState(true) // Start true to check session first
 
   useEffect(() => {
-    // Check if we are coming back from Supabase Auth (Implicit Flow)
-    if (window.location.hash.includes('access_token=') || window.location.hash.includes('error=')) {
-      console.log("🔒 Auth redirect detected, pausing router...")
-      setIsAuthProcessing(true)
-
-      // Allow Supabase to process the hash
-      const timer = setTimeout(() => {
-        // Explicitly redirect to profile page after auth
-        console.log("✅ Auth processing complete. Redirecting to Profile...")
+    // 1. Check for active session immediately
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        // If no session, but we have a hash token, let's wait a bit
         if (window.location.hash.includes('access_token=')) {
-          window.location.hash = '#/profile'
+          console.log("🔒 Hash token detected, waiting for Supabase to parse...")
+          return
         }
-      }, 1500) // Give Supabase 1.5s to grab the session
+        setIsAuthProcessing(false)
+      } else {
+        handleAuthRedirect()
+        setIsAuthProcessing(false)
+      }
+    })
 
-      return () => clearTimeout(timer)
-    }
+    // 2. Listen for auth changes (this handles the hash parsing)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log(`Auth event: ${event}`, session?.user?.email)
+
+      if (event === 'SIGNED_IN' && session) {
+        handleAuthRedirect()
+        setIsAuthProcessing(false)
+      }
+
+      if (event === 'SIGNED_OUT') {
+        setIsAuthProcessing(false)
+      }
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
+
+  const handleAuthRedirect = () => {
+    const wasLoggingIn = localStorage.getItem('posthuman_auth_redirect')
+    if (wasLoggingIn === 'true') {
+      console.log("✅ Completing auth redirect flow -> Profile")
+      localStorage.removeItem('posthuman_auth_redirect')
+      // Force hash change to profile
+      if (window.location.hash !== '#/profile') {
+        window.location.hash = '#/profile'
+      }
+    }
+  }
 
   if (isAuthProcessing) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-black text-white">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 rounded-full border-4 border-purple-500 border-t-transparent animate-spin" />
-          <p className="animate-pulse text-gray-400">Verifying Logic...</p>
+          <p className="animate-pulse text-gray-400">Loading Posthuman...</p>
         </div>
       </div>
     )
