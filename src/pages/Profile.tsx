@@ -78,12 +78,18 @@ export function Profile() {
         setMessage(null)
 
         if (authMode === 'signup') {
-            const { error } = await supabase.auth.signUp({ email, password })
+            const { error } = await supabase.auth.signUp({ email: email.trim(), password })
             if (error) setMessage({ type: 'error', text: error.message })
             else setMessage({ type: 'success', text: 'Check your email for the confirmation link!' })
         } else {
-            const { error } = await supabase.auth.signInWithPassword({ email, password })
-            if (error) setMessage({ type: 'error', text: error.message })
+            const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+            if (error) {
+                let msg = error.message
+                if (msg.includes("Invalid login credentials")) {
+                    msg += " (Did you Sign Up first? OAuth accounts need a separate password set.)"
+                }
+                setMessage({ type: 'error', text: msg })
+            }
         }
         setLoading(false)
     }
