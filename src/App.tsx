@@ -84,7 +84,7 @@ function App() {
       <div className="flex h-screen w-full items-center justify-center bg-black text-white">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 rounded-full border-4 border-purple-500 border-t-transparent animate-spin" />
-          <p className="animate-pulse text-gray-400">Loading Posthuman...</p>
+          <p className="animate-pulse text-gray-400">{authError ? `Error: ${authError}` : 'Finalizing secure secure connection...'}</p>
         </div>
       </div>
     )
