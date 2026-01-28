@@ -10,11 +10,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@bigmi/react": "^0.6.5",
     "@cosmjs/cosmwasm-stargate": "^0.38.1",
     "@cosmjs/proto-signing": "^0.38.1",
     "@cosmjs/stargate": "^0.38.1",
+    "@lifi/widget": "^3.40.5",
+    "@solana/wallet-adapter-react": "^0.15.39",
     "@solana/web3.js": "^1.98.4",
     "@supabase/supabase-js": "^2.93.1",
+    "@tanstack/react-query": "^5.90.20",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "ethers": "^6.16.0",
@@ -26,6 +30,8 @@
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.13.0",
     "tailwind-merge": "^3.4.0",
+    "viem": "^2.45.0",
+    "wagmi": "^3.4.1",
     "zustand": "^5.0.10"
   },
   "devDependencies": {
