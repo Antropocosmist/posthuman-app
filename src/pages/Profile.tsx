@@ -268,13 +268,16 @@ export function Profile() {
                                     }
                                 );
                             } else {
-                                alert("Telegram widget not loaded yet. Please wait a moment.");
+                                console.log("Telegram widget not ready");
                             }
                         }}
                         className="flex items-center justify-center p-3 w-12 h-12 rounded-2xl bg-white/5 hover:bg-white/10 hover:scale-105 transition-all text-white border border-white/5 shadow-lg relative group"
                     >
                         <div className="absolute inset-0 bg-blue-500/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                        <svg className="w-5 h-5 relative z-10" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.694 24h.695z M11.944 0C5.352 0 .008 5.343.008 11.935c0 6.592 5.344 11.935 11.936 11.935 6.592 0 11.935-5.343 11.935-11.935S18.536 0 11.944 0z" /><path d="M17.25 8.25L7.5 12l2.25 1.5 1.5 4.5 3-4.5 3.75 2.25 1.5-7.5z" fill="white" transform="translate(1 1)" /></svg>
+                        <svg className="w-5 h-5 relative z-10" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M22 2L11 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
                     </button>
 
                     {/* GitHub */}
