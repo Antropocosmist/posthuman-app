@@ -14,18 +14,20 @@ export interface NFT {
 const STARGAZE_GRAPHQL = 'https://graphql.mainnet.stargaze-apis.com/graphql'
 
 const fetchStargazeNFTs = async (address: string): Promise<NFT[]> => {
-    // Updated query: Uses 'filter' object which is standard for Constellations/Indexer
+    // Correct Query: 'owner' argument + Nested 'tokens' selection
     const query = `
     query OwnedTokens($owner: String!) {
-      tokens(filter: { owner: $owner }, limit: 50) {
-        tokenId
-        name
-        description
-        media {
-          url
-        }
-        collection {
+      tokens(owner: $owner, limit: 50) {
+        tokens {
+          tokenId
           name
+          description
+          media {
+            url
+          }
+          collection {
+            name
+          }
         }
       }
     }
@@ -49,7 +51,9 @@ const fetchStargazeNFTs = async (address: string): Promise<NFT[]> => {
             return []
         }
 
-        const items = json.data?.tokens || []
+        // Handle nested structure: data.tokens.tokens
+        // The first 'tokens' is the result object (pagination etc), the second is the array.
+        const items = json.data?.tokens?.tokens || []
         console.log(`[Stargaze] Found ${items.length} tokens`)
 
         return items.map((t: any) => ({
