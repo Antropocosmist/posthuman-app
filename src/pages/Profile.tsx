@@ -119,7 +119,10 @@ export function Profile() {
                 redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}`
             }
         })
-        if (error) setMessage({ type: 'error', text: error.message })
+        if (error) {
+            setMessage({ type: 'error', text: error.message })
+            setLoading(false)
+        }
         // Redirect happens automatically
     }
 
