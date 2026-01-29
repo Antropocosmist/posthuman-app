@@ -263,6 +263,14 @@ export function Profile() {
                     </div>
                 </div>
 
+                {/* Messages */}
+                {message && (
+                    <div className={`mb-6 p-4 rounded-2xl text-xs font-bold flex items-center gap-2 ${message.type === 'error' ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'bg-green-500/10 text-green-500 border border-green-500/20'}`}>
+                        {message.type === 'error' ? <AlertTriangle className="w-4 h-4 shrink-0" /> : <CheckCircle2 className="w-4 h-4 shrink-0" />}
+                        {message.text}
+                    </div>
+                )}
+
                 {/* Connected Accounts */}
                 <div className="mb-8">
                     <h3 className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-4 px-2">Connected Accounts</h3>
