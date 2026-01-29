@@ -253,6 +253,7 @@ export function Profile() {
             <div className="text-center mb-10">
                 <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">Posthuman ID</h1>
                 <p className="text-gray-400 text-sm">One account for the entire interchain.</p>
+                <span className="text-[10px] text-gray-700 block mt-2 font-mono">v1.1</span>
             </div>
 
             <div className="p-6 rounded-3xl bg-[#14141b] border border-white/5 backdrop-blur-xl shadow-2xl">
