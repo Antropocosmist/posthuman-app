@@ -124,7 +124,7 @@ async function upsertSupabaseUser(telegramPayload: Record<string, any>) {
         // proceed to attempt update
     }
 
-    // 2. If already exists, UPDATE user metadata
+    // 2. If already exists, UPDATE user metadata AND ensure email is set
     // We assume the ID we tried to create (telegram-{tgId}) is the one that exists.
     try {
         const updateUrl = `${SUPABASE_URL}/auth/v1/admin/users/${userId}`;
@@ -132,11 +132,15 @@ async function upsertSupabaseUser(telegramPayload: Record<string, any>) {
             method: "PUT",
             headers,
             body: JSON.stringify({
-                user_metadata: user_metadata, // Update metadata
+                email: email || undefined, // Ensure email is set even if previously null
+                email_confirm: true,       // Auto-confirm the email so login works
+                user_metadata: user_metadata,
             }),
         });
         if (upd.ok) {
             return await upd.json();
+        } else {
+            console.error("Update failed status:", upd.status, await upd.text());
         }
     } catch (e) {
         console.error("Update failed", e);

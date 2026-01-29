@@ -88,11 +88,26 @@ export function Profile() {
             setMessage({ type: 'success', text: "Successfully logged in with Telegram!" })
         } catch (err: any) {
             console.error("Telegram Login Error:", err)
-            setMessage({ type: 'error', text: err.message || "Failed to log in with Telegram" })
+            // Supabase Functions invoke returns error details in 'context' if available
+            const errorMsg = err.context?.error || err.message || "Failed to log in with Telegram"
+            setMessage({ type: 'error', text: errorMsg })
         } finally {
             setLoading(false)
         }
     }
+
+    // Capture OAuth Errors (e.g. from X/Twitter redirect)
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.hash.substring(1)) // Handle hash routing params
+        const errorDescription = params.get('error_description')
+        const error = params.get('error')
+
+        if (errorDescription || error) {
+            setMessage({ type: 'error', text: errorDescription || error || "Authentication failed" })
+            // Clean URL
+            window.history.replaceState(null, '', window.location.pathname)
+        }
+    }, [])
 
     // Load Telegram Widget Script (Headless for JS API)
     useEffect(() => {
