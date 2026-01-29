@@ -3,6 +3,8 @@ import { supabase } from '../services/supa'
 import { X, Upload, Loader2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useWalletStore } from '../store/walletStore'
+import { fetchNFTs } from '../services/nftService'
+import type { NFT } from '../services/nftService'
 
 interface AvatarSelectionModalProps {
     isOpen: boolean
@@ -17,9 +19,9 @@ export function AvatarSelectionModal({ isOpen, onClose, onSelect }: AvatarSelect
     const [uploadError, setUploadError] = useState<string | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
 
-    // NFT Logic (Mock for now, ready for API)
+    // NFT Logic
     const { wallets } = useWalletStore()
-    const [nfts, setNfts] = useState<any[]>([])
+    const [nfts, setNfts] = useState<NFT[]>([])
     const [loadingNfts, setLoadingNfts] = useState(false)
 
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -58,18 +60,21 @@ export function AvatarSelectionModal({ isOpen, onClose, onSelect }: AvatarSelect
         }
     }
 
-    // Mock NFT Fetcher (Replace with Real API)
-    const fetchNfts = async () => {
+    // Real NFT Fetcher
+    const loadNfts = async () => {
         setLoadingNfts(true)
-        // Simulate network delay
-        setTimeout(() => {
-            setNfts([
-                { id: 1, name: 'Cosmos Punk #1', image: 'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=150&h=150&fit=crop' },
-                { id: 2, name: 'Galactic Ape', image: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=150&h=150&fit=crop' },
-                { id: 3, name: 'Starship', image: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&h=150&fit=crop' },
-            ])
+        setNfts([])
+
+        try {
+            const promises = wallets.map(w => fetchNFTs(w.address, w.chain, w.chainId))
+            const results = await Promise.all(promises)
+            const allNfts = results.flat()
+            setNfts(allNfts)
+        } catch (err) {
+            console.error("Failed to load NFTs", err)
+        } finally {
             setLoadingNfts(false)
-        }, 1000)
+        }
     }
 
     if (!isOpen) return null
@@ -111,7 +116,7 @@ export function AvatarSelectionModal({ isOpen, onClose, onSelect }: AvatarSelect
                             Upload
                         </button>
                         <button
-                            onClick={() => { setActiveTab('nft'); fetchNfts(); }}
+                            onClick={() => { setActiveTab('nft'); loadNfts(); }}
                             className={`flex-1 py-3 px-4 rounded-xl text-sm font-bold uppercase tracking-wider transition-all border ${activeTab === 'nft'
                                 ? 'bg-purple-600/10 border-purple-600 text-purple-400'
                                 : 'bg-white/5 border-transparent text-gray-500 hover:bg-white/10'
