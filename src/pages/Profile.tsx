@@ -68,32 +68,59 @@ export function Profile() {
         if (error) setMessage({ type: 'error', text: error.message })
     }
 
-    // Telegram Auth Handler
-    const handleTelegramLogin = async (user: any) => {
+    // Unified Telegram Auth Handler (Login or Link)
+    const handleTelegramAuth = async (telegramUser: any) => {
         setLoading(true)
         setMessage(null)
         try {
-            // Call our Edge Function
+            // Prepare headers: If user is logged in, attach Authorization for Linking
+            const headers: Record<string, string> = {}
+            if (user) {
+                const { data: { session } } = await supabase.auth.getSession()
+                if (session) headers['Authorization'] = `Bearer ${session.access_token}`
+            }
+
+            // Call Edge Function
             const { data, error } = await supabase.functions.invoke('telegram-auth', {
-                body: user
+                body: telegramUser,
+                headers: headers
             })
 
             if (error) throw error
-            if (!data.session) throw new Error("No session returned from server")
 
-            // Set session
-            const { error: authError } = await supabase.auth.setSession(data.session)
-            if (authError) throw authError
+            // If we were Linking (user exists), we expect a message, not a session
+            if (user) {
+                setMessage({ type: 'success', text: "Telegram account connected successfully!" })
+                // Force refresh user data to show new link
+                const { data: { user: newUser } } = await supabase.auth.getUser()
+                setUser(newUser)
+            } else {
+                // If we were Logging In (no user), we expect a session
+                if (!data.session) throw new Error("No session returned from server")
+                const { error: authError } = await supabase.auth.setSession(data.session)
+                if (authError) throw authError
+                setMessage({ type: 'success', text: "Successfully logged in with Telegram!" })
+            }
 
-            setMessage({ type: 'success', text: "Successfully logged in with Telegram!" })
         } catch (err: any) {
-            console.error("Telegram Login Error:", err)
-            // Supabase Functions invoke returns error details in 'context' if available
-            const errorMsg = err.context?.error || err.message || "Failed to log in with Telegram"
+            console.error("Telegram Auth Error:", err)
+            const errorMsg = err.context?.error || err.message || "Failed to authenticate with Telegram"
             setMessage({ type: 'error', text: errorMsg })
         } finally {
             setLoading(false)
         }
+    }
+
+    const handleSocialLink = async (provider: 'twitter' | 'github' | 'discord') => {
+        setLoading(true)
+        const { error } = await supabase.auth.linkIdentity({
+            provider,
+            options: {
+                redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}`
+            }
+        })
+        if (error) setMessage({ type: 'error', text: error.message })
+        // Redirect happens automatically
     }
 
     // Capture OAuth Errors (e.g. from X/Twitter redirect)
@@ -111,12 +138,10 @@ export function Profile() {
 
     // Load Telegram Widget Script (Headless for JS API)
     useEffect(() => {
-        if (user) return
-
+        // We always load the widget script so it's ready when needed
         const script = document.createElement('script')
         script.src = "https://telegram.org/js/telegram-widget.js?22"
         script.async = true
-
         document.body.appendChild(script)
 
         return () => {
@@ -124,7 +149,7 @@ export function Profile() {
                 document.body.removeChild(script)
             }
         }
-    }, [user])
+    }, [])
 
     const handleEmailAuth = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -204,6 +229,9 @@ export function Profile() {
     if (user) {
         const userEmail = user.email || "Anonymous User"
         const userId = user.id ? user.id.slice(0, 8) : "Unknown"
+        // @ts-ignore
+        const connectedProviders = user.identities?.map((i: any) => i.provider) || []
+        const isTelegramLinked = !!user.user_metadata?.telegram
 
         return (
             <div className="max-w-md mx-auto pt-8 pb-20 px-4">
@@ -232,6 +260,94 @@ export function Profile() {
                     </div>
                 </div>
 
+                {/* Connected Accounts */}
+                <div className="mb-8">
+                    <h3 className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-4 px-2">Connected Accounts</h3>
+                    <div className="space-y-3">
+
+                        {/* X (Twitter) */}
+                        <div className="flex items-center justify-between p-4 rounded-2xl bg-[#14141b] border border-white/5">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center">
+                                    <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z" /></svg>
+                                </div>
+                                <span className="text-sm font-medium text-white">X (Twitter)</span>
+                            </div>
+                            {connectedProviders.includes('twitter') ? (
+                                <span className="text-xs font-bold text-green-500 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Connected</span>
+                            ) : (
+                                <button onClick={() => handleSocialLink('twitter')} className="text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg transition-colors">
+                                    Connect
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Telegram */}
+                        <div className="flex items-center justify-between p-4 rounded-2xl bg-[#14141b] border border-white/5">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center">
+                                    <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M22 2L11 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                </div>
+                                <span className="text-sm font-medium text-white">Telegram</span>
+                            </div>
+                            {isTelegramLinked ? (
+                                <span className="text-xs font-bold text-green-500 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Connected</span>
+                            ) : (
+                                <button
+                                    onClick={() => {
+                                        // @ts-ignore
+                                        if (window.Telegram && window.Telegram.Login) {
+                                            // @ts-ignore
+                                            window.Telegram.Login.auth(
+                                                { bot_id: '7962830847', request_access: 'write' },
+                                                (data: any) => handleTelegramAuth(data)
+                                            );
+                                        }
+                                    }}
+                                    className="text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg transition-colors"
+                                >
+                                    Connect
+                                </button>
+                            )}
+                        </div>
+
+                        {/* GitHub */}
+                        <div className="flex items-center justify-between p-4 rounded-2xl bg-[#14141b] border border-white/5">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center">
+                                    <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" /></svg>
+                                </div>
+                                <span className="text-sm font-medium text-white">GitHub</span>
+                            </div>
+                            {connectedProviders.includes('github') ? (
+                                <span className="text-xs font-bold text-green-500 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Connected</span>
+                            ) : (
+                                <button onClick={() => handleSocialLink('github')} className="text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg transition-colors">
+                                    Connect
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Discord */}
+                        <div className="flex items-center justify-between p-4 rounded-2xl bg-[#14141b] border border-white/5">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center">
+                                    <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.418 2.157-2.418 1.21 0 2.176 1.085 2.157 2.419 0 1.334-.956 2.419-2.157 2.419zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.418 2.157-2.418 1.21 0 2.176 1.085 2.157 2.419 0 1.334-.946 2.419-2.157 2.419z" /></svg>
+                                </div>
+                                <span className="text-sm font-medium text-white">Discord</span>
+                            </div>
+                            {connectedProviders.includes('discord') ? (
+                                <span className="text-xs font-bold text-green-500 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Connected</span>
+                            ) : (
+                                <button onClick={() => handleSocialLink('discord')} className="text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg transition-colors">
+                                    Connect
+                                </button>
+                            )}
+                        </div>
+
+                    </div>
+                </div>
+
                 {/* Account Stats */}
                 <div className="grid grid-cols-2 gap-4 mb-8">
                     <div className="p-5 rounded-[2rem] bg-[#14141b] border border-white/5">
@@ -253,11 +369,10 @@ export function Profile() {
             <div className="text-center mb-10">
                 <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">Posthuman ID</h1>
                 <p className="text-gray-400 text-sm">One account for the entire interchain.</p>
-                <span className="text-[10px] text-gray-700 block mt-2 font-mono">v1.1</span>
+                <span className="text-[10px] text-gray-700 block mt-2 font-mono">v1.2</span>
             </div>
 
             <div className="p-6 rounded-3xl bg-[#14141b] border border-white/5 backdrop-blur-xl shadow-2xl">
-                {/* Social Logins */}
                 {/* Social Logins */}
                 <div className="flex flex-wrap justify-center gap-3 mb-8">
                     {/* Google */}
@@ -265,50 +380,9 @@ export function Profile() {
                         <svg className="w-5 h-5" viewBox="0 0 24 24"><path fill="currentColor" d="M21.35 11.1h-9.17v2.96h6.39c-.44 2.15-2.26 3.48-5.24 3.48-3.55 0-6.42-2.81-6.42-6.42s2.88-6.42 6.42-6.42c1.61 0 3.09.59 4.23 1.57l2.14-2.14C18.42 2.7 16.54 2 14.58 2 8.74 2 4 6.74 4 12.58S8.74 23.16 14.58 23.16c6.43 0 10.16-4.59 9.8-10.99-.02-.45-.09-.76-.09-.76z" /></svg>
                     </button>
 
-                    {/* X (Twitter) */}
-                    <button onClick={() => handleSocialLogin('twitter')} title="Sign in with X (Twitter)" className="flex items-center justify-center p-3 w-12 h-12 rounded-2xl bg-white/5 hover:bg-white/10 hover:scale-105 transition-all text-white border border-white/5 shadow-lg">
-                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z" /></svg>
-                    </button>
-
-                    {/* Telegram (Custom Button) */}
-                    <button
-                        onClick={() => {
-                            // Trigger Telegram Widget manually
-                            // @ts-ignore
-                            if (window.Telegram && window.Telegram.Login) {
-                                // @ts-ignore
-                                window.Telegram.Login.auth(
-                                    { bot_id: '7962830847', request_access: 'write' },
-                                    (data: any) => {
-                                        if (data) handleTelegramLogin(data);
-                                    }
-                                );
-                            } else {
-                                console.log("Telegram widget not ready");
-                            }
-                        }}
-                        className="flex items-center justify-center p-3 w-12 h-12 rounded-2xl bg-white/5 hover:bg-white/10 hover:scale-105 transition-all text-white border border-white/5 shadow-lg relative group"
-                    >
-                        <div className="absolute inset-0 bg-blue-500/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                        <svg className="w-5 h-5 relative z-10" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M22 2L11 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                            <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                    </button>
-
-                    {/* GitHub */}
-                    <button onClick={() => handleSocialLogin('github')} className="flex items-center justify-center p-3 w-12 h-12 rounded-2xl bg-white/5 hover:bg-white/10 hover:scale-105 transition-all text-white border border-white/5 shadow-lg">
-                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" /></svg>
-                    </button>
-
-                    {/* Discord */}
-                    <button onClick={() => handleSocialLogin('discord')} className="flex items-center justify-center p-3 w-12 h-12 rounded-2xl bg-white/5 hover:bg-white/10 hover:scale-105 transition-all text-white border border-white/5 shadow-lg">
-                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.418 2.157-2.418 1.21 0 2.176 1.085 2.157 2.419 0 1.334-.956 2.419-2.157 2.419zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.418 2.157-2.418 1.21 0 2.176 1.085 2.157 2.419 0 1.334-.946 2.419-2.157 2.419z" /></svg>
-                    </button>
-
-                    <button onClick={() => useWalletStore.getState().toggleModal()} className="flex items-center justify-center p-3 w-full rounded-2xl bg-white/5 hover:bg-white/10 hover:scale-105 transition-all text-white border border-white/5 gap-2 mt-2 shadow-lg">
+                    {/* Wallet */}
+                    <button onClick={() => useWalletStore.getState().toggleModal()} className="flex items-center justify-center p-3 w-12 h-12 rounded-2xl bg-white/5 hover:bg-white/10 hover:scale-105 transition-all text-white border border-white/5 shadow-lg">
                         <Wallet className="w-5 h-5 text-blue-400" />
-                        <span className="text-xs font-bold uppercase tracking-wider">Continue with Wallet</span>
                     </button>
                 </div>
 

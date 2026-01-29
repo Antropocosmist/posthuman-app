@@ -279,7 +279,68 @@ Deno.serve(async (req: Request) => {
         return new Response(JSON.stringify({ error: "Invalid JSON" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // 0. Check for Auth Header (Account Linking Mode)
+    const authHeader = req.headers.get('Authorization');
+    if (authHeader) {
+        try {
+            // Verify the user token
+            const token = authHeader.replace('Bearer ', '');
+            const supabaseClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY); // Use Admin to verify? Or Anon?
+            // Actually, we can use getUser(token) with the admin client to verify the token valid signature
+            const { data: { user }, error } = await supabaseClient.auth.getUser(token);
+
+            if (user && !error) {
+                // LINKING MODE
+                const verified = verifyTelegramPayload(payload, TELEGRAM_BOT_TOKEN);
+                if (!verified) {
+                    return new Response(JSON.stringify({ error: "Verification failed" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+                }
+
+                // Update User Metadata
+                const tgId = String(payload.id);
+                const updateUrl = `${SUPABASE_URL}/auth/v1/admin/users/${user.id}`;
+                const upd = await fetch(updateUrl, {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
+                        "apikey": SERVICE_ROLE_KEY,
+                    },
+                    body: JSON.stringify({
+                        user_metadata: {
+                            ...user.user_metadata,
+                            telegram: {
+                                id: tgId,
+                                username: payload.username,
+                                first_name: payload.first_name,
+                                last_name: payload.last_name,
+                                photo_url: payload.photo_url,
+                                raw: payload,
+                            }
+                        }
+                    }),
+                });
+
+                if (upd.ok) {
+                    return new Response(JSON.stringify({ message: "Telegram account linked successfully" }), {
+                        status: 200,
+                        headers: { ...corsHeaders, "Content-Type": "application/json" },
+                    });
+                } else {
+                    throw new Error("Failed to update user metadata");
+                }
+            }
+        } catch (e) {
+            console.error("Linking failed", e);
+            // If token verification fails, fall through? Or Error? 
+            // Better to error if they SENT a token but it failed.
+            return new Response(JSON.stringify({ error: "Invalid Session for Linking" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+    }
+
+    // LEGACY / LOGIN MODE (Fallback)
     if (!payload || !payload.hash) {
+
         return new Response(JSON.stringify({ error: "Missing hash" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
