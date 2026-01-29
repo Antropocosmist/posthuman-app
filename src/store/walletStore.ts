@@ -937,12 +937,7 @@ export const useWalletStore = create<WalletState>()(
                         return signature
                     }
 
-                    if (wallet.chain === 'Solana') {
-                        // ... (keeping existing content implied? No, I must replace exact content)
-                        // Wait, I can't replace lines 722-759 easily if I don't include them.
-                        // I'll just match the END of the function.
-                        throw new Error("Unsupported chain for sending")
-                    }
+                    throw new Error(`Unsupported chain for sending: ${wallet.chain}`)
                 } finally {
                     set({ isLoading: false })
                 }
