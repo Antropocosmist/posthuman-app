@@ -13,8 +13,8 @@ export function Trade() {
                     <button
                         onClick={() => setTradeMode('cosmos')}
                         className={`flex-1 py-3 px-4 rounded-full text-sm font-bold uppercase tracking-wider transition-all ${tradeMode === 'cosmos'
-                                ? 'bg-blue-600 text-white shadow-lg'
-                                : 'text-gray-500 hover:text-white hover:bg-white/5'
+                            ? 'bg-blue-600 text-white shadow-lg'
+                            : 'text-gray-500 hover:text-white hover:bg-white/5'
                             }`}
                     >
                         Trade in Cosmos
@@ -22,8 +22,8 @@ export function Trade() {
                     <button
                         onClick={() => setTradeMode('evm')}
                         className={`flex-1 py-3 px-4 rounded-full text-sm font-bold uppercase tracking-wider transition-all ${tradeMode === 'evm'
-                                ? 'bg-purple-600 text-white shadow-lg'
-                                : 'text-gray-500 hover:text-white hover:bg-white/5'
+                            ? 'bg-purple-600 text-white shadow-lg'
+                            : 'text-gray-500 hover:text-white hover:bg-white/5'
                             }`}
                     >
                         Trade in EVM
@@ -36,10 +36,6 @@ export function Trade() {
                 <CosmosTrade />
             ) : (
                 <div className="px-4">
-                    <div className="text-center mb-6">
-                        <h2 className="text-xl font-bold text-white mb-1">Cross-Chain Swap</h2>
-                        <p className="text-xs text-purple-400 font-bold uppercase tracking-widest">Powered by Jumper</p>
-                    </div>
                     <JumperTrade />
                 </div>
             )}
