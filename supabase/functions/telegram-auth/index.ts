@@ -288,53 +288,62 @@ Deno.serve(async (req: Request) => {
     const authHeader = req.headers.get('Authorization');
     if (authHeader) {
         try {
-            // Verify the user token
+            // Standard Pattern: Create Client with Auth Header to verify User
+            const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
+            if (!SUPABASE_ANON_KEY) throw new Error("Missing SUPABASE_ANON_KEY");
+
             const token = authHeader.replace('Bearer ', '');
-            const supabaseClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY); // Use Admin to verify? Or Anon?
-            // Actually, we can use getUser(token) with the admin client to verify the token valid signature
+            console.log("Auth Header received (len):", authHeader.length);
+
+            const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
             const { data: { user }, error } = await supabaseClient.auth.getUser(token);
 
-            if (user && !error) {
-                // LINKING MODE
-                const verified = verifyTelegramPayload(payload, TELEGRAM_BOT_TOKEN);
-                if (!verified) {
-                    return new Response(JSON.stringify({ error: "Verification failed" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-                }
-
-                // Update User Metadata
-                const tgId = String(payload.id);
-                const updateUrl = `${SUPABASE_URL}/auth/v1/admin/users/${user.id}`;
-                const upd = await fetch(updateUrl, {
-                    method: "PUT",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
-                        "apikey": SERVICE_ROLE_KEY,
-                    },
-                    body: JSON.stringify({
-                        user_metadata: {
-                            ...user.user_metadata,
-                            telegram: {
-                                id: tgId,
-                                username: payload.username,
-                                first_name: payload.first_name,
-                                last_name: payload.last_name,
-                                photo_url: payload.photo_url,
-                                raw: payload,
-                            }
-                        }
-                    }),
-                });
-
-                if (upd.ok) {
-                    return new Response(JSON.stringify({ message: "Telegram account linked successfully" }), {
-                        status: 200,
-                        headers: { ...corsHeaders, "Content-Type": "application/json" },
-                    });
-                } else {
-                    throw new Error("Failed to update user metadata");
-                }
+            if (error || !user) {
+                console.error("Token verification failed:", error);
+                // Detailed error for client
+                throw new Error(`Invalid JWT: ${error?.message || "Unknown"} (Header: ${authHeader.slice(0, 10)}...)`);
             }
+
+            // LINKING MODE
+            const verified = verifyTelegramPayload(payload, TELEGRAM_BOT_TOKEN);
+            if (!verified) {
+                return new Response(JSON.stringify({ error: "Verification failed" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+            }
+
+            // Update User Metadata
+            const tgId = String(payload.id);
+            const updateUrl = `${SUPABASE_URL}/auth/v1/admin/users/${user.id}`;
+            const upd = await fetch(updateUrl, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
+                    "apikey": SERVICE_ROLE_KEY,
+                },
+                body: JSON.stringify({
+                    user_metadata: {
+                        ...user.user_metadata,
+                        telegram: {
+                            id: tgId,
+                            username: payload.username,
+                            first_name: payload.first_name,
+                            last_name: payload.last_name,
+                            photo_url: payload.photo_url,
+                            raw: payload,
+                        }
+                    }
+                }),
+            });
+
+            if (upd.ok) {
+                return new Response(JSON.stringify({ message: "Telegram account linked successfully" }), {
+                    status: 200,
+                    headers: { ...corsHeaders, "Content-Type": "application/json" },
+                });
+            } else {
+                throw new Error("Failed to update user metadata");
+            }
+
         } catch (e: any) {
             console.error("Linking failed", e);
             return new Response(JSON.stringify({ error: e.message || "Linking failed" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });

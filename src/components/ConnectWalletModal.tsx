@@ -90,6 +90,7 @@ export function ConnectWalletModal() {
                                         { name: 'Phantom', chain: 'Solana' as ChainType, icon: `${import.meta.env.BASE_URL}icons/phantom.png`, color: 'bg-purple-500/10 border-purple-500/20 hover:border-purple-500 hover:shadow-[0_0_20px_rgba(168,85,247,0.1)]' },
                                         { name: 'Solflare', chain: 'Solana' as ChainType, icon: `${import.meta.env.BASE_URL}icons/solflare.png`, color: 'bg-orange-400/10 border-orange-400/20 hover:border-orange-400 hover:shadow-[0_0_20px_rgba(251,146,60,0.1)]' },
                                         { name: 'Keplr', chain: 'Cosmos' as ChainType, icon: `${import.meta.env.BASE_URL}icons/keplr.png`, color: 'bg-blue-500/10 border-blue-500/20 hover:border-blue-500 hover:shadow-[0_0_20px_rgba(59,130,246,0.1)]' },
+                                        { name: 'Adena', chain: 'Gno' as ChainType, icon: `${import.meta.env.BASE_URL}icons/adena.png`, color: 'bg-green-500/10 border-green-500/20 hover:border-green-500 hover:shadow-[0_0_20px_rgba(34,197,94,0.1)]' },
                                     ]
                                         .filter(option => !wallets.some(w => w.walletProvider === option.name)) // FILTER: Hide if already connected
                                         .map(option => (

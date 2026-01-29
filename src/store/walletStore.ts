@@ -4,7 +4,7 @@ import { RpcService, RPC_URLS } from '../services/rpc'
 import { PriceService } from '../services/price'
 import { supabase, isSupabaseConfigured } from '../services/supa'
 
-export type ChainType = 'EVM' | 'Cosmos' | 'Solana'
+export type ChainType = 'EVM' | 'Cosmos' | 'Solana' | 'Gno'
 
 export interface Trade {
     id: string
@@ -667,6 +667,61 @@ export const useWalletStore = create<WalletState>()(
                             }))
                         } else if (chain === 'Solana' && !address) {
                             console.warn("Solana connection attempted but no address found.")
+                        }
+
+
+                        // ---------------------------------------------------------
+                        // Gno.land (Adena)
+                        // ---------------------------------------------------------
+                        else if (chain === 'Gno') {
+                            if (window.adena) {
+                                try {
+                                    // 1. Establish Connection
+                                    const est = await window.adena.AddEstablish("Posthuman")
+                                    if (est.status === 'success' || est.code === 0) {
+
+                                        // 2. Get Account Info
+                                        const acc = await window.adena.GetAccount()
+                                        if (acc.status === 'success' || acc.code === 0) {
+                                            const address = acc.data.address
+                                            const coins = acc.data.coins // e.g. "1000000ugnot"
+
+                                            // Parse balance (usually raw string like "123ugnot")
+                                            // For now, simple parsing or 0
+                                            let nativeBal = 0
+                                            if (coins && coins.includes('ugnot')) {
+                                                nativeBal = parseInt(coins.replace('ugnot', '')) / 1000000
+                                            }
+
+                                            const newWallet: ConnectedWallet = {
+                                                id: `adena-${address.substr(-4)}`,
+                                                name: 'Adena',
+                                                chain: 'Gno',
+                                                address: address,
+                                                icon: `${BASE_URL}icons/adena.png`, // Need to ensure icon exists or use placeholder
+                                                balance: 0, // No price feed for GNOT yet usually
+                                                nativeBalance: nativeBal,
+                                                symbol: 'GNOT',
+                                                walletProvider: 'Adena'
+                                            }
+
+                                            // Remove existing Adena wallets to prevent dups
+                                            const cleanWallets = get().wallets.filter(w => w.walletProvider !== 'Adena')
+                                            set({ wallets: [...cleanWallets, newWallet], isModalOpen: false })
+
+                                        } else {
+                                            console.error("Adena GetAccount failed:", acc)
+                                            alert("Failed to get Adena account info")
+                                        }
+                                    } else {
+                                        console.error("Adena Establish failed:", est)
+                                    }
+                                } catch (e) {
+                                    console.error("Adena connection error:", e)
+                                }
+                            } else {
+                                window.open("https://adena.app/", "_blank")
+                            }
                         }
                     }
                 } catch (error) {
