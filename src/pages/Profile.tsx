@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { LogOut, User, Mail, Shield, AlertTriangle, CheckCircle2, Cloud, Wallet } from 'lucide-react'
+import { LogOut, User, Mail, Shield, AlertTriangle, CheckCircle2, Cloud, Edit2, Wallet } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../services/supa'
 import { useWalletStore } from '../store/walletStore'
+import { AvatarSelectionModal } from '../components/AvatarSelectionModal'
 
 export function Profile() {
     const [user, setUser] = useState<any>(null)
@@ -12,6 +13,7 @@ export function Profile() {
     const [password, setPassword] = useState('')
     const [message, setMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null)
     const { trades, wallets } = useWalletStore()
+    const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false)
 
     useEffect(() => {
         if (!isSupabaseConfigured()) {
@@ -147,6 +149,24 @@ export function Profile() {
             setLoading(false)
         }
         // Redirect happens automatically
+        // Redirect happens automatically
+    }
+
+    const handleUpdateAvatar = async (url: string) => {
+        setLoading(true)
+        const { error } = await supabase.auth.updateUser({
+            data: { avatar_url: url }
+        })
+
+        if (error) {
+            setMessage({ type: 'error', text: "Failed to update avatar: " + error.message })
+        } else {
+            setMessage({ type: 'success', text: "Avatar updated successfully!" })
+            // Refresh user
+            const { data: { user: updatedUser } } = await supabase.auth.getUser()
+            setUser(updatedUser)
+        }
+        setLoading(false)
     }
 
     // Capture OAuth Errors (e.g. from X/Twitter redirect)
@@ -273,8 +293,20 @@ export function Profile() {
 
                 {/* User Card */}
                 <div className="p-6 rounded-3xl bg-[#14141b] border border-white/5 backdrop-blur-xl mb-6 flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-2xl font-bold text-white shadow-xl">
-                        {user.email?.[0]?.toUpperCase() || <User />}
+                    <div className="relative group">
+                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-2xl font-bold text-white shadow-xl overflow-hidden border-2 border-transparent group-hover:border-white/20 transition-all">
+                            {user.user_metadata?.avatar_url ? (
+                                <img src={user.user_metadata.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+                            ) : (
+                                user.email?.[0]?.toUpperCase() || <User />
+                            )}
+                        </div>
+                        <button
+                            onClick={() => setIsAvatarModalOpen(true)}
+                            className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        >
+                            <Edit2 className="w-6 h-6 text-white" />
+                        </button>
                     </div>
                     <div>
                         <div className="text-sm text-gray-400 font-bold uppercase tracking-wider mb-1">Signed in as</div>
@@ -393,6 +425,13 @@ export function Profile() {
                         <div className="text-xs font-mono text-gray-400 truncate">#{userId}</div>
                     </div>
                 </div>
+
+                <AvatarSelectionModal
+                    isOpen={isAvatarModalOpen}
+                    onClose={() => setIsAvatarModalOpen(false)}
+                    onSelect={handleUpdateAvatar}
+                    currentAvatar={user.user_metadata?.avatar_url}
+                />
             </div>
         )
     }
