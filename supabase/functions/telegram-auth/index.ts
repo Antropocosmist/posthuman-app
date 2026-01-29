@@ -279,7 +279,12 @@ Deno.serve(async (req: Request) => {
         return new Response(JSON.stringify({ error: "Invalid JSON" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // 0. Check for Auth Header (Account Linking Mode)
+    // 0. Environment Check
+    if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !TELEGRAM_BOT_TOKEN) {
+        return new Response(JSON.stringify({ error: "Server Error: Missing Environment Variables (TELEGRAM_BOT_TOKEN?)" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // 1. Check for Auth Header (Account Linking Mode)
     const authHeader = req.headers.get('Authorization');
     if (authHeader) {
         try {

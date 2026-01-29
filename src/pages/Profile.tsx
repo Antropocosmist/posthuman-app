@@ -73,20 +73,44 @@ export function Profile() {
         setLoading(true)
         setMessage(null)
         try {
-            // Prepare headers: If user is logged in, attach Authorization for Linking
-            const headers: Record<string, string> = {}
-            if (user) {
-                const { data: { session } } = await supabase.auth.getSession()
-                if (session) headers['Authorization'] = `Bearer ${session.access_token}`
+            // Prepare headers
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json'
             }
 
-            // Call Edge Function
-            const { data, error } = await supabase.functions.invoke('telegram-auth', {
-                body: telegramUser,
-                headers: headers
+            // If user is logged in, attach Authorization for Linking
+            const { data: { session } } = await supabase.auth.getSession()
+            if (user && session) {
+                headers['Authorization'] = `Bearer ${session.access_token}`
+            }
+
+            // Direct Fetch to get better error details
+            const functionalityUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/telegram-auth`
+            // Need to include anon key for Edge Functions
+            headers['apikey'] = import.meta.env.VITE_SUPABASE_ANON_KEY ?? ''
+            if (!session) {
+                // If no session, we still might need Authorization: Bearer ANON_KEY for some EF configs
+                // But usually apikey is enough? standard is Auth: Bearer ANON_KEY
+                headers['Authorization'] = `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+            }
+
+            const response = await fetch(functionalityUrl, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(telegramUser)
             })
 
-            if (error) throw error
+            let data;
+            const textResponse = await response.text()
+            try {
+                data = JSON.parse(textResponse)
+            } catch {
+                data = { error: textResponse || response.statusText }
+            }
+
+            if (!response.ok) {
+                throw new Error(data.error || data.message || `Server Error: ${response.status} ${data}`)
+            }
 
             // If we were Linking (user exists), we expect a message, not a session
             if (user) {
@@ -104,19 +128,7 @@ export function Profile() {
 
         } catch (err: any) {
             console.error("Telegram Auth Error:", err)
-            // Advanced error parsing for Edge Functions
-            let errorMsg = "Failed to authenticate"
-
-            if (err.context && err.context.error) {
-                // Error text returned from the Edge Function JSON
-                errorMsg = err.context.error
-            } else if (err.message) {
-                errorMsg = err.message
-            } else {
-                errorMsg = JSON.stringify(err)
-            }
-
-            setMessage({ type: 'error', text: `Telegram Error: ${errorMsg}` })
+            setMessage({ type: 'error', text: `Telegram Error: ${err.message}` })
         } finally {
             setLoading(false)
         }
