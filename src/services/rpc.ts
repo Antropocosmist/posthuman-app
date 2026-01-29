@@ -20,14 +20,15 @@ export const RPC_URLS = {
     JUNO: 'https://juno-rpc.polkachu.com',
     NEUTRON: 'https://neutron-rpc.publicnode.com',
     OSMOSIS: 'https://osmosis-rpc.publicnode.com:443',
-    ATOM_ONE: 'https://atomone-rpc.publicnode.com'
+    ATOM_ONE: 'https://atomone-rpc.publicnode.com',
+    STARGAZE: 'https://stargaze-rpc.publicnode.com:443'
 }
 
 export const REST_URLS = {
     NEUTRON: 'https://rest.neutron.posthuman.digital'
 }
 
-export type SupportedChain = 'ETHEREUM' | 'BASE' | 'POLYGON' | 'ARBITRUM' | 'BSC' | 'SOLANA' | 'COSMOS_HUB' | 'JUNO' | 'NEUTRON' | 'OSMOSIS' | 'ATOM_ONE'
+export type SupportedChain = 'ETHEREUM' | 'BASE' | 'POLYGON' | 'ARBITRUM' | 'BSC' | 'SOLANA' | 'COSMOS_HUB' | 'JUNO' | 'NEUTRON' | 'OSMOSIS' | 'ATOM_ONE' | 'STARGAZE'
 
 export const RpcService = {
 
@@ -50,6 +51,7 @@ export const RpcService = {
                 case 'NEUTRON':
                 case 'OSMOSIS':
                 case 'ATOM_ONE':
+                case 'STARGAZE':
                     return await RpcService.getCosmosBalance(chain, address)
                 default:
                     return 0
@@ -104,7 +106,7 @@ export const RpcService = {
     // ----------------------------------------------------------------
     // Cosmos Logic (Native & IBC)
     // ----------------------------------------------------------------
-    getCosmosBalance: async (chain: 'COSMOS_HUB' | 'JUNO' | 'NEUTRON' | 'OSMOSIS' | 'ATOM_ONE', address: string, customDenom?: string) => {
+    getCosmosBalance: async (chain: 'COSMOS_HUB' | 'JUNO' | 'NEUTRON' | 'OSMOSIS' | 'ATOM_ONE' | 'STARGAZE', address: string, customDenom?: string) => {
         const client = await StargateClient.connect(RPC_URLS[chain])
 
         let denom = customDenom
@@ -115,6 +117,7 @@ export const RpcService = {
                 case 'NEUTRON': denom = 'untrn'; break;
                 case 'OSMOSIS': denom = 'uosmo'; break;
                 case 'ATOM_ONE': denom = 'uatone'; break;
+                case 'STARGAZE': denom = 'ustars'; break;
             }
         }
 

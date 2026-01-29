@@ -132,6 +132,7 @@ export const useWalletStore = create<WalletState>()(
                     if (wallet.address.startsWith('neutron')) return { chain_id: 'neutron-1', chain_name: 'neutron', chain_type: 'cosmos' }
                     if (wallet.address.startsWith('osmo')) return { chain_id: 'osmosis-1', chain_name: 'osmosis', chain_type: 'cosmos' }
                     if (wallet.address.startsWith('atone')) return { chain_id: 'atomone-1', chain_name: 'atomone', chain_type: 'cosmos' }
+                    if (wallet.address.startsWith('stars')) return { chain_id: 'stargaze-1', chain_name: 'stargaze', chain_type: 'cosmos' }
                 }
                 return null
             },
@@ -253,7 +254,8 @@ export const useWalletStore = create<WalletState>()(
                                 { id: 'juno-1', rpcChain: 'JUNO' as const, symbol: 'JUNO' },
                                 { id: 'neutron-1', rpcChain: 'NEUTRON' as const, symbol: 'NTRN' },
                                 { id: 'osmosis-1', rpcChain: 'OSMOSIS' as const, symbol: 'OSMO' },
-                                { id: 'atomone-1', rpcChain: 'ATOM_ONE' as const, symbol: 'ATONE' }
+                                { id: 'atomone-1', rpcChain: 'ATOM_ONE' as const, symbol: 'ATONE' },
+                                { id: 'stargaze-1', rpcChain: 'STARGAZE' as const, symbol: 'STARS' }
                             ]
 
                             for (const chainConfig of cosmosChains) {
@@ -275,7 +277,8 @@ export const useWalletStore = create<WalletState>()(
                                         name: chainConfig.id === 'cosmoshub-4' ? 'Cosmos Hub' :
                                             chainConfig.id === 'juno-1' ? 'Juno Network' :
                                                 chainConfig.id === 'osmosis-1' ? 'Osmosis' :
-                                                    chainConfig.id === 'atomone-1' ? 'Atom One' : 'Neutron',
+                                                    chainConfig.id === 'atomone-1' ? 'Atom One' :
+                                                        chainConfig.id === 'stargaze-1' ? 'Stargaze' : 'Neutron',
                                         chain: 'Cosmos',
                                         address: cosmosAddress,
                                         icon: `${BASE_URL}icons/keplr.png`,
@@ -759,6 +762,7 @@ export const useWalletStore = create<WalletState>()(
                         else if (wallet.id.startsWith('juno')) chainId = 'juno-1'
                         else if (wallet.id.startsWith('neutron')) chainId = 'neutron-1'
                         else if (wallet.id.startsWith('osmosis')) chainId = 'osmosis-1'
+                        else if (wallet.id.startsWith('stargaze')) chainId = 'stargaze-1'
                         else if (wallet.id.startsWith('phmn-juno')) chainId = 'juno-1' // PHMN CW20
                         else if (wallet.id.startsWith('phmn-neutron')) chainId = 'neutron-1'
                         else if (wallet.id.startsWith('phmn-osmosis')) chainId = 'osmosis-1'
@@ -797,7 +801,9 @@ export const useWalletStore = create<WalletState>()(
                                 'cosmoshub-4': 'https://cosmos-rpc.publicnode.com',
                                 'juno-1': 'https://juno-rpc.polkachu.com',
                                 'neutron-1': 'https://neutron-rpc.publicnode.com',
-                                'osmosis-1': 'https://osmosis-rpc.publicnode.com:443'
+                                'osmosis-1': 'https://osmosis-rpc.publicnode.com:443',
+                                'atomone-1': 'https://atomone-rpc.publicnode.com',
+                                'stargaze-1': 'https://stargaze-rpc.publicnode.com:443'
                             }
 
                             const client = await SigningStargateClient.connectWithSigner(rpcs[chainId], offlineSigner)
