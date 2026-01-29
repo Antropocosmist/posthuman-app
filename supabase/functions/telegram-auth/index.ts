@@ -330,11 +330,9 @@ Deno.serve(async (req: Request) => {
                     throw new Error("Failed to update user metadata");
                 }
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error("Linking failed", e);
-            // If token verification fails, fall through? Or Error? 
-            // Better to error if they SENT a token but it failed.
-            return new Response(JSON.stringify({ error: "Invalid Session for Linking" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+            return new Response(JSON.stringify({ error: e.message || "Linking failed" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
     }
 

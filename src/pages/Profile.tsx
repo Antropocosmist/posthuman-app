@@ -104,8 +104,19 @@ export function Profile() {
 
         } catch (err: any) {
             console.error("Telegram Auth Error:", err)
-            const errorMsg = err.context?.error || err.message || "Failed to authenticate with Telegram"
-            setMessage({ type: 'error', text: errorMsg })
+            // Advanced error parsing for Edge Functions
+            let errorMsg = "Failed to authenticate"
+
+            if (err.context && err.context.error) {
+                // Error text returned from the Edge Function JSON
+                errorMsg = err.context.error
+            } else if (err.message) {
+                errorMsg = err.message
+            } else {
+                errorMsg = JSON.stringify(err)
+            }
+
+            setMessage({ type: 'error', text: `Telegram Error: ${errorMsg}` })
         } finally {
             setLoading(false)
         }
