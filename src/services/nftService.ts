@@ -11,7 +11,7 @@ export interface NFT {
 // ------------------------------------------------------------------
 // Stargaze (Cosmos) - GraphQL
 // ------------------------------------------------------------------
-const STARGAZE_GRAPHQL = 'https://graphql.stargaze-apis.com/graphql'
+const STARGAZE_GRAPHQL = 'https://graphql.mainnet.stargaze-apis.com/graphql'
 
 const fetchStargazeNFTs = async (address: string): Promise<NFT[]> => {
     // Basic query for tokens owned by address
@@ -33,6 +33,7 @@ const fetchStargazeNFTs = async (address: string): Promise<NFT[]> => {
   `
 
     try {
+        console.log(`[Stargaze] Fetching NFTs for ${address}...`)
         const res = await fetch(STARGAZE_GRAPHQL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -43,12 +44,14 @@ const fetchStargazeNFTs = async (address: string): Promise<NFT[]> => {
         })
 
         const json = await res.json()
+
         if (json.errors) {
-            console.error('Stargaze GraphQL Error:', json.errors)
+            console.error('[Stargaze] GraphQL Errors:', json.errors)
             return []
         }
 
         const items = json.data?.tokens || []
+        console.log(`[Stargaze] Found ${items.length} tokens`)
 
         return items.map((t: any) => ({
             id: t.tokenId,
@@ -58,7 +61,7 @@ const fetchStargazeNFTs = async (address: string): Promise<NFT[]> => {
             description: t.description
         })).filter((n: NFT) => n.image) // Filter out missing images
     } catch (e) {
-        console.error('Failed to fetch Stargaze NFTs:', e)
+        console.error('[Stargaze] Fetch Failed:', e)
         return []
     }
 }
