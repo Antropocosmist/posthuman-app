@@ -687,7 +687,10 @@ export const useWalletStore = create<WalletState>()(
 
                                     // Check for success OR 'already connected' error
                                     const isSuccess = est.status === 'success' || est.code === 0
-                                    const isAlreadyConnected = est.message && est.message.includes("already connected")
+                                    const isAlreadyConnected =
+                                        (est.message && est.message.toLowerCase().includes("already connected")) ||
+                                        est.type === 'ALREADY_CONNECTED' ||
+                                        est.code === 4001
 
                                     if (isSuccess || isAlreadyConnected) {
                                         // 2. Get Account Info
