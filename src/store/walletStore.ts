@@ -685,7 +685,11 @@ export const useWalletStore = create<WalletState>()(
                                     const est = await window.adena.AddEstablish("Posthuman")
                                     console.log("[Adena] Establish Result:", est)
 
-                                    if (est.status === 'success' || est.code === 0) {
+                                    // Check for success OR 'already connected' error
+                                    const isSuccess = est.status === 'success' || est.code === 0
+                                    const isAlreadyConnected = est.message && est.message.includes("already connected")
+
+                                    if (isSuccess || isAlreadyConnected) {
                                         // 2. Get Account Info
                                         const acc = await window.adena.GetAccount()
                                         console.log("[Adena] GetAccount Result:", acc)
