@@ -77,8 +77,8 @@ const fetchStargazeNFTs = async (address: string, offset: number = 0): Promise<N
             console.log('[Debug 905] FOUND RAW TOKEN:', JSON.stringify(missing, null, 2))
             console.log('[Debug 905] Processed Image URL:', formatIpfsUrl(missing.media?.url))
         } else {
-             // Only log this if we actually expected it to be in this batch (difficult to know without total count, but helpful context)
-             console.log('[Debug 905] Token not found in this batch')
+            // Only log this if we actually expected it to be in this batch (difficult to know without total count, but helpful context)
+            console.log('[Debug 905] Token not found in this batch')
         }
 
         return items.map((t: any) => ({
@@ -97,7 +97,7 @@ const fetchStargazeNFTs = async (address: string, offset: number = 0): Promise<N
 // ------------------------------------------------------------------
 // Solana - DAS API (Placeholder / Configurable)
 // ------------------------------------------------------------------
-const fetchSolanaNFTs = async (_address: string): Promise<NFT[]> => {
+const fetchSolanaNFTs = async (): Promise<NFT[]> => {
     // Needs a Helius/Quicknode RPC that supports 'getAssetsByOwner'
     // const RPC = 'https://mainnet.helius-rpc.com/?api-key=...'
 
@@ -110,7 +110,7 @@ const fetchSolanaNFTs = async (_address: string): Promise<NFT[]> => {
 // ------------------------------------------------------------------
 // EVM - SimpleHash / Alchemy (Placeholder / Configurable)
 // ------------------------------------------------------------------
-const fetchEVMNFTs = async (_address: string, _chainId?: string): Promise<NFT[]> => {
+const fetchEVMNFTs = async (): Promise<NFT[]> => {
     // Needs an Indexer API Key
     console.warn("EVM NFT fetching requires an Indexer API Key (SimpleHash/Alchemy).")
     return []
@@ -119,7 +119,7 @@ const fetchEVMNFTs = async (_address: string, _chainId?: string): Promise<NFT[]>
 // ------------------------------------------------------------------
 // Main Service
 // ------------------------------------------------------------------
-export const fetchNFTs = async (address: string, chain: ChainType, chainId?: string, offset: number = 0): Promise<NFT[]> => {
+export const fetchNFTs = async (address: string, chain: ChainType, _chainId?: string, offset: number = 0): Promise<NFT[]> => {
     if (chain === 'Cosmos') {
         // Simple check for Stargaze address
         if (address.startsWith('stars')) {
@@ -130,11 +130,11 @@ export const fetchNFTs = async (address: string, chain: ChainType, chainId?: str
     }
 
     if (chain === 'Solana') {
-        return fetchSolanaNFTs(address)
+        return fetchSolanaNFTs()
     }
 
     if (chain === 'EVM') {
-        return fetchEVMNFTs(address, chainId)
+        return fetchEVMNFTs()
     }
 
     return []

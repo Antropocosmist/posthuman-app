@@ -42,7 +42,7 @@ const DonutChart = ({ wallets }: { wallets: any[] }) => {
         '#ec4899', // Pink
     ]
 
-    let currentAngle = 0
+
     const visibleData = isExpanded ? data : data.slice(0, 4)
 
     return (
@@ -64,30 +64,32 @@ const DonutChart = ({ wallets }: { wallets: any[] }) => {
                 {/* Chart */}
                 <div className="relative w-40 h-40 flex-shrink-0">
                     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="transform -rotate-90">
-                        {data.map((item, i) => {
-                            const percentage = item.value / total
-                            const strokeDasharray = `${percentage * circumference} ${circumference}`
-                            const color = colors[i % colors.length]
+                        {(() => {
+                            let accumulatedAngle = 0
+                            return data.map((item, i) => {
+                                const percentage = item.value / total
+                                const strokeDasharray = `${percentage * circumference} ${circumference}`
+                                const color = colors[i % colors.length]
+                                const startAngle = accumulatedAngle
+                                accumulatedAngle += percentage
 
-                            const segment = (
-                                <circle
-                                    key={item.symbol}
-                                    cx={center}
-                                    cy={center}
-                                    r={radius}
-                                    fill="transparent"
-                                    stroke={color}
-                                    strokeWidth={strokeWidth}
-                                    strokeDasharray={strokeDasharray}
-                                    strokeDashoffset={-currentAngle * circumference}
-                                    strokeLinecap="round"
-                                    className="transition-all duration-500 ease-out hover:opacity-80"
-                                />
-                            )
-
-                            currentAngle += percentage
-                            return segment
-                        })}
+                                return (
+                                    <circle
+                                        key={item.symbol}
+                                        cx={center}
+                                        cy={center}
+                                        r={radius}
+                                        fill="transparent"
+                                        stroke={color}
+                                        strokeWidth={strokeWidth}
+                                        strokeDasharray={strokeDasharray}
+                                        strokeDashoffset={-startAngle * circumference}
+                                        strokeLinecap="round"
+                                        className="transition-all duration-500 ease-out hover:opacity-80"
+                                    />
+                                )
+                            })
+                        })()}
                     </svg>
                     {/* Center Text */}
                     <div className="absolute inset-0 flex items-center justify-center flex-col">

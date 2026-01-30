@@ -44,7 +44,7 @@ export const SkipService = {
             if (options?.chainId) params.append('chain_ids', options.chainId)
             if (options?.nativeOnly) params.append('native_only', 'true')
             if (options?.includeEvm) params.append('include_evm_assets', 'true')
-            if (options?.includeCw20 || true) params.append('include_cw20_assets', 'true') // Always include CW20 for Juno/Neutron
+            if (options?.includeCw20 ?? true) params.append('include_cw20_assets', 'true') // Default to true
 
             const url = `${SKIP_API_URL}/v2/fungible/assets?${params.toString()}`
             const resp = await fetch(url)
