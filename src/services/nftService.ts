@@ -71,6 +71,16 @@ const fetchStargazeNFTs = async (address: string, offset: number = 0): Promise<N
         const items = json.data?.tokens?.tokens || []
         console.log(`[Stargaze] Found ${items.length} tokens`)
 
+        // DEBUG: Find specific missing NFT
+        const missing = items.find((t: any) => t.tokenId === '905' || t.name?.includes('#905'))
+        if (missing) {
+            console.log('[Debug 905] FOUND RAW TOKEN:', JSON.stringify(missing, null, 2))
+            console.log('[Debug 905] Processed Image URL:', formatIpfsUrl(missing.media?.url))
+        } else {
+             // Only log this if we actually expected it to be in this batch (difficult to know without total count, but helpful context)
+             console.log('[Debug 905] Token not found in this batch')
+        }
+
         return items.map((t: any) => ({
             id: t.tokenId,
             name: t.name || `Stargaze #${t.tokenId}`,

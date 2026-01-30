@@ -70,7 +70,7 @@ export function AvatarSelectionModal({ isOpen, onClose, onSelect }: AvatarSelect
         }
 
         try {
-            const currentOffset = isLoadMore ? offset + 100 : 0
+            const currentOffset = isLoadMore ? offset : 0
             const promises = wallets.map(w => fetchNFTs(w.address, w.chain, w.chainId, currentOffset))
             const results = await Promise.all(promises)
             const newNfts = results.flat()
@@ -80,7 +80,7 @@ export function AvatarSelectionModal({ isOpen, onClose, onSelect }: AvatarSelect
                 setOffset(prev => prev + 100)
             } else {
                 setNfts(newNfts)
-                setOffset(100)
+                setOffset(100) // Next offset will be 100
             }
         } catch (err) {
             console.error("Failed to load NFTs", err)
