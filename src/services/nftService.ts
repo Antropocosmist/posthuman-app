@@ -33,7 +33,7 @@ const fetchStargazeNFTs = async (address: string): Promise<NFT[]> => {
     // Correct Query: 'owner' argument + Nested 'tokens' selection
     const query = `
     query OwnedTokens($owner: String!) {
-      tokens(owner: $owner, limit: 50) {
+      tokens(owner: $owner, limit: 100) {
         tokens {
           tokenId
           name
