@@ -13,6 +13,22 @@ export interface NFT {
 // ------------------------------------------------------------------
 const STARGAZE_GRAPHQL = 'https://graphql.mainnet.stargaze-apis.com/graphql'
 
+const formatIpfsUrl = (url: string): string => {
+    if (!url) return ''
+
+    // Handle ipfs:// protocol
+    if (url.startsWith('ipfs://')) {
+        return url.replace('ipfs://', 'https://ipfs.io/ipfs/')
+    }
+
+    // Handle Stargaze Gateway (Restricted/403) -> Switch to Public Gateway
+    if (url.includes('ipfs-gw.stargaze-apis.com')) {
+        return url.replace('ipfs-gw.stargaze-apis.com', 'ipfs.io')
+    }
+
+    return url
+}
+
 const fetchStargazeNFTs = async (address: string): Promise<NFT[]> => {
     // Correct Query: 'owner' argument + Nested 'tokens' selection
     const query = `
@@ -59,7 +75,7 @@ const fetchStargazeNFTs = async (address: string): Promise<NFT[]> => {
         return items.map((t: any) => ({
             id: t.tokenId,
             name: t.name || `Stargaze #${t.tokenId}`,
-            image: t.media?.url || '', // Stargaze usually provides direct URLs
+            image: formatIpfsUrl(t.media?.url),
             collectionName: t.collection?.name,
             description: t.description
         })).filter((n: NFT) => n.image) // Filter out missing images
