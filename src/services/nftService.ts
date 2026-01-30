@@ -29,11 +29,11 @@ const formatIpfsUrl = (url: string): string => {
     return url
 }
 
-const fetchStargazeNFTs = async (address: string): Promise<NFT[]> => {
-    // Correct Query: 'owner' argument + Nested 'tokens' selection
+const fetchStargazeNFTs = async (address: string, offset: number = 0): Promise<NFT[]> => {
+    // Correct Query: 'owner' argument + Nested 'tokens' selection + OFFSET
     const query = `
-    query OwnedTokens($owner: String!) {
-      tokens(owner: $owner, limit: 100) {
+    query OwnedTokens($owner: String!, $offset: Int!) {
+      tokens(owner: $owner, limit: 100, offset: $offset) {
         tokens {
           tokenId
           name
@@ -50,13 +50,13 @@ const fetchStargazeNFTs = async (address: string): Promise<NFT[]> => {
   `
 
     try {
-        console.log(`[Stargaze] Fetching NFTs for ${address}...`)
+        console.log(`[Stargaze] Fetching NFTs for ${address} (offset: ${offset})...`)
         const res = await fetch(STARGAZE_GRAPHQL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 query,
-                variables: { owner: address }
+                variables: { owner: address, offset }
             })
         })
 
@@ -68,7 +68,6 @@ const fetchStargazeNFTs = async (address: string): Promise<NFT[]> => {
         }
 
         // Handle nested structure: data.tokens.tokens
-        // The first 'tokens' is the result object (pagination etc), the second is the array.
         const items = json.data?.tokens?.tokens || []
         console.log(`[Stargaze] Found ${items.length} tokens`)
 
@@ -78,7 +77,7 @@ const fetchStargazeNFTs = async (address: string): Promise<NFT[]> => {
             image: formatIpfsUrl(t.media?.url),
             collectionName: t.collection?.name,
             description: t.description
-        })).filter((n: NFT) => n.image) // Filter out missing images
+        }))
     } catch (e) {
         console.error('[Stargaze] Fetch Failed:', e)
         return []
@@ -110,11 +109,11 @@ const fetchEVMNFTs = async (_address: string, _chainId?: string): Promise<NFT[]>
 // ------------------------------------------------------------------
 // Main Service
 // ------------------------------------------------------------------
-export const fetchNFTs = async (address: string, chain: ChainType, chainId?: string): Promise<NFT[]> => {
+export const fetchNFTs = async (address: string, chain: ChainType, chainId?: string, offset: number = 0): Promise<NFT[]> => {
     if (chain === 'Cosmos') {
         // Simple check for Stargaze address
         if (address.startsWith('stars')) {
-            return fetchStargazeNFTs(address)
+            return fetchStargazeNFTs(address, offset)
         }
         // Could add others later (Omniflix, etc)
         return []

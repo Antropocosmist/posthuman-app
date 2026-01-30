@@ -23,6 +23,7 @@ export function AvatarSelectionModal({ isOpen, onClose, onSelect }: AvatarSelect
     const { wallets } = useWalletStore()
     const [nfts, setNfts] = useState<NFT[]>([])
     const [loadingNfts, setLoadingNfts] = useState(false)
+    const [offset, setOffset] = useState(0)
 
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) return
@@ -61,15 +62,26 @@ export function AvatarSelectionModal({ isOpen, onClose, onSelect }: AvatarSelect
     }
 
     // Real NFT Fetcher
-    const loadNfts = async () => {
+    const loadNfts = async (isLoadMore = false) => {
         setLoadingNfts(true)
-        setNfts([])
+        if (!isLoadMore) {
+            setNfts([])
+            setOffset(0)
+        }
 
         try {
-            const promises = wallets.map(w => fetchNFTs(w.address, w.chain, w.chainId))
+            const currentOffset = isLoadMore ? offset + 100 : 0
+            const promises = wallets.map(w => fetchNFTs(w.address, w.chain, w.chainId, currentOffset))
             const results = await Promise.all(promises)
-            const allNfts = results.flat()
-            setNfts(allNfts)
+            const newNfts = results.flat()
+
+            if (isLoadMore) {
+                setNfts(prev => [...prev, ...newNfts])
+                setOffset(prev => prev + 100)
+            } else {
+                setNfts(newNfts)
+                setOffset(100)
+            }
         } catch (err) {
             console.error("Failed to load NFTs", err)
         } finally {
@@ -116,7 +128,7 @@ export function AvatarSelectionModal({ isOpen, onClose, onSelect }: AvatarSelect
                             Upload
                         </button>
                         <button
-                            onClick={() => { setActiveTab('nft'); loadNfts(); }}
+                            onClick={() => { setActiveTab('nft'); loadNfts(false); }}
                             className={`flex-1 py-3 px-4 rounded-xl text-sm font-bold uppercase tracking-wider transition-all border ${activeTab === 'nft'
                                 ? 'bg-purple-600/10 border-purple-600 text-purple-400'
                                 : 'bg-white/5 border-transparent text-gray-500 hover:bg-white/10'
@@ -158,33 +170,49 @@ export function AvatarSelectionModal({ isOpen, onClose, onSelect }: AvatarSelect
                                 )}
                             </div>
                         ) : (
-                            <div className="min-h-[200px]">
-                                {loadingNfts ? (
+                            <div className="min-h-[200px] flex flex-col">
+                                {loadingNfts && nfts.length === 0 ? (
                                     <div className="flex flex-col items-center justify-center h-[200px]">
                                         <Loader2 className="w-8 h-8 text-purple-400 animate-spin mb-2" />
                                         <div className="text-xs text-gray-500 font-bold uppercase tracking-widest">Loading NFTs...</div>
                                     </div>
                                 ) : (
-                                    <div className="grid grid-cols-3 gap-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                                        {nfts.map(nft => (
-                                            <div
-                                                key={nft.id}
-                                                onClick={() => { onSelect(nft.image); onClose(); }}
-                                                className="aspect-square rounded-xl overflow-hidden border border-white/10 cursor-pointer hover:border-purple-500 hover:scale-105 transition-all relative group"
-                                            >
-                                                <img src={nft.image} alt={nft.name} className="w-full h-full object-cover" />
-                                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                                    <span className="text-xs font-bold text-white">Select</span>
+                                    <>
+                                        <div className="grid grid-cols-3 gap-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                                            {nfts
+                                                .filter(nft => nft.image) // Filter for display only, keep raw count for pagination
+                                                .map(nft => (
+                                                    <div
+                                                        key={nft.id}
+                                                        onClick={() => { onSelect(nft.image); onClose(); }}
+                                                        className="aspect-square rounded-xl overflow-hidden border border-white/10 cursor-pointer hover:border-purple-500 hover:scale-105 transition-all relative group"
+                                                    >
+                                                        <img src={nft.image} alt={nft.name} className="w-full h-full object-cover" />
+                                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                                            <span className="text-xs font-bold text-white">Select</span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            {/* Empty State Mock */}
+                                            {wallets.length === 0 && (
+                                                <div className="col-span-3 text-center py-8 text-gray-500 text-xs">
+                                                    Connect a wallet to see your NFTs
                                                 </div>
-                                            </div>
-                                        ))}
-                                        {/* Empty State Mock */}
-                                        {wallets.length === 0 && (
-                                            <div className="col-span-3 text-center py-8 text-gray-500 text-xs">
-                                                Connect a wallet to see your NFTs
-                                            </div>
+                                            )}
+                                        </div>
+
+                                        {/* Load More Button */}
+                                        {/* Show if count is non-zero and divisible by limit (implying potentially more pages) */}
+                                        {nfts.length > 0 && nfts.length % 100 === 0 && (
+                                            <button
+                                                onClick={() => loadNfts(true)}
+                                                disabled={loadingNfts}
+                                                className="mt-4 w-full py-2 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50"
+                                            >
+                                                {loadingNfts ? "Loading..." : "Load More"}
+                                            </button>
                                         )}
-                                    </div>
+                                    </>
                                 )}
                             </div>
                         )}
