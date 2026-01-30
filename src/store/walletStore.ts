@@ -676,21 +676,25 @@ export const useWalletStore = create<WalletState>()(
                         // ---------------------------------------------------------
                         // Gno.land (Adena)
                         // ---------------------------------------------------------
+
                         else if (chain === 'Gno') {
                             if (window.adena) {
                                 try {
+                                    console.log("[Adena] Attempting to establish connection...")
                                     // 1. Establish Connection
                                     const est = await window.adena.AddEstablish("Posthuman")
-                                    if (est.status === 'success' || est.code === 0) {
+                                    console.log("[Adena] Establish Result:", est)
 
+                                    if (est.status === 'success' || est.code === 0) {
                                         // 2. Get Account Info
                                         const acc = await window.adena.GetAccount()
+                                        console.log("[Adena] GetAccount Result:", acc)
+
                                         if (acc.status === 'success' || acc.code === 0) {
                                             const address = acc.data.address
                                             const coins = acc.data.coins // e.g. "1000000ugnot"
 
                                             // Parse balance (usually raw string like "123ugnot")
-                                            // For now, simple parsing or 0
                                             let nativeBal = 0
                                             if (coins && coins.includes('ugnot')) {
                                                 nativeBal = parseInt(coins.replace('ugnot', '')) / 1000000
@@ -701,8 +705,8 @@ export const useWalletStore = create<WalletState>()(
                                                 name: 'Adena',
                                                 chain: 'Gno',
                                                 address: address,
-                                                icon: `${BASE_URL}icons/adena.png`, // Need to ensure icon exists or use placeholder
-                                                balance: 0, // No price feed for GNOT yet usually
+                                                icon: `${BASE_URL}icons/adena.png`,
+                                                balance: 0,
                                                 nativeBalance: nativeBal,
                                                 symbol: 'GNOT',
                                                 walletProvider: 'Adena'
@@ -714,15 +718,18 @@ export const useWalletStore = create<WalletState>()(
 
                                         } else {
                                             console.error("Adena GetAccount failed:", acc)
-                                            alert("Failed to get Adena account info")
+                                            alert(`Failed to get Adena account: ${acc.message || 'Unknown error'}`)
                                         }
                                     } else {
                                         console.error("Adena Establish failed:", est)
+                                        alert(`Adena connection rejected or failed: ${est.message || 'Unknown error'}`)
                                     }
-                                } catch (e) {
-                                    console.error("Adena connection error:", e)
+                                } catch (e: any) {
+                                    console.error("Adena connection exception:", e)
+                                    alert(`Adena error: ${e.message || e}`)
                                 }
                             } else {
+                                alert("Adena Wallet not detected! Redirecting to install page...")
                                 window.open("https://adena.app/", "_blank")
                             }
                         }
