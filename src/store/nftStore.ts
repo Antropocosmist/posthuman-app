@@ -135,22 +135,27 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
             // Fetch from EVM chains (OpenSea)
             if (targetEcosystem === 'all' || targetEcosystem === 'evm') {
                 const evmWallets = wallets.filter(w => w.chain === 'EVM')
-                console.log('[NFT Store] EVM wallets found:', evmWallets.length)
 
-                for (const wallet of evmWallets) {
+                // Deduplicate addresses (same address might be connected multiple times)
+                const uniqueAddresses = [...new Set(evmWallets.map(w => w.address))]
+                console.log('[NFT Store] EVM wallets found:', evmWallets.length, 'unique addresses:', uniqueAddresses.length)
+
+                for (const address of uniqueAddresses) {
                     try {
-                        console.log(`[NFT Store] Fetching EVM NFTs for ${wallet.address}...`)
+                        console.log(`[NFT Store] Fetching EVM NFTs for ${address}...`)
                         // Fetch from Ethereum
-                        const ethNFTs = await openSeaNFTService.fetchUserNFTs(wallet.address, 'ethereum')
+                        const ethNFTs = await openSeaNFTService.fetchUserNFTs(address, 'ethereum')
                         console.log(`[NFT Store] Found ${ethNFTs.length} Ethereum NFTs`)
                         allNFTs = [...allNFTs, ...ethNFTs]
 
                         // Fetch from Polygon
-                        const polyNFTs = await openSeaNFTService.fetchUserNFTs(wallet.address, 'polygon')
+                        const polyNFTs = await openSeaNFTService.fetchUserNFTs(address, 'polygon')
                         console.log(`[NFT Store] Found ${polyNFTs.length} Polygon NFTs`)
                         allNFTs = [...allNFTs, ...polyNFTs]
+
+                        // TODO: Add Base and BSC support when OpenSea API supports them
                     } catch (error) {
-                        console.error(`[NFT Store] Error fetching EVM NFTs for ${wallet.address}:`, error)
+                        console.error(`[NFT Store] Error fetching EVM NFTs for ${address}:`, error)
                     }
                 }
             }

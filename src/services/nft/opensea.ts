@@ -43,43 +43,15 @@ function convertOpenSeaNFT(openseaNFT: any, chain: 'ethereum' | 'polygon'): NFT 
 
 // OpenSea NFT Service Implementation
 export class OpenSeaNFTService implements NFTServiceInterface {
-    private sdk: OpenSeaSDK | null = null
-    private provider: ethers.Provider | null = null
-
-    /**
-     * Initialize OpenSea SDK with provider
-     */
-    private async initializeSDK(chain: Chain = Chain.Mainnet): Promise<OpenSeaSDK> {
-        if (this.sdk) return this.sdk
-
-        // Create provider (use window.ethereum if available, otherwise use public RPC)
-        if (typeof window !== 'undefined' && (window as any).ethereum) {
-            this.provider = new ethers.BrowserProvider((window as any).ethereum)
-        } else {
-            // Fallback to public RPC
-            const rpcUrl = chain === Chain.Mainnet
-                ? 'https://eth.llamarpc.com'
-                : 'https://polygon-rpc.com'
-            this.provider = new ethers.JsonRpcProvider(rpcUrl)
-        }
-
-        this.sdk = new OpenSeaSDK(this.provider as any, {
-            chain,
-            apiKey: OPENSEA_API_KEY,
-        })
-
-        return this.sdk
-    }
+    // Note: We use the OpenSea API directly, not the SDK
+    // The SDK has initialization issues and is not needed for basic NFT fetching
 
     /**
      * Fetch all NFTs owned by a specific address
      */
     async fetchUserNFTs(address: string, chain: 'ethereum' | 'polygon' = 'ethereum'): Promise<NFT[]> {
         try {
-            const openseaChain = chain === 'ethereum' ? Chain.Mainnet : Chain.Polygon
-            await this.initializeSDK(openseaChain)
-
-            // Use OpenSea API to fetch NFTs
+            // Use OpenSea API to fetch NFTs (no SDK needed for this)
             const response = await fetch(
                 `https://api.opensea.io/api/v2/chain/${chain}/account/${address}/nfts`,
                 {
@@ -88,7 +60,8 @@ export class OpenSeaNFTService implements NFTServiceInterface {
             )
 
             if (!response.ok) {
-                throw new Error(`OpenSea API error: ${response.statusText}`)
+                console.warn(`OpenSea API error for ${chain}: ${response.statusText}`)
+                return []
             }
 
             const data = await response.json()
