@@ -5,11 +5,11 @@ import { Dashboard } from './pages/Dashboard'
 import { Trade } from './pages/Trade'
 import { Profile } from './pages/Profile'
 import { PHMN } from './pages/PHMN'
+import { Settings } from './pages/Settings'
 
 // Placeholders for remaining views
 const NFTs = () => <div className="text-2xl font-bold">NFT Marketplace Hub</div>
 const Chat = () => <div className="text-2xl font-bold">Chat System</div>
-const Browser = () => <div className="text-2xl font-bold">dApp Browser</div>
 
 import { supabase } from './services/supa'
 
@@ -132,7 +132,7 @@ function App() {
           <Route path="nfts" element={<NFTs />} />
           <Route path="chat" element={<Chat />} />
           <Route path="phmn" element={<PHMN />} />
-          <Route path="browser" element={<Browser />} />
+          <Route path="settings" element={<Settings />} />
           <Route path="profile" element={<Profile />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

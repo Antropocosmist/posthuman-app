@@ -1,5 +1,5 @@
 import { Link, useLocation, Outlet } from 'react-router-dom'
-import { LayoutDashboard, ArrowRightLeft, User, Globe, Settings, Image, MessageSquare, Coins, Wallet } from 'lucide-react'
+import { LayoutDashboard, ArrowRightLeft, User, Settings, Image, MessageSquare, Coins, Wallet } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { ConnectWalletModal } from './ConnectWalletModal'
@@ -32,7 +32,6 @@ export function Layout() {
         { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
         { icon: ArrowRightLeft, label: 'Trade', path: '/trade' },
         { icon: Image, label: 'NFTs', path: '/nfts' },
-        { icon: Globe, label: 'Browser', path: '/browser' },
         { icon: MessageSquare, label: 'Chat', path: '/chat' },
         { icon: Coins, label: 'PHMN', path: '/phmn' },
     ]
@@ -71,10 +70,10 @@ export function Layout() {
                     </nav>
 
                     <div className="pt-6 border-t border-white/10">
-                        <button className="flex items-center gap-3 w-full p-3 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
+                        <Link to="/settings" className="flex items-center gap-3 w-full p-3 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
                             <Settings className="w-5 h-5" />
                             <span>Settings</span>
-                        </button>
+                        </Link>
                     </div>
                 </div>
             )}

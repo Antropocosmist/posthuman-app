@@ -27,29 +27,25 @@ POSTHUMAN App is a comprehensive blockchain interface that provides unified acce
 - Stargaze integration for Cosmos NFTs
 - OpenSea and Magic Eden connections for EVM and Solana NFTs
 
-#### 5. Browser and dApp Portal
-- Direct connections to multiple wallets (MetaMask, Rabby, Solflare, Phantom, Keplr, Adena)
-- dApp browser for seamless exploration
-
-#### 6. Messaging System
+#### 5. Messaging System
 - Private encrypted chats with key exchange
 - Public chat channels
 
-#### 7. PHMN Token System
+#### 6. PHMN Token System
 - POSTHUMAN DAS governance interface
 - SubDAO management
 - Staking address management
 - Token claiming functionality
 
-#### 8. Liquidity Management
+#### 7. Liquidity Management
 - Osmosis, Astroport, and other DEX integrations
 - Liquidity pool participation
 
-#### 9. Engagement Features
+#### 8. Engagement Features
 - Daily/weekly/monthly quests and tasks
 - Centrifuge integration
 
-#### 10. Shop
+#### 9. Shop
 - Digital gallery
 - Merchandise store with cart and payment system
 
