@@ -1,5 +1,5 @@
 import { Link, useLocation, Outlet } from 'react-router-dom'
-import { LayoutDashboard, ArrowRightLeft, Wallet, User, Globe, Settings } from 'lucide-react'
+import { LayoutDashboard, ArrowRightLeft, User, Globe, Settings, Image, MessageSquare, Coins, Droplets, Trophy, ShoppingBag, Wallet } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { ConnectWalletModal } from './ConnectWalletModal'
@@ -30,7 +30,12 @@ export function Layout() {
     const navItems = [
         { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
         { icon: ArrowRightLeft, label: 'Trade', path: '/trade' },
-        { icon: Wallet, label: 'Wallet', path: '/wallet' },
+        { icon: Image, label: 'NFTs', path: '/nfts' },
+        { icon: MessageSquare, label: 'Messaging', path: '/messaging' },
+        { icon: Coins, label: 'PHMN', path: '/phmn' },
+        { icon: Droplets, label: 'Liquidity', path: '/liquidity' },
+        { icon: Trophy, label: 'Quests', path: '/quests' },
+        { icon: ShoppingBag, label: 'Shop', path: '/shop' },
         { icon: Globe, label: 'Browser', path: '/browser' },
         { icon: User, label: 'Profile', path: '/profile' },
     ]
