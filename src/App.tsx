@@ -5,10 +5,10 @@ import { Dashboard } from './pages/Dashboard'
 import { Trade } from './pages/Trade'
 import { Profile } from './pages/Profile'
 import { PHMN } from './pages/PHMN'
+import { NFTs } from './pages/NFTs'
 import { Settings } from './pages/Settings'
 
-// Placeholders for remaining views
-const NFTs = () => <div className="text-2xl font-bold">NFT Marketplace Hub</div>
+// Placeholder for Chat
 const Chat = () => <div className="text-2xl font-bold">Chat System</div>
 
 import { supabase } from './services/supa'
