@@ -20,6 +20,10 @@ interface NFTStore {
     searchQuery: string
     filters: NFTFilters
 
+    // Pagination
+    ownedNFTsOffset: number
+    hasMoreOwnedNFTs: boolean
+
     // Loading States
     isLoadingOwned: boolean
     isLoadingMarketplace: boolean
@@ -31,6 +35,7 @@ interface NFTStore {
 
     // Actions - Data Fetching
     fetchOwnedNFTs: (ecosystem?: EcosystemFilter) => Promise<void>
+    loadMoreOwnedNFTs: () => Promise<void>
     fetchMarketplaceNFTs: (ecosystem?: EcosystemFilter, filters?: NFTFilters) => Promise<void>
     refreshNFTs: () => Promise<void>
 
@@ -59,6 +64,9 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
     searchQuery: '',
     filters: {},
 
+    ownedNFTsOffset: 0,
+    hasMoreOwnedNFTs: false,
+
     isLoadingOwned: false,
     isLoadingMarketplace: false,
     isBuying: false,
@@ -68,14 +76,14 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
 
     // Fetch owned NFTs
     fetchOwnedNFTs: async (ecosystem?: EcosystemFilter) => {
-        set({ isLoadingOwned: true, error: null })
+        set({ isLoadingOwned: true, error: null, ownedNFTsOffset: 0, ownedNFTs: [] })
 
         try {
             const walletStore = useWalletStore.getState()
             const wallets = walletStore.wallets
 
             if (wallets.length === 0) {
-                set({ ownedNFTs: [], isLoadingOwned: false })
+                set({ ownedNFTs: [], isLoadingOwned: false, hasMoreOwnedNFTs: false })
                 return
             }
 
@@ -96,7 +104,7 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
                         // Use nftService.fetchNFTs instead of stargazeNFTService
                         // This is the same service used by avatar selection which works
                         const { fetchNFTs } = await import('../services/nftService')
-                        const nfts = await fetchNFTs(wallet.address, wallet.chain, wallet.chainId)
+                        const nfts = await fetchNFTs(wallet.address, wallet.chain, wallet.chainId, 0) // offset 0 for initial fetch
 
                         // Convert to NFT format expected by store
                         const convertedNFTs: NFT[] = nfts.map(nft => ({
@@ -157,12 +165,93 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
                 }
             }
 
-            set({ ownedNFTs: allNFTs, isLoadingOwned: false })
+            // Check if we got a full batch (100 NFTs), indicating there might be more
+            set({
+                ownedNFTs: allNFTs,
+                isLoadingOwned: false,
+                ownedNFTsOffset: 100,
+                hasMoreOwnedNFTs: allNFTs.length >= 100
+            })
         } catch (error) {
             console.error('Error fetching owned NFTs:', error)
             set({
                 error: error instanceof Error ? error.message : 'Failed to fetch NFTs',
-                isLoadingOwned: false
+                isLoadingOwned: false,
+                hasMoreOwnedNFTs: false
+            })
+        }
+    },
+
+    // Load more owned NFTs (pagination)
+    loadMoreOwnedNFTs: async () => {
+        const { isLoadingOwned, ownedNFTsOffset, activeEcosystem, ownedNFTs } = get()
+
+        if (isLoadingOwned) return
+
+        set({ isLoadingOwned: true, error: null })
+
+        try {
+            const walletStore = useWalletStore.getState()
+            const wallets = walletStore.wallets
+
+            if (wallets.length === 0) {
+                set({ isLoadingOwned: false, hasMoreOwnedNFTs: false })
+                return
+            }
+
+            let newNFTs: NFT[] = []
+
+            // Fetch from Stargaze if applicable
+            if (activeEcosystem === 'all' || activeEcosystem === 'stargaze') {
+                const stargazeWallets = wallets.filter(w =>
+                    (w.chain === 'Cosmos' || w.chain === 'Gno') &&
+                    w.address.startsWith('stars')
+                )
+
+                for (const wallet of stargazeWallets) {
+                    try {
+                        const { fetchNFTs } = await import('../services/nftService')
+                        const nfts = await fetchNFTs(wallet.address, wallet.chain, wallet.chainId, ownedNFTsOffset)
+
+                        const convertedNFTs: NFT[] = nfts.map(nft => ({
+                            id: nft.id,
+                            tokenId: nft.id,
+                            name: nft.name,
+                            description: nft.description || '',
+                            image: nft.image,
+                            chain: 'stargaze' as const,
+                            contractAddress: '',
+                            owner: wallet.address,
+                            collection: {
+                                id: '',
+                                name: nft.collectionName || 'Unknown Collection',
+                                image: nft.image
+                            },
+                            isListed: false,
+                            marketplace: undefined
+                        }))
+
+                        newNFTs = [...newNFTs, ...convertedNFTs]
+                    } catch (error) {
+                        console.error(`[NFT Store] Error loading more NFTs for ${wallet.address}:`, error)
+                    }
+                }
+            }
+
+            // TODO: Add pagination for EVM and Solana when needed
+
+            set({
+                ownedNFTs: [...ownedNFTs, ...newNFTs],
+                isLoadingOwned: false,
+                ownedNFTsOffset: ownedNFTsOffset + 100,
+                hasMoreOwnedNFTs: newNFTs.length >= 100
+            })
+        } catch (error) {
+            console.error('Error loading more owned NFTs:', error)
+            set({
+                error: error instanceof Error ? error.message : 'Failed to load more NFTs',
+                isLoadingOwned: false,
+                hasMoreOwnedNFTs: false
             })
         }
     },

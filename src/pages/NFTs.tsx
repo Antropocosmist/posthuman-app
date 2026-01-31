@@ -15,9 +15,11 @@ export function NFTs() {
         searchQuery,
         isLoadingOwned,
         isLoadingMarketplace,
+        hasMoreOwnedNFTs,
         error,
         fetchOwnedNFTs,
         fetchMarketplaceNFTs,
+        loadMoreOwnedNFTs,
         setSelectedNFT,
         setActiveEcosystem,
         setActiveView,
@@ -159,6 +161,19 @@ export function NFTs() {
                         : 'No marketplace listings found.'
                 }
             />
+
+            {/* Load More Button */}
+            {activeView === 'owned' && hasMoreOwnedNFTs && !isLoading && (
+                <div className="mt-8 flex justify-center">
+                    <button
+                        onClick={loadMoreOwnedNFTs}
+                        disabled={isLoadingOwned}
+                        className="px-8 py-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-purple-500/50 text-white font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {isLoadingOwned ? 'Loading...' : 'Load More NFTs'}
+                    </button>
+                </div>
+            )}
 
             {/* NFT Detail Modal */}
             <NFTDetailModal
