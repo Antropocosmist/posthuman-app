@@ -50,23 +50,28 @@ export class MagicEdenNFTService implements NFTServiceInterface {
             // Validate Solana address
             new PublicKey(address)
 
-            // Use Magic Eden API to fetch user's NFTs
-            const response = await fetch(
-                `${MAGICEDEN_API_URL}/wallets/${address}/tokens`,
-                {
-                    headers: MAGICEDEN_API_KEY ? { 'Authorization': `Bearer ${MAGICEDEN_API_KEY}` } : {},
-                }
-            )
+            // Use CORS proxy to bypass CORS restrictions
+            // Magic Eden API blocks direct browser requests
+            const corsProxy = 'https://corsproxy.io/?'
+            const apiUrl = `${MAGICEDEN_API_URL}/wallets/${address}/tokens`
+            const url = corsProxy + encodeURIComponent(apiUrl)
+
+            console.log('[Magic Eden] Fetching NFTs for:', address)
+
+            const response = await fetch(url, {
+                headers: MAGICEDEN_API_KEY ? { 'Authorization': `Bearer ${MAGICEDEN_API_KEY}` } : {},
+            })
 
             if (!response.ok) {
-                console.warn('Magic Eden API error:', response.statusText)
+                console.warn('[Magic Eden] API error:', response.status, response.statusText)
                 return []
             }
 
             const nfts = await response.json()
+            console.log('[Magic Eden] Found', nfts.length, 'NFTs')
             return nfts.map((nft: any) => convertMagicEdenNFT(nft))
         } catch (error) {
-            console.error('Error fetching user NFTs from Magic Eden:', error)
+            console.error('[Magic Eden] Error fetching user NFTs:', error)
             return []
         }
     }
