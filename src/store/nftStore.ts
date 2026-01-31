@@ -84,8 +84,9 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
 
             // Fetch from Stargaze if applicable
             if (targetEcosystem === 'all' || targetEcosystem === 'stargaze') {
-                // Get Cosmos wallets (ChainType = 'Cosmos')
-                const cosmosWallets = wallets.filter(w => w.chain === 'Cosmos')
+                // Get Cosmos wallets (ChainType = 'Cosmos' or 'Gno' for Adena)
+                // Adena wallet is classified as 'Gno' but can access Cosmos chains
+                const cosmosWallets = wallets.filter(w => w.chain === 'Cosmos' || w.chain === 'Gno')
 
                 for (const wallet of cosmosWallets) {
                     try {
