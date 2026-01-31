@@ -39,7 +39,7 @@ export function Layout() {
     const isActive = (path: string) => location.pathname === path
 
     return (
-        <div className="flex h-screen w-full bg-white dark:bg-black text-black dark:text-white overflow-hidden font-sans">
+        <div className="flex h-screen w-full bg-black text-white overflow-hidden font-sans">
             <LoadingOverlay />
             <ConnectWalletModal />
             <SendModal isOpen={isSendModalOpen} onClose={toggleSendModal} />
@@ -47,7 +47,7 @@ export function Layout() {
 
             {/* Desktop Sidebar */}
             {!isMobile && (
-                <div className="w-64 border-r border-black/10 dark:border-white/10 flex flex-col p-6 bg-gray-50 dark:bg-[#050505]">
+                <div className="w-64 border-r border-white/10 flex flex-col p-6 bg-[#050505]">
                     <div className="flex items-center gap-3 mb-10">
                         <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Posthuman" className="w-10 h-10 object-contain" />
                         <span className="font-bold text-xl tracking-widest">POSTHUMAN</span>
@@ -59,8 +59,8 @@ export function Layout() {
                                 key={item.path}
                                 to={item.path}
                                 className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-300 ${isActive(item.path)
-                                    ? 'bg-black dark:bg-white text-white dark:text-black shadow-lg shadow-black/10 dark:shadow-white/10'
-                                    : 'text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
+                                    ? 'bg-white text-black shadow-lg shadow-white/10'
+                                    : 'text-gray-400 hover:text-white hover:bg-white/5'
                                     }`}
                             >
                                 <item.icon className="w-5 h-5" />
@@ -69,8 +69,8 @@ export function Layout() {
                         ))}
                     </nav>
 
-                    <div className="pt-6 border-t border-black/10 dark:border-white/10">
-                        <Link to="/settings" className="flex items-center gap-3 w-full p-3 rounded-xl text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                    <div className="pt-6 border-t border-white/10">
+                        <Link to="/settings" className="flex items-center gap-3 w-full p-3 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
                             <Settings className="w-5 h-5" />
                             <span>Settings</span>
                         </Link>
@@ -81,7 +81,7 @@ export function Layout() {
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col h-full relative overflow-y-auto custom-scrollbar">
                 {/* Header (Mobile & Desktop) */}
-                <header className="sticky top-0 z-30 flex items-center justify-between p-4 bg-white/80 dark:bg-black/80 backdrop-blur-md border-b border-black/5 dark:border-white/5">
+                <header className="sticky top-0 z-30 flex items-center justify-between p-4 bg-black/80 backdrop-blur-md border-b border-white/5">
                     {isMobile && (
                         <div className="flex items-center gap-2">
                             <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Logo" className="w-8 h-8" />
@@ -90,7 +90,7 @@ export function Layout() {
                     )}
 
                     <div className="ml-auto flex items-center gap-4">
-                        <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-xs text-green-600 dark:text-green-400">
+                        <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs text-green-400">
                             <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                             Nodes Online
                         </div>
@@ -122,7 +122,7 @@ export function Layout() {
 
             {/* Mobile Bottom Navigation */}
             {isMobile && (
-                <div className="fixed bottom-0 left-0 right-0 bg-gray-50 dark:bg-[#0a0a0a] border-t border-black/10 dark:border-white/10 p-2 pb-6 z-40">
+                <div className="fixed bottom-0 left-0 right-0 bg-[#0a0a0a] border-t border-white/10 p-2 pb-6 z-40">
                     <div className="flex justify-around items-center">
                         {navItems.map((item) => (
                             <Link

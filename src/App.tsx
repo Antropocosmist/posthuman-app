@@ -19,16 +19,6 @@ function App() {
   const [isAuthProcessing, setIsAuthProcessing] = useState(true) // Start true to check session first
   const [authError, setAuthError] = useState<string | null>(null)
 
-  // Initialize theme from localStorage
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('posthuman_theme') || 'dark'
-    if (savedTheme === 'dark') {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-    }
-  }, [])
-
   useEffect(() => {
     const handleInitialAuth = async () => {
       const hash = window.location.hash

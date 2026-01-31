@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Moon, Sun, Globe, DollarSign } from 'lucide-react'
+import { Globe, DollarSign } from 'lucide-react'
 
-type Theme = 'dark' | 'light'
 type Language = 'en' | 'es' | 'de' | 'ja' | 'fr' | 'pt' | 'ru' | 'it' | 'zh' | 'ko'
 type Currency = 'USD' | 'EUR' | 'RUB' | 'GBP' | 'JPY' | 'CNY' | 'KRW' | 'BRL' | 'INR' | 'AUD'
 
@@ -32,9 +31,6 @@ const CURRENCIES = [
 ]
 
 export function Settings() {
-    const [theme, setTheme] = useState<Theme>(() => {
-        return (localStorage.getItem('posthuman_theme') as Theme) || 'dark'
-    })
     const [language, setLanguage] = useState<Language>(() => {
         return (localStorage.getItem('posthuman_language') as Language) || 'en'
     })
@@ -42,15 +38,6 @@ export function Settings() {
         return (localStorage.getItem('posthuman_currency') as Currency) || 'USD'
     })
 
-    useEffect(() => {
-        localStorage.setItem('posthuman_theme', theme)
-        // Apply theme to document
-        if (theme === 'dark') {
-            document.documentElement.classList.add('dark')
-        } else {
-            document.documentElement.classList.remove('dark')
-        }
-    }, [theme])
 
     useEffect(() => {
         localStorage.setItem('posthuman_language', language)
