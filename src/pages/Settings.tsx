@@ -45,10 +45,10 @@ export function Settings() {
     useEffect(() => {
         localStorage.setItem('posthuman_theme', theme)
         // Apply theme to document
-        if (theme === 'light') {
-            document.documentElement.classList.add('light')
+        if (theme === 'dark') {
+            document.documentElement.classList.add('dark')
         } else {
-            document.documentElement.classList.remove('light')
+            document.documentElement.classList.remove('dark')
         }
     }, [theme])
 
@@ -76,8 +76,8 @@ export function Settings() {
                     <button
                         onClick={() => setTheme('dark')}
                         className={`p-4 rounded-2xl border transition-all ${theme === 'dark'
-                                ? 'bg-purple-600/20 border-purple-500 text-white'
-                                : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/20'
+                            ? 'bg-purple-600/20 border-purple-500 text-white'
+                            : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/20'
                             }`}
                     >
                         <Moon className="w-6 h-6 mx-auto mb-2" />
@@ -86,8 +86,8 @@ export function Settings() {
                     <button
                         onClick={() => setTheme('light')}
                         className={`p-4 rounded-2xl border transition-all ${theme === 'light'
-                                ? 'bg-purple-600/20 border-purple-500 text-white'
-                                : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/20'
+                            ? 'bg-purple-600/20 border-purple-500 text-white'
+                            : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/20'
                             }`}
                     >
                         <Sun className="w-6 h-6 mx-auto mb-2" />
