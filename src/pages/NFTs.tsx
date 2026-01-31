@@ -36,21 +36,35 @@ export function NFTs() {
         }
     }, [activeView, activeEcosystem])
 
-    // Filter NFTs based on search query
+    // Filter NFTs based on ecosystem and search query
     const filteredNFTs = useMemo(() => {
-        const nfts = activeView === 'owned'
+        let nfts = activeView === 'owned'
             ? ownedNFTs
             : marketplaceNFTs.map(l => l.nft)
 
-        if (!searchQuery) return nfts
+        // Filter by ecosystem
+        if (activeEcosystem !== 'all') {
+            if (activeEcosystem === 'stargaze') {
+                nfts = nfts.filter(nft => nft.chain === 'stargaze')
+            } else if (activeEcosystem === 'evm') {
+                nfts = nfts.filter(nft => nft.chain === 'ethereum' || nft.chain === 'polygon')
+            } else if (activeEcosystem === 'solana') {
+                nfts = nfts.filter(nft => nft.chain === 'solana')
+            }
+        }
 
-        const query = searchQuery.toLowerCase()
-        return nfts.filter(nft =>
-            nft.name.toLowerCase().includes(query) ||
-            nft.collection.name.toLowerCase().includes(query) ||
-            nft.description.toLowerCase().includes(query)
-        )
-    }, [activeView, ownedNFTs, marketplaceNFTs, searchQuery])
+        // Filter by search query
+        if (searchQuery) {
+            const query = searchQuery.toLowerCase()
+            nfts = nfts.filter(nft =>
+                nft.name?.toLowerCase().includes(query) ||
+                nft.collection?.name?.toLowerCase().includes(query) ||
+                nft.description?.toLowerCase().includes(query)
+            )
+        }
+
+        return nfts
+    }, [activeView, ownedNFTs, marketplaceNFTs, searchQuery, activeEcosystem])
 
     // Calculate NFT counts per ecosystem
     const nftCounts = useMemo(() => {
