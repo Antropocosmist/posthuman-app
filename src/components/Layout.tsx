@@ -1,5 +1,5 @@
 import { Link, useLocation, Outlet } from 'react-router-dom'
-import { LayoutDashboard, ArrowRightLeft, User, Globe, Settings, Image, MessageSquare, Coins, Droplets, Trophy, ShoppingBag, Wallet } from 'lucide-react'
+import { LayoutDashboard, ArrowRightLeft, User, Globe, Settings, Image, MessageSquare, Coins, Wallet } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { ConnectWalletModal } from './ConnectWalletModal'
@@ -28,16 +28,13 @@ export function Layout() {
     }, [])
 
     const navItems = [
+        { icon: User, label: 'Profile', path: '/profile' },
         { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
         { icon: ArrowRightLeft, label: 'Trade', path: '/trade' },
         { icon: Image, label: 'NFTs', path: '/nfts' },
-        { icon: MessageSquare, label: 'Messaging', path: '/messaging' },
-        { icon: Coins, label: 'PHMN', path: '/phmn' },
-        { icon: Droplets, label: 'Liquidity', path: '/liquidity' },
-        { icon: Trophy, label: 'Quests', path: '/quests' },
-        { icon: ShoppingBag, label: 'Shop', path: '/shop' },
         { icon: Globe, label: 'Browser', path: '/browser' },
-        { icon: User, label: 'Profile', path: '/profile' },
+        { icon: MessageSquare, label: 'Chat', path: '/chat' },
+        { icon: Coins, label: 'PHMN', path: '/phmn' },
     ]
 
     const isActive = (path: string) => location.pathname === path

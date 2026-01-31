@@ -4,14 +4,11 @@ import { Layout } from './components/Layout'
 import { Dashboard } from './pages/Dashboard'
 import { Trade } from './pages/Trade'
 import { Profile } from './pages/Profile'
+import { PHMN } from './pages/PHMN'
 
 // Placeholders for remaining views
 const NFTs = () => <div className="text-2xl font-bold">NFT Marketplace Hub</div>
-const Messaging = () => <div className="text-2xl font-bold">Messaging System</div>
-const PHMN = () => <div className="text-2xl font-bold">PHMN Token System</div>
-const Liquidity = () => <div className="text-2xl font-bold">Liquidity Management</div>
-const Quests = () => <div className="text-2xl font-bold">Engagement Features</div>
-const Shop = () => <div className="text-2xl font-bold">Shop</div>
+const Chat = () => <div className="text-2xl font-bold">Chat System</div>
 const Browser = () => <div className="text-2xl font-bold">dApp Browser</div>
 
 import { supabase } from './services/supa'
@@ -133,11 +130,8 @@ function App() {
           <Route index element={<Dashboard />} />
           <Route path="trade" element={<Trade />} />
           <Route path="nfts" element={<NFTs />} />
-          <Route path="messaging" element={<Messaging />} />
+          <Route path="chat" element={<Chat />} />
           <Route path="phmn" element={<PHMN />} />
-          <Route path="liquidity" element={<Liquidity />} />
-          <Route path="quests" element={<Quests />} />
-          <Route path="shop" element={<Shop />} />
           <Route path="browser" element={<Browser />} />
           <Route path="profile" element={<Profile />} />
           <Route path="*" element={<Navigate to="/" replace />} />
