@@ -135,18 +135,22 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
             // Fetch from EVM chains (OpenSea)
             if (targetEcosystem === 'all' || targetEcosystem === 'evm') {
                 const evmWallets = wallets.filter(w => w.chain === 'EVM')
+                console.log('[NFT Store] EVM wallets found:', evmWallets.length)
 
                 for (const wallet of evmWallets) {
                     try {
+                        console.log(`[NFT Store] Fetching EVM NFTs for ${wallet.address}...`)
                         // Fetch from Ethereum
                         const ethNFTs = await openSeaNFTService.fetchUserNFTs(wallet.address, 'ethereum')
+                        console.log(`[NFT Store] Found ${ethNFTs.length} Ethereum NFTs`)
                         allNFTs = [...allNFTs, ...ethNFTs]
 
                         // Fetch from Polygon
                         const polyNFTs = await openSeaNFTService.fetchUserNFTs(wallet.address, 'polygon')
+                        console.log(`[NFT Store] Found ${polyNFTs.length} Polygon NFTs`)
                         allNFTs = [...allNFTs, ...polyNFTs]
                     } catch (error) {
-                        console.error(`Error fetching EVM NFTs for ${wallet.address}:`, error)
+                        console.error(`[NFT Store] Error fetching EVM NFTs for ${wallet.address}:`, error)
                     }
                 }
             }
@@ -154,13 +158,16 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
             // Fetch from Solana (Magic Eden)
             if (targetEcosystem === 'all' || targetEcosystem === 'solana') {
                 const solanaWallets = wallets.filter(w => w.chain === 'Solana')
+                console.log('[NFT Store] Solana wallets found:', solanaWallets.length)
 
                 for (const wallet of solanaWallets) {
                     try {
+                        console.log(`[NFT Store] Fetching Solana NFTs for ${wallet.address}...`)
                         const nfts = await magicEdenNFTService.fetchUserNFTs(wallet.address)
+                        console.log(`[NFT Store] Found ${nfts.length} Solana NFTs`)
                         allNFTs = [...allNFTs, ...nfts]
                     } catch (error) {
-                        console.error(`Error fetching Solana NFTs for ${wallet.address}:`, error)
+                        console.error(`[NFT Store] Error fetching Solana NFTs for ${wallet.address}:`, error)
                     }
                 }
             }
