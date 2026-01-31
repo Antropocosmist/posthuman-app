@@ -85,7 +85,7 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
             // Fetch from Stargaze if applicable
             if (targetEcosystem === 'all' || targetEcosystem === 'stargaze') {
                 // Get wallets with Stargaze addresses (start with 'stars')
-                // Only fetch Stargaze NFTs from actual Stargaze addresses
+                // Use the same nftService that works for avatar selection
                 const stargazeWallets = wallets.filter(w =>
                     (w.chain === 'Cosmos' || w.chain === 'Gno') &&
                     w.address.startsWith('stars')
@@ -93,8 +93,31 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
 
                 for (const wallet of stargazeWallets) {
                     try {
-                        const nfts = await stargazeNFTService.fetchUserNFTs(wallet.address)
-                        allNFTs = [...allNFTs, ...nfts]
+                        // Use nftService.fetchNFTs instead of stargazeNFTService
+                        // This is the same service used by avatar selection which works
+                        const { fetchNFTs } = await import('../services/nftService')
+                        const nfts = await fetchNFTs(wallet.address, wallet.chain, wallet.chainId)
+
+                        // Convert to NFT format expected by store
+                        const convertedNFTs: NFT[] = nfts.map(nft => ({
+                            id: nft.id,
+                            tokenId: nft.id,
+                            name: nft.name,
+                            description: nft.description || '',
+                            image: nft.image,
+                            chain: 'stargaze' as const,
+                            contractAddress: '', // Not provided by nftService
+                            owner: wallet.address,
+                            collection: {
+                                id: '',
+                                name: nft.collectionName || 'Unknown Collection',
+                                image: nft.image
+                            },
+                            isListed: false,
+                            marketplace: undefined
+                        }))
+
+                        allNFTs = [...allNFTs, ...convertedNFTs]
                     } catch (error) {
                         console.error(`[NFT Store] Error fetching NFTs for ${wallet.address}:`, error)
                     }
