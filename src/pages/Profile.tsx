@@ -53,7 +53,7 @@ export function Profile() {
         }
     }, [wallets, user, loading])
 
-    const handleSocialLogin = async (provider: 'google' | 'apple' | 'twitter' | 'github' | 'discord') => {
+    const handleSocialLogin = async (provider: 'google' | 'twitter' | 'github' | 'discord') => {
         if (!isSupabaseConfigured()) {
             setMessage({ type: 'error', text: 'Cloud sync is not configured (Missing API Keys).' })
             return
@@ -68,72 +68,6 @@ export function Profile() {
             localStorage.setItem('posthuman_auth_redirect', 'true')
         }
         if (error) setMessage({ type: 'error', text: error.message })
-    }
-
-    // Unified Telegram Auth Handler (Login or Link)
-    const handleTelegramAuth = async (telegramUser: any) => {
-        setLoading(true)
-        setMessage(null)
-        try {
-            // Prepare headers
-            const headers: Record<string, string> = {
-                'Content-Type': 'application/json'
-            }
-
-            // If user is logged in, attach Authorization for Linking
-            const { data: { session } } = await supabase.auth.getSession()
-            if (user && session) {
-                headers['Authorization'] = `Bearer ${session.access_token}`
-            }
-
-            // Direct Fetch to get better error details
-            const functionalityUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/telegram-auth`
-            // Need to include anon key for Edge Functions
-            headers['apikey'] = import.meta.env.VITE_SUPABASE_ANON_KEY ?? ''
-            if (!session) {
-                // If no session, we still might need Authorization: Bearer ANON_KEY for some EF configs
-                // But usually apikey is enough? standard is Auth: Bearer ANON_KEY
-                headers['Authorization'] = `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-            }
-
-            const response = await fetch(functionalityUrl, {
-                method: 'POST',
-                headers,
-                body: JSON.stringify(telegramUser)
-            })
-
-            let data;
-            const textResponse = await response.text()
-            try {
-                data = JSON.parse(textResponse)
-            } catch {
-                data = { error: textResponse || response.statusText }
-            }
-
-            if (!response.ok) {
-                throw new Error(data.error || data.message || `Server Error: ${response.status} ${data}`)
-            }
-
-            // If we were Linking (user exists), we expect a message, not a session
-            if (user) {
-                setMessage({ type: 'success', text: "Telegram account connected successfully!" })
-                // Force refresh user data to show new link
-                const { data: { user: newUser } } = await supabase.auth.getUser()
-                setUser(newUser)
-            } else {
-                // If we were Logging In (no user), we expect a session
-                if (!data.session) throw new Error("No session returned from server")
-                const { error: authError } = await supabase.auth.setSession(data.session)
-                if (authError) throw authError
-                setMessage({ type: 'success', text: "Successfully logged in with Telegram!" })
-            }
-
-        } catch (err: any) {
-            console.error("Telegram Auth Error:", err)
-            setMessage({ type: 'error', text: `Telegram Error: ${err.message}` })
-        } finally {
-            setLoading(false)
-        }
     }
 
     const handleSocialLink = async (provider: 'twitter' | 'github' | 'discord') => {
@@ -182,20 +116,6 @@ export function Profile() {
         }
     }, [])
 
-    // Load Telegram Widget Script (Headless for JS API)
-    useEffect(() => {
-        // We always load the widget script so it's ready when needed
-        const script = document.createElement('script')
-        script.src = "https://telegram.org/js/telegram-widget.js?22"
-        script.async = true
-        document.body.appendChild(script)
-
-        return () => {
-            if (document.body.contains(script)) {
-                document.body.removeChild(script)
-            }
-        }
-    }, [])
 
     const handleEmailAuth = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -277,7 +197,6 @@ export function Profile() {
         const userId = user.id ? user.id.slice(0, 8) : "Unknown"
         // @ts-ignore
         const connectedProviders = user.identities?.map((i: any) => i.provider) || []
-        const isTelegramLinked = !!user.user_metadata?.telegram
 
         return (
             <div className="max-w-md mx-auto pt-8 pb-20 px-4">
@@ -343,35 +262,6 @@ export function Profile() {
                                 <span className="text-xs font-bold text-green-500 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Connected</span>
                             ) : (
                                 <button onClick={() => handleSocialLink('twitter')} className="text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg transition-colors">
-                                    Connect
-                                </button>
-                            )}
-                        </div>
-
-                        {/* Telegram */}
-                        <div className="flex items-center justify-between p-4 rounded-2xl bg-[#14141b] border border-white/5">
-                            <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center">
-                                    <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M22 2L11 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                                </div>
-                                <span className="text-sm font-medium text-white">Telegram</span>
-                            </div>
-                            {isTelegramLinked ? (
-                                <span className="text-xs font-bold text-green-500 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Connected</span>
-                            ) : (
-                                <button
-                                    onClick={() => {
-                                        // @ts-ignore
-                                        if (window.Telegram && window.Telegram.Login) {
-                                            // @ts-ignore
-                                            window.Telegram.Login.auth(
-                                                { bot_id: '7962830847', request_access: 'write' },
-                                                (data: any) => handleTelegramAuth(data)
-                                            );
-                                        }
-                                    }}
-                                    className="text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg transition-colors"
-                                >
                                     Connect
                                 </button>
                             )}

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowUpRight, ArrowDownLeft, TrendingUp, Wallet, ChevronDown, ChevronUp } from 'lucide-react'
+import { ArrowUpRight, ArrowDownLeft, Wallet, ChevronDown, ChevronUp } from 'lucide-react'
 import { useWalletStore } from '../store/walletStore'
 
 const DonutChart = ({ wallets }: { wallets: any[] }) => {
@@ -168,10 +168,6 @@ export function Dashboard() {
                                 <span>Total Balance</span>
                             </div>
                             <h1 className="text-4xl font-bold tracking-tight text-white">{totalBalance}</h1>
-                            <div className="flex items-center gap-2 text-green-400 text-xs font-mono">
-                                <TrendingUp className="w-3 h-3" />
-                                <span>+2.5% (24h)</span>
-                            </div>
                         </div>
 
                         <div className="flex gap-4">
