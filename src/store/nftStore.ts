@@ -88,12 +88,23 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
                 // Adena wallet is classified as 'Gno' but can access Cosmos chains
                 const cosmosWallets = wallets.filter(w => w.chain === 'Cosmos' || w.chain === 'Gno')
 
+                console.log('[NFT Store] Total wallets:', wallets.length)
+                console.log('[NFT Store] Cosmos/Gno wallets found:', cosmosWallets.length)
+                console.log('[NFT Store] Cosmos/Gno wallet details:', cosmosWallets.map(w => ({
+                    name: w.name,
+                    chain: w.chain,
+                    address: w.address,
+                    symbol: w.symbol
+                })))
+
                 for (const wallet of cosmosWallets) {
                     try {
+                        console.log(`[NFT Store] Fetching NFTs for ${wallet.name} (${wallet.address})...`)
                         const nfts = await stargazeNFTService.fetchUserNFTs(wallet.address)
+                        console.log(`[NFT Store] Found ${nfts.length} NFTs for ${wallet.name}`)
                         allNFTs = [...allNFTs, ...nfts]
                     } catch (error) {
-                        console.error(`Error fetching NFTs for ${wallet.address}:`, error)
+                        console.error(`[NFT Store] Error fetching NFTs for ${wallet.address}:`, error)
                     }
                 }
             }
