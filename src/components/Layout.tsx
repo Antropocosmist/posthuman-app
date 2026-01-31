@@ -128,9 +128,9 @@ export function Layout() {
                             <Link
                                 key={item.path}
                                 to={item.path}
-                                className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-all ${isActive(item.path)
-                                    ? 'text-black dark:text-white'
-                                    : 'text-gray-500 dark:text-gray-600'
+                                className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${isActive(item.path)
+                                    ? 'text-white'
+                                    : 'text-gray-600'
                                     }`}
                             >
                                 <motion.div
