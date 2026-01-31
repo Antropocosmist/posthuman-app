@@ -43,35 +43,76 @@ function convertMagicEdenNFT(meNFT: any): NFT {
 // Magic Eden NFT Service Implementation
 export class MagicEdenNFTService implements NFTServiceInterface {
     /**
-     * Fetch all NFTs owned by a specific address
+     * Fetch all NFTs owned by a specific address using Metaplex DAS API
      */
     async fetchUserNFTs(address: string): Promise<NFT[]> {
         try {
             // Validate Solana address
             new PublicKey(address)
 
-            // Use CORS proxy to bypass CORS restrictions
-            // Magic Eden API blocks direct browser requests
-            const corsProxy = 'https://corsproxy.io/?'
-            const apiUrl = `${MAGICEDEN_API_URL}/wallets/${address}/tokens`
-            const url = corsProxy + encodeURIComponent(apiUrl)
+            // Use Metaplex DAS (Digital Asset Standard) API via Helius
+            // This is the standard way to fetch Solana NFTs
+            const heliusApiKey = import.meta.env.VITE_HELIUS_API_KEY || 'demo-key'
+            const url = `https://mainnet.helius-rpc.com/?api-key=${heliusApiKey}`
 
-            console.log('[Magic Eden] Fetching NFTs for:', address)
+            console.log('[Solana NFTs] Fetching NFTs for:', address)
 
             const response = await fetch(url, {
-                headers: MAGICEDEN_API_KEY ? { 'Authorization': `Bearer ${MAGICEDEN_API_KEY}` } : {},
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    jsonrpc: '2.0',
+                    id: 'my-id',
+                    method: 'getAssetsByOwner',
+                    params: {
+                        ownerAddress: address,
+                        page: 1,
+                        limit: 1000,
+                        displayOptions: {
+                            showFungible: false, // Only NFTs, not tokens
+                        }
+                    },
+                }),
             })
 
             if (!response.ok) {
-                console.warn('[Magic Eden] API error:', response.status, response.statusText)
+                console.warn('[Solana NFTs] API error:', response.status, response.statusText)
                 return []
             }
 
-            const nfts = await response.json()
-            console.log('[Magic Eden] Found', nfts.length, 'NFTs')
-            return nfts.map((nft: any) => convertMagicEdenNFT(nft))
+            const data = await response.json()
+            const assets = data.result?.items || []
+
+            console.log('[Solana NFTs] Found', assets.length, 'NFTs')
+
+            // Convert DAS format to our NFT format
+            return assets.map((asset: any) => ({
+                id: asset.id,
+                tokenId: asset.id,
+                contractAddress: asset.id,
+                chain: 'solana' as const,
+                name: asset.content?.metadata?.name || 'Unknown NFT',
+                description: asset.content?.metadata?.description || '',
+                image: asset.content?.links?.image || asset.content?.files?.[0]?.uri || '',
+                animationUrl: asset.content?.files?.find((f: any) => f.mime?.includes('video'))?.uri,
+                externalUrl: asset.content?.links?.external_url,
+                collection: {
+                    id: asset.grouping?.find((g: any) => g.group_key === 'collection')?.group_value || '',
+                    name: asset.content?.metadata?.symbol || 'Unknown Collection',
+                    image: asset.content?.links?.image,
+                },
+                owner: address,
+                marketplace: 'magiceden',
+                isListed: false, // DAS API doesn't include listing status
+                traits: asset.content?.metadata?.attributes?.map((attr: any) => ({
+                    trait_type: attr.trait_type,
+                    value: attr.value,
+                })) || [],
+            }))
         } catch (error) {
-            console.error('[Magic Eden] Error fetching user NFTs:', error)
+            console.error('[Solana NFTs] Error fetching NFTs:', error)
             return []
         }
     }
