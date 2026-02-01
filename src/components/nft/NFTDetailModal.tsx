@@ -235,7 +235,7 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
                                             {/* Sell Button - Available on all chains */}
                                             <button
                                                 onClick={() => setActiveAction('sell')}
-                                                className="col-span-1 py-3 px-4 rounded-xl bg-pink-600 hover:bg-pink-700 text-white font-bold transition-colors flex items-center justify-center gap-2"
+                                                className="col-span-1 py-3 px-4 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold transition-colors flex items-center justify-center gap-2 shadow-lg shadow-purple-500/20"
                                             >
                                                 <ShoppingBag className="w-4 h-4" />
                                                 Sell
@@ -245,7 +245,7 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
                                             {nft.chain === 'stargaze' && (
                                                 <button
                                                     onClick={() => setActiveAction('auction')}
-                                                    className="col-span-1 py-3 px-4 rounded-xl bg-pink-600 hover:bg-pink-700 text-white font-bold transition-colors flex items-center justify-center gap-2"
+                                                    className="col-span-1 py-3 px-4 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold transition-colors flex items-center justify-center gap-2 shadow-lg shadow-purple-500/20"
                                                 >
                                                     <Gavel className="w-4 h-4" />
                                                     Auction
@@ -255,7 +255,7 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
                                             {/* Transfer Button - Available on all chains */}
                                             <button
                                                 onClick={() => setActiveAction('transfer')}
-                                                className={`col-span-${nft.chain === 'stargaze' ? '1' : '1'} py-3 px-4 rounded-xl bg-pink-600 hover:bg-pink-700 text-white font-bold transition-colors flex items-center justify-center gap-2`}
+                                                className={`col-span-${nft.chain === 'stargaze' ? '1' : '1'} py-3 px-4 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold transition-colors flex items-center justify-center gap-2 shadow-lg shadow-purple-500/20`}
                                             >
                                                 <Send className="w-4 h-4" />
                                                 Send
