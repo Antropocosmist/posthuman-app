@@ -43,88 +43,94 @@ function convertMagicEdenNFT(meNFT: any): NFT {
 // Magic Eden NFT Service Implementation
 export class MagicEdenNFTService implements NFTServiceInterface {
     /**
-     * Fetch all NFTs owned by a specific address using Metaplex DAS API
+     * Fetch all NFTs owned by a specific address using direct Solana RPC
+     * This method uses getParsedTokenAccountsByOwner which works with any public RPC
+     * No special API keys required!
      */
     async fetchUserNFTs(address: string): Promise<NFT[]> {
         try {
             // Validate Solana address
-            new PublicKey(address)
-
-            // Use Metaplex DAS (Digital Asset Standard) API via Helius
-            // This is the standard way to fetch Solana NFTs
-            const heliusApiKey = import.meta.env.VITE_HELIUS_API_KEY || 'demo-key'
-            const url = `https://mainnet.helius-rpc.com/?api-key=${heliusApiKey}`
+            const ownerPubkey = new PublicKey(address)
 
             console.log('[Solana NFTs] Fetching NFTs for:', address)
 
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    jsonrpc: '2.0',
-                    id: 'my-id',
-                    method: 'getAssetsByOwner',
-                    params: {
-                        ownerAddress: address,
-                        page: 1,
-                        limit: 1000,
-                        displayOptions: {
-                            showFungible: false, // Only NFTs, not tokens
-                        }
-                    },
-                }),
+            // Use public Solana RPC
+            const connection = new Connection(SOLANA_RPC_URL, 'confirmed')
+
+            // Get all token accounts owned by this address
+            // Filter for NFTs: amount = 1, decimals = 0
+            const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
+
+            const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
+                ownerPubkey,
+                { programId: TOKEN_PROGRAM_ID }
+            )
+
+            console.log('[Solana NFTs] Found', tokenAccounts.value.length, 'token accounts')
+
+            // Filter for NFTs (amount = 1, decimals = 0)
+            const nftAccounts = tokenAccounts.value.filter(account => {
+                const tokenAmount = account.account.data.parsed.info.tokenAmount
+                return tokenAmount.uiAmount === 1 && tokenAmount.decimals === 0
             })
 
-            if (!response.ok) {
-                if (response.status === 401) {
-                    console.error('[Solana NFTs] Authentication required. Get a free API key at https://helius.dev')
-                    console.error('[Solana NFTs] Set VITE_HELIUS_API_KEY in your .env file')
+            console.log('[Solana NFTs] Found', nftAccounts.length, 'NFT accounts')
+
+            // Fetch metadata for each NFT
+            const nfts: NFT[] = []
+
+            for (const account of nftAccounts.slice(0, 100)) { // Limit to 100 for performance
+                try {
+                    const mintAddress = account.account.data.parsed.info.mint
+
+                    // Try to fetch metadata from Metaplex
+                    // Metadata PDA is derived from mint address
+                    const METADATA_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s')
+                    const [metadataPDA] = PublicKey.findProgramAddressSync(
+                        [
+                            Buffer.from('metadata'),
+                            METADATA_PROGRAM_ID.toBuffer(),
+                            new PublicKey(mintAddress).toBuffer(),
+                        ],
+                        METADATA_PROGRAM_ID
+                    )
+
+                    const metadataAccount = await connection.getAccountInfo(metadataPDA)
+
+                    let name = `NFT ${mintAddress.slice(0, 8)}...`
+                    let image = ''
+                    let collectionName = 'Solana NFTs'
+
+                    if (metadataAccount) {
+                        // Parse basic metadata (simplified - full parsing would require borsh)
+                        // For now, just show the mint address
+                        name = `Solana NFT`
+                    }
+
+                    nfts.push({
+                        id: mintAddress,
+                        tokenId: mintAddress,
+                        contractAddress: mintAddress,
+                        chain: 'solana' as const,
+                        name,
+                        description: `Mint: ${mintAddress}`,
+                        image,
+                        collection: {
+                            id: '',
+                            name: collectionName,
+                        },
+                        owner: address,
+                        marketplace: 'magiceden',
+                        isListed: false,
+                        traits: [],
+                    })
+                } catch (error) {
+                    console.warn('[Solana NFTs] Error fetching metadata for NFT:', error)
                 }
-                console.warn('[Solana NFTs] API error:', response.status, response.statusText)
-                return []
             }
 
-            const data = await response.json()
-
-            // Check for RPC error response
-            if (data.error) {
-                console.error('[Solana NFTs] RPC error:', data.error.message || data.error)
-                if (data.error.code === -32603 || data.error.message?.includes('Unauthorized')) {
-                    console.error('[Solana NFTs] Get a free Helius API key at https://helius.dev')
-                }
-                return []
-            }
-
-            const assets = data.result?.items || []
-
-            console.log('[Solana NFTs] Found', assets.length, 'NFTs')
-
-            // Convert DAS format to our NFT format
-            return assets.map((asset: any) => ({
-                id: asset.id,
-                tokenId: asset.id,
-                contractAddress: asset.id,
-                chain: 'solana' as const,
-                name: asset.content?.metadata?.name || 'Unknown NFT',
-                description: asset.content?.metadata?.description || '',
-                image: asset.content?.links?.image || asset.content?.files?.[0]?.uri || '',
-                animationUrl: asset.content?.files?.find((f: any) => f.mime?.includes('video'))?.uri,
-                externalUrl: asset.content?.links?.external_url,
-                collection: {
-                    id: asset.grouping?.find((g: any) => g.group_key === 'collection')?.group_value || '',
-                    name: asset.content?.metadata?.symbol || 'Unknown Collection',
-                    image: asset.content?.links?.image,
-                },
-                owner: address,
-                marketplace: 'magiceden',
-                isListed: false, // DAS API doesn't include listing status
-                traits: asset.content?.metadata?.attributes?.map((attr: any) => ({
-                    trait_type: attr.trait_type,
-                    value: attr.value,
-                })) || [],
-            }))
+            console.log('[Solana NFTs] Successfully loaded', nfts.length, 'NFTs')
+            return nfts
         } catch (error) {
             console.error('[Solana NFTs] Error fetching NFTs:', error)
             return []
