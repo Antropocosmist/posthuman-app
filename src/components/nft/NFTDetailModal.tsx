@@ -258,7 +258,7 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
                                                 className={`col-span-${nft.chain === 'stargaze' ? '1' : '1'} py-3 px-4 rounded-xl bg-pink-600 hover:bg-pink-700 text-white font-bold transition-colors flex items-center justify-center gap-2`}
                                             >
                                                 <Send className="w-4 h-4" />
-                                                {nft.chain === 'stargaze' ? 'Transfer' : 'Send'}
+                                                Send
                                             </button>
 
                                             {/* Stargaze Specific: Burn */}
