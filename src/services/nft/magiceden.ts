@@ -134,18 +134,49 @@ export class MagicEdenNFTService implements NFTServiceInterface {
                                 // Fetch off-chain JSON metadata
                                 try {
                                     // Use CORS proxy for metadata JSON if needed, but many are on Arweave/IPFS with CORS enabled
-                                    // Try direct first, then proxy if needed? No, safer to proxy for IPFS gateways
-                                    const corsProxy = 'https://corsproxy.io/?'
-                                    const response = await fetch(corsProxy + encodeURIComponent(onChainUri))
-                                    const json = await response.json()
+                                    // Helper to resolve IPFS/Arweave URIs
+                                    const resolveUri = (uri: string) => {
+                                        if (!uri) return ''
+                                        if (uri.startsWith('ipfs://')) {
+                                            return uri.replace('ipfs://', 'https://ipfs.io/ipfs/')
+                                        }
+                                        if (uri.startsWith('ar://')) {
+                                            return uri.replace('ar://', 'https://arweave.net/')
+                                        }
+                                        return uri
+                                    }
 
-                                    name = json.name || name
-                                    image = json.image || json.image_url || ''
-                                    collectionName = json.collection?.name || json.symbol || onChainSymbol || collectionName
+                                    const jsonUri = resolveUri(onChainUri)
+                                    let json: any = null
 
-                                    // Fix IPFS links in image
-                                    if (image.startsWith('ipfs://')) {
-                                        image = image.replace('ipfs://', 'https://ipfs.io/ipfs/')
+                                    try {
+                                        // Try direct fetch first (most gateways support CORS)
+                                        const response = await fetch(jsonUri)
+                                        if (response.ok) {
+                                            json = await response.json()
+                                        } else {
+                                            throw new Error('Direct fetch failed')
+                                        }
+                                    } catch (directError) {
+                                        // Fallback to proxy
+                                        try {
+                                            const corsProxy = 'https://corsproxy.io/?'
+                                            const response = await fetch(corsProxy + encodeURIComponent(jsonUri))
+                                            if (response.ok) {
+                                                json = await response.json()
+                                            }
+                                        } catch (proxyError) {
+                                            console.warn('[Solana NFTs] Failed to fetch metadata via proxy:', proxyError)
+                                        }
+                                    }
+
+                                    if (json) {
+                                        name = json.name || name
+                                        image = json.image || json.image_url || ''
+                                        collectionName = json.collection?.name || json.symbol || onChainSymbol || collectionName
+
+                                        // Resolve image URI if it's IPFS/Arweave
+                                        image = resolveUri(image)
                                     }
                                 } catch (e) {
                                     console.warn('[Solana NFTs] Failed to fetch metadata JSON:', e)
