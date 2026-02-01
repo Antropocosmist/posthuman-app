@@ -283,18 +283,16 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
                                                 className="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white font-medium transition-colors flex items-center justify-center gap-2"
                                             >
                                                 <ChevronLeft className="w-4 h-4" />
-                                                Back to Actions
+                                                Back
                                             </button>
 
                                             <div className="space-y-2">
                                                 {/* Price Input Header with Floor Price Context */}
                                                 <div className="flex justify-between items-center px-1">
                                                     <label className="text-sm font-medium text-gray-300">Listing Price</label>
-                                                    {floorPriceDisplay && (
-                                                        <span className="text-xs text-purple-400 bg-purple-500/10 px-2 py-1 rounded">
-                                                            Floor: {floorPriceDisplay}
-                                                        </span>
-                                                    )}
+                                                    <span className="text-xs text-purple-400 bg-purple-500/10 px-2 py-1 rounded">
+                                                        Floor: {floorPriceDisplay || 'Loading...'}
+                                                    </span>
                                                 </div>
 
                                                 <div className="relative">
@@ -344,7 +342,7 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
                                                 className="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white font-medium transition-colors flex items-center justify-center gap-2"
                                             >
                                                 <ChevronLeft className="w-4 h-4" />
-                                                Back to Actions
+                                                Back
                                             </button>
 
                                             <div className="p-8 rounded-xl bg-white/5 border border-white/10 text-center">

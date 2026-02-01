@@ -48,8 +48,8 @@ const GET_USER_NFTS = gql`
 `
 
 const GET_MARKETPLACE_LISTINGS = gql`
-    query GetMarketplaceListings($limit: Int, $offset: Int, $sortBy: String) {
-        asks(limit: $limit, offset: $offset, sortBy: $sortBy) {
+    query GetMarketplaceListings($limit: Int, $offset: Int, $sortBy: String, $collectionAddr: String) {
+        asks(limit: $limit, offset: $offset, sortBy: $sortBy, collectionAddr: $collectionAddr) {
             asks {
                 id
                 tokenId
@@ -536,9 +536,57 @@ export class StargazeNFTService implements NFTServiceInterface {
             const { data } = await client.query<any>({
                 query: GET_COLLECTION_INFO,
                 variables: { collectionAddr: contractAddress },
+                fetchPolicy: 'network-only', // Ensure fresh data
             })
 
+            let floorPrice = data?.collection?.floorPrice
+
+            // Fallback: If floor price is missing or 0, fetch lowest listing
+            if (!floorPrice || floorPrice === '0' || floorPrice === 0) {
+                try {
+                    const { data: askData } = await client.query<any>({
+                        query: GET_MARKETPLACE_LISTINGS,
+                        variables: {
+                            sortBy: 'PRICE_ASC',
+                            limit: 1,
+                            collectionAddr: contractAddress
+                        },
+                    })
+
+                    // Extract price from lowest listing
+                    const cheapest = askData?.asks?.asks?.[0]
+                    if (cheapest?.price?.amount) {
+                        floorPrice = cheapest.price.amount
+                    }
+                } catch (e) {
+                    console.warn('Fallback floor fetch failed', e)
+                }
+            }
+
+            // Simple version for now: Use what we have, but format it.
+            // If raw integer (ustars), convert to STARS.
+            // Heuristic: If > 1000000, likely ustars.
+            let formattedFloor = floorPrice ? String(floorPrice) : undefined
+
+            if (floorPrice && !isNaN(Number(floorPrice)) && Number(floorPrice) > 1000) {
+                // Assume ustars (divide by 10^6)
+                const val = Number(floorPrice) / 1000000
+                // Format with max 2 decimals if needed
+                formattedFloor = val.toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' STARS'
+            } else if (floorPrice) {
+                formattedFloor = floorPrice + ' STARS'
+            }
+
             if (!data?.collection) {
+                // If main query failed but fallback worked? Unlikely as main query fetches metadata.
+                // But we can return partial.
+                if (formattedFloor) {
+                    return {
+                        id: contractAddress,
+                        name: 'Collection',
+                        floorPrice: formattedFloor,
+                    }
+                }
                 throw new Error('Collection not found')
             }
 
@@ -547,12 +595,17 @@ export class StargazeNFTService implements NFTServiceInterface {
                 name: data.collection.name,
                 description: data.collection.description,
                 image: data.collection.image,
-                floorPrice: data.collection.floorPrice,
+                floorPrice: formattedFloor,
                 totalSupply: data.collection.totalSupply,
             }
         } catch (error) {
             console.error('Error fetching collection info from Stargaze:', error)
-            throw new Error('Failed to fetch collection info from Stargaze')
+            // Return stub to avoid UI crash, allowing NFT details to load
+            return {
+                id: contractAddress,
+                name: 'Unknown Collection',
+                floorPrice: undefined
+            }
         }
     }
 }
