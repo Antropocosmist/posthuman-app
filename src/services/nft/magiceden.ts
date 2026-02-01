@@ -46,6 +46,16 @@ function convertMagicEdenNFT(meNFT: any): NFT {
 
 // Magic Eden NFT Service Implementation
 export class MagicEdenNFTService implements NFTServiceInterface {
+    async getCollectionStats(contractAddress: string): Promise<NFTCollection> {
+        // TODO: Implement Magic Eden collection stats fetch
+        // For Solana, contractAddress is usually the update authority or collection symbol
+        return {
+            id: contractAddress,
+            name: 'Solana Collection',
+            floorPrice: '0',
+        }
+    }
+
     /**
      * Fetch all NFTs owned by a specific address using direct Solana RPC
      * This method uses getParsedTokenAccountsByOwner which works with any public RPC
