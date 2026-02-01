@@ -1,4 +1,4 @@
-import { X } from 'lucide-react'
+import { X, ShoppingBag, Send, Flame, Gavel, ChevronLeft, Tag } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import type { NFT } from '../../services/nft/types'
 import { useNFTStore } from '../../store/nftStore'
@@ -12,6 +12,7 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
     const [price, setPrice] = useState('')
     const [floorPriceDisplay, setFloorPriceDisplay] = useState<string | null>(null)
     const [listingCurrency, setListingCurrency] = useState<string>('')
+    const [activeAction, setActiveAction] = useState<'sell' | 'transfer' | 'burn' | 'auction' | null>(null)
 
     const {
         isListing,
@@ -227,33 +228,107 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
 
                             {/* Sell/List Section */}
                             {canSell && (
-                                <div className="space-y-2">
-                                    <div className="relative">
-                                        <input
-                                            type="text"
-                                            placeholder={`Price in ${listingCurrency === 'ustars' ? 'STARS' : (listingCurrency || 'tokens')}`}
-                                            value={price}
-                                            onChange={(e) => setPrice(e.target.value)}
-                                            className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:border-purple-500 focus:outline-none"
-                                        />
-                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">
-                                            {listingCurrency === 'ustars' ? 'STARS' : listingCurrency}
+                                <div className="space-y-3">
+                                    {/* Action Selection Grid */}
+                                    {!activeAction && (
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {/* Sell Button - Available on all chains */}
+                                            <button
+                                                onClick={() => setActiveAction('sell')}
+                                                className="col-span-1 py-3 px-4 rounded-xl bg-pink-600 hover:bg-pink-700 text-white font-bold transition-colors flex items-center justify-center gap-2"
+                                            >
+                                                <ShoppingBag className="w-4 h-4" />
+                                                Sell
+                                            </button>
+
+                                            {/* Stargaze Specific: Auction */}
+                                            {nft.chain === 'stargaze' && (
+                                                <button
+                                                    onClick={() => setActiveAction('auction')}
+                                                    className="col-span-1 py-3 px-4 rounded-xl bg-pink-600 hover:bg-pink-700 text-white font-bold transition-colors flex items-center justify-center gap-2"
+                                                >
+                                                    <Gavel className="w-4 h-4" />
+                                                    Auction
+                                                </button>
+                                            )}
+
+                                            {/* Transfer Button - Available on all chains */}
+                                            <button
+                                                onClick={() => setActiveAction('transfer')}
+                                                className={`col-span-${nft.chain === 'stargaze' ? '1' : '1'} py-3 px-4 rounded-xl bg-pink-600 hover:bg-pink-700 text-white font-bold transition-colors flex items-center justify-center gap-2`}
+                                            >
+                                                <Send className="w-4 h-4" />
+                                                {nft.chain === 'stargaze' ? 'Transfer' : 'Send'}
+                                            </button>
+
+                                            {/* Stargaze Specific: Burn */}
+                                            {nft.chain === 'stargaze' && (
+                                                <button
+                                                    onClick={() => setActiveAction('burn')}
+                                                    className="col-span-1 py-3 px-4 rounded-xl bg-transparent border border-orange-500 text-orange-500 hover:bg-orange-500/10 font-bold transition-colors flex items-center justify-center gap-2"
+                                                >
+                                                    <Flame className="w-4 h-4" />
+                                                    Burn
+                                                </button>
+                                            )}
                                         </div>
-                                    </div>
-                                    <button
-                                        onClick={handleList}
-                                        disabled={!price || isListing}
-                                        className="w-full py-4 rounded-xl bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white font-bold transition-colors flex items-center justify-center gap-2"
-                                    >
-                                        {isListing ? (
-                                            <>
-                                                <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                                                Listing...
-                                            </>
-                                        ) : (
-                                            <>List for Sale</>
-                                        )}
-                                    </button>
+                                    )}
+
+                                    {/* Sell View */}
+                                    {activeAction === 'sell' && (
+                                        <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                                            <button
+                                                onClick={() => setActiveAction(null)}
+                                                className="text-xs text-gray-400 hover:text-white flex items-center gap-1 mb-2"
+                                            >
+                                                <ChevronLeft className="w-3 h-3" /> Back
+                                            </button>
+
+                                            <div className="relative">
+                                                <input
+                                                    type="text"
+                                                    placeholder={`Price in ${listingCurrency === 'ustars' ? 'STARS' : (listingCurrency || 'tokens')}`}
+                                                    value={price}
+                                                    onChange={(e) => setPrice(e.target.value)}
+                                                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:border-purple-500 focus:outline-none"
+                                                />
+                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">
+                                                    {listingCurrency === 'ustars' ? 'STARS' : listingCurrency}
+                                                </div>
+                                            </div>
+
+                                            <button
+                                                onClick={handleList}
+                                                disabled={!price || isListing}
+                                                className="w-full py-4 rounded-xl bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white font-bold transition-colors flex items-center justify-center gap-2"
+                                            >
+                                                {isListing ? (
+                                                    <>
+                                                        <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                                        Listing...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Tag className="w-4 h-4" />
+                                                        List for Sale
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* Placeholders for other actions */}
+                                    {['transfer', 'burn', 'auction'].includes(activeAction || '') && (
+                                        <div className="space-y-3 p-4 rounded-xl bg-white/5 border border-white/10 text-center animate-in fade-in slide-in-from-bottom-4 duration-300">
+                                            <button
+                                                onClick={() => setActiveAction(null)}
+                                                className="absolute top-4 left-4 text-xs text-gray-400 hover:text-white flex items-center gap-1"
+                                            >
+                                                <ChevronLeft className="w-3 h-3" /> Back
+                                            </button>
+                                            <p className="text-gray-400 pt-6">This feature is coming soon!</p>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
