@@ -78,11 +78,25 @@ export class MagicEdenNFTService implements NFTServiceInterface {
             })
 
             if (!response.ok) {
+                if (response.status === 401) {
+                    console.error('[Solana NFTs] Authentication required. Get a free API key at https://helius.dev')
+                    console.error('[Solana NFTs] Set VITE_HELIUS_API_KEY in your .env file')
+                }
                 console.warn('[Solana NFTs] API error:', response.status, response.statusText)
                 return []
             }
 
             const data = await response.json()
+
+            // Check for RPC error response
+            if (data.error) {
+                console.error('[Solana NFTs] RPC error:', data.error.message || data.error)
+                if (data.error.code === -32603 || data.error.message?.includes('Unauthorized')) {
+                    console.error('[Solana NFTs] Get a free Helius API key at https://helius.dev')
+                }
+                return []
+            }
+
             const assets = data.result?.items || []
 
             console.log('[Solana NFTs] Found', assets.length, 'NFTs')
