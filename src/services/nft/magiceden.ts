@@ -106,9 +106,54 @@ export class MagicEdenNFTService implements NFTServiceInterface {
                     let collectionName = 'Solana NFTs'
 
                     if (metadataAccount) {
-                        // Parse basic metadata (simplified - full parsing would require borsh)
-                        // For now, just show the mint address
-                        name = `Solana NFT`
+                        // Parse metadata account data (Borsh structure)
+                        // Layout: key(1) + updateAuth(32) + mint(32) + data
+                        // data: name(4+string) + symbol(4+string) + uri(4+string)
+
+                        const data = metadataAccount.data
+                        let offset = 1 + 32 + 32 // Skip key, updateAuth, mint
+
+                        // Helper to read Borsh string
+                        const readString = () => {
+                            const len = new DataView(data.buffer, data.byteOffset, data.byteLength).getUint32(offset, true)
+                            offset += 4
+                            const bytes = data.slice(offset, offset + len)
+                            offset += len
+                            // Remove null bytes padding if any (common in Metaplex)
+                            return new TextDecoder().decode(bytes).replace(/\0/g, '')
+                        }
+
+                        try {
+                            const onChainName = readString()
+                            const onChainSymbol = readString()
+                            const onChainUri = readString()
+
+                            name = onChainName || name
+
+                            if (onChainUri) {
+                                // Fetch off-chain JSON metadata
+                                try {
+                                    // Use CORS proxy for metadata JSON if needed, but many are on Arweave/IPFS with CORS enabled
+                                    // Try direct first, then proxy if needed? No, safer to proxy for IPFS gateways
+                                    const corsProxy = 'https://corsproxy.io/?'
+                                    const response = await fetch(corsProxy + encodeURIComponent(onChainUri))
+                                    const json = await response.json()
+
+                                    name = json.name || name
+                                    image = json.image || json.image_url || ''
+                                    collectionName = json.collection?.name || json.symbol || onChainSymbol || collectionName
+
+                                    // Fix IPFS links in image
+                                    if (image.startsWith('ipfs://')) {
+                                        image = image.replace('ipfs://', 'https://ipfs.io/ipfs/')
+                                    }
+                                } catch (e) {
+                                    console.warn('[Solana NFTs] Failed to fetch metadata JSON:', e)
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('[Solana NFTs] Failed to parse on-chain metadata:', e)
+                        }
                     }
 
                     nfts.push({
