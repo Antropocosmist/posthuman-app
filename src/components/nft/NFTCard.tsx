@@ -1,11 +1,24 @@
 import type { NFT } from '../../services/nft/types'
 
+const CHAIN_ICONS: Record<string, string> = {
+    ethereum: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/info/logo.png',
+    polygon: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/polygon/info/logo.png',
+    base: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/base/info/logo.png',
+    bsc: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/binance/info/logo.png',
+    gnosis: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/xdai/info/logo.png',
+    arbitrum: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/arbitrum/info/logo.png',
+    solana: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/solana/info/logo.png',
+    stargaze: 'https://raw.githubusercontent.com/cosmos/chain-registry/master/stargaze/images/stars.png'
+}
+
 interface NFTCardProps {
     nft: NFT
     onClick: () => void
 }
 
 export function NFTCard({ nft, onClick }: NFTCardProps) {
+    const chainIcon = CHAIN_ICONS[nft.chain]
+
     return (
         <div
             onClick={onClick}
@@ -26,7 +39,7 @@ export function NFTCard({ nft, onClick }: NFTCardProps) {
                     </div>
                 )}
 
-                {/* Marketplace Badge */}
+                {/* Marketplace Badge (Top Right) */}
                 {nft.marketplace && (
                     <div className="absolute top-2 right-2 px-2 py-1 rounded-lg bg-black/80 backdrop-blur-sm border border-white/10">
                         <span className="text-xs font-medium text-white capitalize">
@@ -35,7 +48,22 @@ export function NFTCard({ nft, onClick }: NFTCardProps) {
                     </div>
                 )}
 
-                {/* Listed Badge */}
+                {/* Network Badge (Bottom Right) */}
+                {chainIcon && (
+                    <div className="absolute bottom-2 right-2 w-6 h-6 rounded-full bg-black/80 backdrop-blur-sm border border-white/10 p-1 flex items-center justify-center" title={nft.chain}>
+                        <img
+                            src={chainIcon}
+                            alt={nft.chain}
+                            className="w-full h-full object-contain"
+                            onError={(e) => {
+                                // Fallback if image fails
+                                e.currentTarget.style.display = 'none'
+                            }}
+                        />
+                    </div>
+                )}
+
+                {/* Listed Badge (Bottom Left) */}
                 {nft.isListed && nft.listingPrice && (
                     <div className="absolute bottom-2 left-2 px-3 py-1.5 rounded-lg bg-purple-600/90 backdrop-blur-sm">
                         <span className="text-xs font-bold text-white">
