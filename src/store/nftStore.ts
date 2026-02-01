@@ -86,16 +86,19 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
   currentRequestId: 0,
 
   // Fetch owned NFTs
-  // Fetch owned NFTs
   fetchOwnedNFTs: async (ecosystem?: EcosystemFilter) => {
-    const requestId = get().currentRequestId + 1;
+    // 1. Setup Request ID and State
+    const currentInternalId = get().currentRequestId + 1;
     set({
       isLoadingOwned: true,
       error: null,
       ownedNFTsOffset: 0,
-      ownedNFTs: [],
-      currentRequestId: requestId,
+      ownedNFTs: [], // Explicitly clear
+      currentRequestId: currentInternalId,
     });
+
+    const targetEcosystem = ecosystem || get().activeEcosystem;
+    console.log(`[NFT Store] Fetching for ecosystem: ${targetEcosystem} (ID: ${currentInternalId})`);
 
     try {
       const walletStore = useWalletStore.getState();
@@ -106,219 +109,129 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
         return;
       }
 
-      const targetEcosystem = ecosystem || get().activeEcosystem;
-      let allNFTs: NFT[] = [];
+      let fetchedNFTs: NFT[] = [];
 
-      // Fetch from Stargaze if applicable
+      // 2. Fetch Stargaze
       if (targetEcosystem === "all" || targetEcosystem === "stargaze") {
-        // Get wallets with Stargaze addresses (start with 'stars')
         const stargazeWallets = wallets.filter(
-          (w) =>
-            (w.chain === "Cosmos" || w.chain === "Gno") &&
-            w.address.startsWith("stars"),
+          (w) => (w.chain === "Cosmos" || w.chain === "Gno") && w.address.startsWith("stars")
         );
-
-        // Deduplicate addresses
-        const uniqueStargazeAddresses = [
-          ...new Set(stargazeWallets.map((w) => w.address)),
-        ];
-
-        for (const address of uniqueStargazeAddresses) {
-          try {
-            const { fetchNFTs } = await import("../services/nftService");
-            const nfts = await fetchNFTs(address, "Cosmos", "stargaze-1", 0); // offset 0 for initial fetch
-
-            // Convert to NFT format expected by store
-            const convertedNFTs: NFT[] = nfts.map((nft) => ({
-              id: nft.id,
-              tokenId: nft.id,
-              name: nft.name,
-              description: nft.description || "",
-              image: nft.image,
-              chain: "stargaze" as const,
-              contractAddress: "", // Not provided by nftService
-              owner: address,
-              collection: {
-                id: "",
-                name: nft.collectionName || "Unknown Collection",
-                image: nft.image,
-              },
-              isListed: false,
-              marketplace: undefined,
-            }));
-
-            allNFTs = [...allNFTs, ...convertedNFTs];
-          } catch (error) {
-            console.error(
-              `[NFT Store] Error fetching NFTs for ${address}:`,
-              error,
-            );
-          }
-        }
-      }
-
-      // Fetch from EVM chains (OpenSea)
-      if (targetEcosystem === "all" || targetEcosystem === "evm") {
-        const evmWallets = wallets.filter((w) => w.chain === "EVM");
-
-        // Deduplicate addresses (normalize to lowercase)
-        const uniqueAddresses = [
-          ...new Set(evmWallets.map((w) => w.address.toLowerCase())),
-        ];
-        console.log(
-          "[NFT Store] EVM wallets found:",
-          evmWallets.length,
-          "unique addresses:",
-          uniqueAddresses.length,
-        );
+        const uniqueAddresses = [...new Set(stargazeWallets.map((w) => w.address))];
 
         for (const address of uniqueAddresses) {
+          if (get().currentRequestId !== currentInternalId) return; // Early exit
+          // ... (Existing Stargaze Fetch Logic - abbreviated for edit, utilizing imports)
           try {
-            console.log(`[NFT Store] Fetching EVM NFTs for ${address}...`);
-
-            // List of chains to fetch from
-            const evmChains = [
-              "ethereum",
-              "polygon",
-              "base",
-              "bsc",
-              "gnosis",
-              "arbitrum",
-            ] as const;
-
-            // Fetch concurrently for better performance
-            const promises = evmChains.map(async (chain) => {
-              try {
-                const nfts = await openSeaNFTService.fetchUserNFTs(
-                  address,
-                  chain,
-                );
-                console.log(`[NFT Store] Found ${nfts.length} ${chain} NFTs`);
-                return nfts;
-              } catch (e) {
-                console.warn(`[NFT Store] Failed to fetch ${chain} NFTs:`, e);
-                return [];
-              }
-            });
-
-            const results = await Promise.all(promises);
-            const failedCount = results.filter((r) => r.length === 0).length;
-            const successCount = results.filter((r) => r.length > 0).length;
-            console.log(
-              `[NFT Store] EVM fetch complete. Success: ${successCount}, Empty/Failed: ${failedCount}`,
-            );
-
-            allNFTs = [...allNFTs, ...results.flat()];
-          } catch (error) {
-            console.error(
-              `[NFT Store] Error fetching EVM NFTs for ${address}:`,
-              error,
-            );
-          }
+            const { fetchNFTs } = await import("../services/nftService");
+            const nfts = await fetchNFTs(address, "Cosmos", "stargaze-1", 0);
+            const converted = nfts.map(nft => ({
+              id: nft.id, tokenId: nft.id, name: nft.name, description: nft.description || "",
+              image: nft.image, chain: "stargaze" as const, contractAddress: "", owner: address,
+              collection: { id: "", name: nft.collectionName || "Unknown", image: nft.image },
+              isListed: false, marketplace: undefined
+            }));
+            fetchedNFTs = [...fetchedNFTs, ...converted];
+          } catch (e) { console.error("Stargaze fetch error", e); }
         }
       }
 
-      // Fetch from Solana (Magic Eden)
+      // 3. Fetch EVM
+      if (targetEcosystem === "all" || targetEcosystem === "evm") {
+        if (get().currentRequestId !== currentInternalId) return;
+        const evmWallets = wallets.filter((w) => w.chain === "EVM");
+        const uniqueAddresses = [...new Set(evmWallets.map((w) => w.address.toLowerCase()))];
+        const evmChains = ["ethereum", "polygon", "base", "bsc", "gnosis", "arbitrum"] as const;
+
+        for (const address of uniqueAddresses) {
+          console.log(`[NFT Store] Fetching EVM for ${address} (ID: ${currentInternalId})`);
+          const promises = evmChains.map(async (chain) => {
+            try {
+              return await openSeaNFTService.fetchUserNFTs(address, chain);
+            } catch (e) { return []; }
+          });
+          const results = await Promise.all(promises);
+          fetchedNFTs = [...fetchedNFTs, ...results.flat()];
+        }
+      }
+
+      // 4. Fetch Solana
       if (targetEcosystem === "all" || targetEcosystem === "solana") {
+        if (get().currentRequestId !== currentInternalId) return;
         const solanaWallets = wallets.filter((w) => w.chain === "Solana");
-        console.log("[NFT Store] Solana wallets found:", solanaWallets.length);
-
-        // Deduplicate addresses
-        const uniqueSolanaAddresses = [
-          ...new Set(solanaWallets.map((w) => w.address)),
-        ];
-
-        for (const address of uniqueSolanaAddresses) {
+        const uniqueAddresses = [...new Set(solanaWallets.map((w) => w.address))];
+        for (const address of uniqueAddresses) {
           try {
-            console.log(`[NFT Store] Fetching Solana NFTs for ${address}...`);
             const nfts = await magicEdenNFTService.fetchUserNFTs(address);
-            console.log(`[NFT Store] Found ${nfts.length} Solana NFTs`);
-            allNFTs = [...allNFTs, ...nfts];
-          } catch (error) {
-            console.error(
-              `[NFT Store] Error fetching Solana NFTs for ${address}:`,
-              error,
-            );
-          }
+            fetchedNFTs = [...fetchedNFTs, ...nfts];
+          } catch (e) { console.error("Solana fetch error", e); }
         }
       }
 
-      // Check cancellation
-      if (get().currentRequestId !== requestId) return;
-
-      // STRICT FILTER: Ensure we only keep NFTs that match the requested ecosystem
-      if (targetEcosystem === "stargaze") {
-        allNFTs = allNFTs.filter((n) => n.chain === "stargaze");
-      } else if (targetEcosystem === "evm") {
-        allNFTs = allNFTs.filter((n) =>
-          ["ethereum", "polygon", "base", "bsc", "gnosis", "arbitrum"].includes(
-            n.chain,
-          ),
-        );
-      } else if (targetEcosystem === "solana") {
-        allNFTs = allNFTs.filter((n) => n.chain === "solana");
+      // 5. Final Safety Check (Race Condition)
+      if (get().currentRequestId !== currentInternalId) {
+        console.log(`[NFT Store] Ignoring stale request ${currentInternalId}`);
+        return;
       }
 
-      // Final Deduplication & Cross-Chain Cleanup
-      const uniqueNFTs = new Map<string, NFT>();
+      // 6. Strict ECOSYSTEM Filtering (Double check)
+      // This ensures that even if logic leaked, we forcefully clean it.
+      let filteredByType = fetchedNFTs;
+      if (targetEcosystem === "stargaze") filteredByType = filteredByType.filter(n => n.chain === "stargaze");
+      else if (targetEcosystem === "evm") filteredByType = filteredByType.filter(n => ["ethereum", "polygon", "base", "bsc", "gnosis", "arbitrum"].includes(n.chain));
+      else if (targetEcosystem === "solana") filteredByType = filteredByType.filter(n => n.chain === "solana");
 
-      allNFTs.forEach((nft) => {
-        // 1. Full Key for exact matches
-        const fullKey =
-          `${nft.chain}-${nft.contractAddress}-${nft.tokenId}`.toLowerCase();
+      // 7. Aggressive Deduplication (Content-Based)
+      // We prioritize exact matches, then content matches (Name + TokenID) to merge cross-chain duplicates (like UD)
+      const uniqueMap = new Map<string, NFT>();
+      const contentMap = new Map<string, string>(); // Key: "name-tokenId", Value: fullKey
 
-        // 2. Cross-chain Check for EVM
-        // If we already have this asset (Same Contract + ID) from another EVM chain, skip it.
-        // This handles OpenSea returning the same asset for multiple chain queries.
-        const isEVM = [
-          "ethereum",
-          "polygon",
-          "base",
-          "bsc",
-          "gnosis",
-          "arbitrum",
-        ].includes(nft.chain);
+      filteredByType.forEach(nft => {
+        const fullKey = `${nft.chain}-${nft.contractAddress}-${nft.tokenId}`.toLowerCase();
 
-        if (isEVM && nft.contractAddress) {
-          let duplicateFound = false;
-          for (const existing of uniqueNFTs.values()) {
-            if (
-              [
-                "ethereum",
-                "polygon",
-                "base",
-                "bsc",
-                "gnosis",
-                "arbitrum",
-              ].includes(existing.chain)
-            ) {
-              if (
-                existing.contractAddress.toLowerCase() ===
-                nft.contractAddress.toLowerCase() &&
-                existing.tokenId === nft.tokenId
-              ) {
-                duplicateFound = true;
-                break;
-              }
+        // Special handling for Unstoppable Domains / ENS-like assets
+        // If name and tokenId match, we treat them as the SAME asset to avoid cross-chain confusion.
+        // We prioritize Ethereum version if available.
+        const isEVM = ["ethereum", "polygon", "base", "bsc", "gnosis", "arbitrum"].includes(nft.chain);
+        let contentKey = "";
+
+        if (isEVM) {
+          contentKey = `${nft.name}-${nft.tokenId}`.toLowerCase();
+        }
+
+        if (contentKey) {
+          if (contentMap.has(contentKey)) {
+            // We already have this asset (e.g. on another chain).
+            // Check priority: Ethereum > others.
+            const existingKey = contentMap.get(contentKey)!;
+            const existingNFT = uniqueMap.get(existingKey)!;
+
+            if (nft.chain === 'ethereum' && existingNFT.chain !== 'ethereum') {
+              // Replace existing with Ethereum version
+              uniqueMap.delete(existingKey);
+              uniqueMap.set(fullKey, nft);
+              contentMap.set(contentKey, fullKey);
             }
+            // Else: Keep existing (first one wins or higher priority wins)
+            return;
           }
-          if (duplicateFound) return; // Skip this duplicate
+          contentMap.set(contentKey, fullKey);
         }
 
-        if (!uniqueNFTs.has(fullKey)) {
-          uniqueNFTs.set(fullKey, nft);
+        if (!uniqueMap.has(fullKey)) {
+          uniqueMap.set(fullKey, nft);
         }
       });
 
-      const finalNFTs = Array.from(uniqueNFTs.values());
+      const finalNFTs = Array.from(uniqueMap.values());
 
-      // Check if we got a full batch (100 NFTs), indicating there might be more
       set({
         ownedNFTs: finalNFTs,
         isLoadingOwned: false,
         ownedNFTsOffset: 100,
         hasMoreOwnedNFTs: finalNFTs.length >= 100,
       });
+      console.log(`[NFT Store] Set ownedNFTs: ${finalNFTs.length} items (ID: ${currentInternalId})`);
+
     } catch (error) {
       console.error("Error fetching owned NFTs:", error);
       set({
