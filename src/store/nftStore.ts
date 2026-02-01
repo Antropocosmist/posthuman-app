@@ -32,6 +32,7 @@ interface NFTStore {
 
     // Error States
     error: string | null
+    currentRequestId: number
 
     // Actions - Data Fetching
     fetchOwnedNFTs: (ecosystem?: EcosystemFilter) => Promise<void>
@@ -74,9 +75,19 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
 
     error: null,
 
+    // Request tracking for cancellation
+    currentRequestId: 0,
+
     // Fetch owned NFTs
     fetchOwnedNFTs: async (ecosystem?: EcosystemFilter) => {
-        set({ isLoadingOwned: true, error: null, ownedNFTsOffset: 0, ownedNFTs: [] })
+        const requestId = Date.now()
+        set({
+            isLoadingOwned: true,
+            error: null,
+            ownedNFTsOffset: 0,
+            ownedNFTs: [],
+            currentRequestId: requestId
+        })
 
         try {
             const walletStore = useWalletStore.getState()
@@ -191,12 +202,26 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
                 }
             }
 
+            // Check cancellation
+            if (get().currentRequestId !== requestId) return
+
+            // Final Deduplication
+            const uniqueNFTs = new Map<string, NFT>()
+            allNFTs.forEach(nft => {
+                const key = `${nft.chain}-${nft.contractAddress}-${nft.tokenId}`.toLowerCase()
+                if (!uniqueNFTs.has(key)) {
+                    uniqueNFTs.set(key, nft)
+                }
+            })
+
+            const finalNFTs = Array.from(uniqueNFTs.values())
+
             // Check if we got a full batch (100 NFTs), indicating there might be more
             set({
-                ownedNFTs: allNFTs,
+                ownedNFTs: finalNFTs,
                 isLoadingOwned: false,
                 ownedNFTsOffset: 100,
-                hasMoreOwnedNFTs: allNFTs.length >= 100
+                hasMoreOwnedNFTs: finalNFTs.length >= 100
             })
         } catch (error) {
             console.error('Error fetching owned NFTs:', error)
