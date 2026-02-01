@@ -276,31 +276,50 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
 
                                     {/* Sell View */}
                                     {activeAction === 'sell' && (
-                                        <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                                        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                                            {/* Prominent Back Button */}
                                             <button
                                                 onClick={() => setActiveAction(null)}
-                                                className="text-xs text-gray-400 hover:text-white flex items-center gap-1 mb-2"
+                                                className="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white font-medium transition-colors flex items-center justify-center gap-2"
                                             >
-                                                <ChevronLeft className="w-3 h-3" /> Back
+                                                <ChevronLeft className="w-4 h-4" />
+                                                Back to Actions
                                             </button>
 
-                                            <div className="relative">
-                                                <input
-                                                    type="text"
-                                                    placeholder={`Price in ${listingCurrency === 'ustars' ? 'STARS' : (listingCurrency || 'tokens')}`}
-                                                    value={price}
-                                                    onChange={(e) => setPrice(e.target.value)}
-                                                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:border-purple-500 focus:outline-none"
-                                                />
-                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">
-                                                    {listingCurrency === 'ustars' ? 'STARS' : listingCurrency}
+                                            <div className="space-y-2">
+                                                {/* Price Input Header with Floor Price Context */}
+                                                <div className="flex justify-between items-center px-1">
+                                                    <label className="text-sm font-medium text-gray-300">Listing Price</label>
+                                                    {floorPriceDisplay && (
+                                                        <span className="text-xs text-purple-400 bg-purple-500/10 px-2 py-1 rounded">
+                                                            Floor: {floorPriceDisplay}
+                                                        </span>
+                                                    )}
                                                 </div>
+
+                                                <div className="relative">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="0.00"
+                                                        value={price}
+                                                        onChange={(e) => setPrice(e.target.value)}
+                                                        className="w-full px-4 py-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:border-purple-500 focus:outline-none text-lg font-mono"
+                                                    />
+                                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                                                        <span className="text-sm font-bold text-gray-400 border-l border-white/10 pl-3">
+                                                            {listingCurrency === 'ustars' ? 'STARS' : (listingCurrency || 'TOKEN')}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <p className="text-xs text-gray-500 px-1">
+                                                    Enter the amount you want to receive.
+                                                </p>
                                             </div>
 
                                             <button
                                                 onClick={handleList}
                                                 disabled={!price || isListing}
-                                                className="w-full py-4 rounded-xl bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white font-bold transition-colors flex items-center justify-center gap-2"
+                                                className="w-full py-4 rounded-xl bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white font-bold transition-colors flex items-center justify-center gap-2 shadow-lg shadow-green-500/20"
                                             >
                                                 {isListing ? (
                                                     <>
@@ -319,14 +338,24 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
 
                                     {/* Placeholders for other actions */}
                                     {['transfer', 'burn', 'auction'].includes(activeAction || '') && (
-                                        <div className="space-y-3 p-4 rounded-xl bg-white/5 border border-white/10 text-center animate-in fade-in slide-in-from-bottom-4 duration-300">
+                                        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
                                             <button
                                                 onClick={() => setActiveAction(null)}
-                                                className="absolute top-4 left-4 text-xs text-gray-400 hover:text-white flex items-center gap-1"
+                                                className="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white font-medium transition-colors flex items-center justify-center gap-2"
                                             >
-                                                <ChevronLeft className="w-3 h-3" /> Back
+                                                <ChevronLeft className="w-4 h-4" />
+                                                Back to Actions
                                             </button>
-                                            <p className="text-gray-400 pt-6">This feature is coming soon!</p>
+
+                                            <div className="p-8 rounded-xl bg-white/5 border border-white/10 text-center">
+                                                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-purple-500/10 text-purple-400 mb-4">
+                                                    {activeAction === 'auction' && <Gavel className="w-6 h-6" />}
+                                                    {activeAction === 'transfer' && <Send className="w-6 h-6" />}
+                                                    {activeAction === 'burn' && <Flame className="w-6 h-6" />}
+                                                </div>
+                                                <h3 className="text-lg font-bold text-white mb-1 capitalize">{activeAction} NFT</h3>
+                                                <p className="text-gray-400">This feature is coming soon!</p>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
