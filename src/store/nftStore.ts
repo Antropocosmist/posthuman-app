@@ -50,7 +50,7 @@ interface NFTStore {
   // Actions - NFT Operations
   buyNFT: (listing: MarketplaceListing) => Promise<void>;
   listNFT: (nft: NFT, price: string, currency: string) => Promise<void>;
-  cancelListing: (listingId: string) => Promise<void>;
+  cancelListing: (nft: NFT) => Promise<void>;
 
   // Actions - UI State
   setSelectedNFT: (nft: NFT | null) => void;
@@ -533,19 +533,57 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
   },
 
   // Cancel listing
-  cancelListing: async (listingId: string) => {
+  cancelListing: async (nft: NFT) => {
     set({ isListing: true, error: null });
 
     try {
       const walletStore = useWalletStore.getState();
-      const wallet = walletStore.wallets[0]; // TODO: Get correct wallet
+
+      // Helper to map NFT chain to wallet ChainType
+      const getWalletChainType = (nftChain: string): string => {
+        if (nftChain === "stargaze") return "Cosmos";
+        if (nftChain === "ethereum" || nftChain === "polygon") return "EVM";
+        if (nftChain === "solana") return "Solana";
+        return nftChain;
+      };
+
+      const walletChainType = getWalletChainType(nft.chain);
+      const sellerWallet = walletStore.wallets.find(
+        (w) => w.address.toLowerCase() === nft.owner.toLowerCase() && w.chain === walletChainType,
+      );
+
+      // Fallback: Just try to find a wallet of the correct type if owner check fails (legacy data?)
+      const wallet = sellerWallet || walletStore.wallets.find(w => w.chain === walletChainType);
 
       if (!wallet) {
-        throw new Error("No wallet connected");
+        throw new Error(`No connected wallet found for ${nft.chain}`);
       }
 
-      // TODO: Determine which service to use based on listing
-      await stargazeNFTService.cancelListing(listingId, wallet.address);
+      const listingId = nft.listingId;
+      if (!listingId) {
+        throw new Error("NFT listing ID not found. Cannot cancel.");
+      }
+
+      console.log(`[NFT Store] Canceling listing ${listingId} on ${nft.chain}`);
+
+      switch (nft.chain) {
+        case "stargaze":
+          await stargazeNFTService.cancelListing(listingId, wallet.address);
+          break;
+        case "ethereum":
+        case "polygon":
+        case "base":
+        case "bsc":
+        case "gnosis":
+        case "arbitrum":
+          await openSeaNFTService.cancelListing(listingId, wallet.address);
+          break;
+        case "solana":
+          await magicEdenNFTService.cancelListing(listingId, wallet.address);
+          break;
+        default:
+          throw new Error(`Cancellation not supported for ${nft.chain} yet`);
+      }
 
       // Refresh NFTs after cancellation
       await get().refreshNFTs();

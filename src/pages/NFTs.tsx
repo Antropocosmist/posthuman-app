@@ -8,17 +8,14 @@ import { NFTDetailModal } from '../components/nft/NFTDetailModal'
 export function NFTs() {
     const {
         ownedNFTs,
-        marketplaceNFTs,
         selectedNFT,
         activeEcosystem,
         activeView,
         searchQuery,
         isLoadingOwned,
-        isLoadingMarketplace,
         hasMoreOwnedNFTs,
         error,
         fetchOwnedNFTs,
-        fetchMarketplaceNFTs,
         loadMoreOwnedNFTs,
         setSelectedNFT,
         setActiveEcosystem,
@@ -29,18 +26,14 @@ export function NFTs() {
 
     // Load NFTs on mount and when view/ecosystem changes
     useEffect(() => {
-        if (activeView === 'owned') {
-            fetchOwnedNFTs()
-        } else {
-            fetchMarketplaceNFTs()
-        }
+        fetchOwnedNFTs()
     }, [activeView, activeEcosystem])
 
     // Filter NFTs based on ecosystem and search query
     const filteredNFTs = useMemo(() => {
         let nfts = activeView === 'owned'
             ? ownedNFTs
-            : marketplaceNFTs.map(l => l.nft)
+            : ownedNFTs.filter(n => n.isListed)
 
         // Filter by ecosystem
         if (activeEcosystem !== 'all') {
@@ -64,11 +57,11 @@ export function NFTs() {
         }
 
         return nfts
-    }, [activeView, ownedNFTs, marketplaceNFTs, searchQuery, activeEcosystem])
+    }, [activeView, ownedNFTs, searchQuery, activeEcosystem])
 
     // Calculate NFT counts per ecosystem
     const nftCounts = useMemo(() => {
-        const nfts = activeView === 'owned' ? ownedNFTs : marketplaceNFTs.map(l => l.nft)
+        const nfts = activeView === 'owned' ? ownedNFTs : ownedNFTs.filter(n => n.isListed)
 
         return {
             all: nfts.length,
@@ -76,9 +69,9 @@ export function NFTs() {
             evm: nfts.filter(n => ['ethereum', 'polygon', 'base', 'bsc', 'gnosis', 'arbitrum'].includes(n.chain)).length,
             solana: nfts.filter(n => n.chain === 'solana').length,
         }
-    }, [activeView, ownedNFTs, marketplaceNFTs])
+    }, [activeView, ownedNFTs])
 
-    const isLoading = activeView === 'owned' ? isLoadingOwned : isLoadingMarketplace
+    const isLoading = isLoadingOwned
 
     return (
         <div className="max-w-7xl mx-auto">
@@ -119,10 +112,10 @@ export function NFTs() {
                         }
                     `}
                 >
-                    Explore Marketplace
-                    {marketplaceNFTs.length > 0 && (
+                    Listed NFTs
+                    {ownedNFTs.filter(n => n.isListed).length > 0 && (
                         <span className="ml-2 px-2 py-0.5 rounded-full bg-black/10 text-xs">
-                            {marketplaceNFTs.length}
+                            {ownedNFTs.filter(n => n.isListed).length}
                         </span>
                     )}
                 </button>

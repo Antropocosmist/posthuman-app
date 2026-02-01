@@ -10,7 +10,7 @@ interface NFTDetailModalProps {
 
 export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
     const [listPrice, setListPrice] = useState('')
-    const { buyNFT, listNFT, isBuying, isListing, marketplaceNFTs } = useNFTStore()
+    const { buyNFT, listNFT, cancelListing, isBuying, isListing, marketplaceNFTs } = useNFTStore()
 
     if (!nft) return null
 
@@ -39,6 +39,15 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
             onClose()
         } catch (error) {
             console.error('List failed:', error)
+        }
+    }
+
+    const handleCancel = async () => {
+        try {
+            await cancelListing(nft)
+            onClose()
+        } catch (error) {
+            console.error('Cancel failed:', error)
         }
     }
 
@@ -191,6 +200,24 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
                                         )}
                                     </button>
                                 </div>
+                            )}
+
+                            {/* Cancel Listing Section */}
+                            {nft.isListed && (
+                                <button
+                                    onClick={handleCancel}
+                                    disabled={isListing}
+                                    className="w-full py-4 rounded-xl bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white font-bold transition-colors flex items-center justify-center gap-2"
+                                >
+                                    {isListing ? (
+                                        <>
+                                            <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                            Canceling...
+                                        </>
+                                    ) : (
+                                        <>Cancel Listing</>
+                                    )}
+                                </button>
                             )}
                         </div>
                     </div>

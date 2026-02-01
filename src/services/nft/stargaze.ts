@@ -154,28 +154,96 @@ function convertStargazeNFT(stargazeNFT: any, collection: any): NFT {
     }
 }
 
+const GET_USER_ASKS = gql`
+    query GetUserAsks($seller: String!) {
+        asks(seller: $seller, limit: 100) {
+            asks {
+                id
+                tokenId
+                price {
+                    amount
+                    denom
+                }
+                collection {
+                    contractAddress
+                    name
+                    image
+                    description
+                }
+                token {
+                    name
+                    description
+                    image
+                    traits {
+                        name
+                        value
+                    }
+                }
+            }
+        }
+    }
+`
+
 // Stargaze NFT Service Implementation
 export class StargazeNFTService implements NFTServiceInterface {
     /**
-     * Fetch all NFTs owned by a specific address
+     * Fetch all NFTs owned by a specific address, including those listed for sale
      */
     async fetchUserNFTs(address: string): Promise<NFT[]> {
         try {
-            const { data } = await client.query<any>({
+            // 1. Fetch tokens in wallet
+            const tokensPromise = client.query<any>({
                 query: GET_USER_NFTS,
                 variables: { ownerAddr: address },
             })
 
-            if (!data?.tokens?.tokens) {
-                return []
-            }
+            // 2. Fetch active asks (listings) - important because Stargaze escrows listed NFTs
+            const asksPromise = client.query<any>({
+                query: GET_USER_ASKS,
+                variables: { seller: address },
+            })
 
-            return data.tokens.tokens.map((token: any) =>
+            const [tokensResult, asksResult] = await Promise.all([tokensPromise, asksPromise])
+
+            const tokens = tokensResult.data?.tokens?.tokens || []
+            const asks = asksResult.data?.asks?.asks || []
+
+            // Convert wallet tokens
+            const walletNFTs: NFT[] = tokens.map((token: any) =>
                 convertStargazeNFT(token, token.collection)
             )
+
+            // Convert asks to NFTs
+            const askNFTs: NFT[] = asks.map((ask: any) => {
+                const nft = convertStargazeNFT(ask.token, ask.collection)
+                // Override listing properties
+                nft.isListed = true
+                // We construct listingId strictly as collection-tokenId because our cancelListing
+                // implementation parses it effectively to call the contract.
+                nft.listingId = `${ask.collection.contractAddress}-${ask.tokenId}`
+                nft.listingPrice = ask.price.amount
+                nft.listingCurrency = ask.price.denom
+                nft.owner = address // User is the owner (seller)
+                // Ensure ID matches what we expect
+                nft.id = `${ask.collection.contractAddress}-${ask.tokenId}`
+                nft.tokenId = ask.tokenId // Ensure tokenId is set
+                return nft
+            })
+
+            // Merge: If an NFT is in both (shouldn't happen often if escrowed), prefer the Ask version (listed)
+            const nftMap = new Map<string, NFT>()
+
+            // Add wallet NFTs first
+            walletNFTs.forEach(nft => nftMap.set(nft.id, nft))
+
+            // Add/Overwrite with Ask NFTs
+            askNFTs.forEach(nft => nftMap.set(nft.id, nft))
+
+            return Array.from(nftMap.values())
         } catch (error) {
             console.error('Error fetching user NFTs from Stargaze:', error)
-            throw new Error('Failed to fetch NFTs from Stargaze')
+            // Fallback to empty array prevents crashing the entire app if Stargaze API fails
+            return []
         }
     }
 

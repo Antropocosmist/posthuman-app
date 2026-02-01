@@ -33,6 +33,7 @@ function convertOpenSeaNFT(openseaNFT: any, chain: 'ethereum' | 'polygon' | 'bas
         isListed: !!openseaNFT.sell_orders?.length,
         listingPrice: openseaNFT.sell_orders?.[0]?.current_price,
         listingCurrency: 'ETH',
+        listingId: openseaNFT.sell_orders?.[0]?.order_hash || openseaNFT.sell_orders?.[0]?.hash,
         traits: openseaNFT.traits?.map((trait: any) => ({
             trait_type: trait.trait_type,
             value: trait.value,
