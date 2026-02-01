@@ -93,18 +93,18 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
             // Fetch from Stargaze if applicable
             if (targetEcosystem === 'all' || targetEcosystem === 'stargaze') {
                 // Get wallets with Stargaze addresses (start with 'stars')
-                // Use the same nftService that works for avatar selection
                 const stargazeWallets = wallets.filter(w =>
                     (w.chain === 'Cosmos' || w.chain === 'Gno') &&
                     w.address.startsWith('stars')
                 )
 
-                for (const wallet of stargazeWallets) {
+                // Deduplicate addresses
+                const uniqueStargazeAddresses = [...new Set(stargazeWallets.map(w => w.address))]
+
+                for (const address of uniqueStargazeAddresses) {
                     try {
-                        // Use nftService.fetchNFTs instead of stargazeNFTService
-                        // This is the same service used by avatar selection which works
                         const { fetchNFTs } = await import('../services/nftService')
-                        const nfts = await fetchNFTs(wallet.address, wallet.chain, wallet.chainId, 0) // offset 0 for initial fetch
+                        const nfts = await fetchNFTs(address, 'Cosmos', 'stargaze-1', 0) // offset 0 for initial fetch
 
                         // Convert to NFT format expected by store
                         const convertedNFTs: NFT[] = nfts.map(nft => ({
@@ -115,7 +115,7 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
                             image: nft.image,
                             chain: 'stargaze' as const,
                             contractAddress: '', // Not provided by nftService
-                            owner: wallet.address,
+                            owner: address,
                             collection: {
                                 id: '',
                                 name: nft.collectionName || 'Unknown Collection',
@@ -127,7 +127,7 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
 
                         allNFTs = [...allNFTs, ...convertedNFTs]
                     } catch (error) {
-                        console.error(`[NFT Store] Error fetching NFTs for ${wallet.address}:`, error)
+                        console.error(`[NFT Store] Error fetching NFTs for ${address}:`, error)
                     }
                 }
             }
@@ -136,8 +136,8 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
             if (targetEcosystem === 'all' || targetEcosystem === 'evm') {
                 const evmWallets = wallets.filter(w => w.chain === 'EVM')
 
-                // Deduplicate addresses (same address might be connected multiple times)
-                const uniqueAddresses = [...new Set(evmWallets.map(w => w.address))]
+                // Deduplicate addresses (normalize to lowercase)
+                const uniqueAddresses = [...new Set(evmWallets.map(w => w.address.toLowerCase()))]
                 console.log('[NFT Store] EVM wallets found:', evmWallets.length, 'unique addresses:', uniqueAddresses.length)
 
                 for (const address of uniqueAddresses) {
@@ -176,14 +176,17 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
                 const solanaWallets = wallets.filter(w => w.chain === 'Solana')
                 console.log('[NFT Store] Solana wallets found:', solanaWallets.length)
 
-                for (const wallet of solanaWallets) {
+                // Deduplicate addresses
+                const uniqueSolanaAddresses = [...new Set(solanaWallets.map(w => w.address))]
+
+                for (const address of uniqueSolanaAddresses) {
                     try {
-                        console.log(`[NFT Store] Fetching Solana NFTs for ${wallet.address}...`)
-                        const nfts = await magicEdenNFTService.fetchUserNFTs(wallet.address)
+                        console.log(`[NFT Store] Fetching Solana NFTs for ${address}...`)
+                        const nfts = await magicEdenNFTService.fetchUserNFTs(address)
                         console.log(`[NFT Store] Found ${nfts.length} Solana NFTs`)
                         allNFTs = [...allNFTs, ...nfts]
                     } catch (error) {
-                        console.error(`[NFT Store] Error fetching Solana NFTs for ${wallet.address}:`, error)
+                        console.error(`[NFT Store] Error fetching Solana NFTs for ${address}:`, error)
                     }
                 }
             }
