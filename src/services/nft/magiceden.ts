@@ -92,7 +92,7 @@ export class MagicEdenNFTService implements NFTServiceInterface {
                     const METADATA_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s')
                     const [metadataPDA] = PublicKey.findProgramAddressSync(
                         [
-                            Buffer.from('metadata'),
+                            new TextEncoder().encode('metadata'),
                             METADATA_PROGRAM_ID.toBuffer(),
                             new PublicKey(mintAddress).toBuffer(),
                         ],
