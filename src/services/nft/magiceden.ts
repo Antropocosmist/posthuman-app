@@ -4,7 +4,9 @@ import type { NFT, NFTCollection, MarketplaceListing, NFTFilters, NFTServiceInte
 // Magic Eden API configuration
 const MAGICEDEN_API_KEY = import.meta.env.VITE_MAGICEDEN_API_KEY || ''
 const MAGICEDEN_API_URL = 'https://api-mainnet.magiceden.dev/v2'
-const SOLANA_RPC_URL = 'https://api.mainnet-beta.solana.com'
+// Use a free public RPC that allows browser requests
+// Official RPC blocks browser requests with 403
+const SOLANA_RPC_URL = import.meta.env.VITE_SOLANA_RPC_URL || 'https://solana-mainnet.g.alchemy.com/v2/demo'
 
 // Helper function to convert Magic Eden NFT to our NFT type
 function convertMagicEdenNFT(meNFT: any): NFT {
