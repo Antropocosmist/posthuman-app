@@ -143,17 +143,28 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
                 for (const address of uniqueAddresses) {
                     try {
                         console.log(`[NFT Store] Fetching EVM NFTs for ${address}...`)
-                        // Fetch from Ethereum
-                        const ethNFTs = await openSeaNFTService.fetchUserNFTs(address, 'ethereum')
-                        console.log(`[NFT Store] Found ${ethNFTs.length} Ethereum NFTs`)
-                        allNFTs = [...allNFTs, ...ethNFTs]
 
-                        // Fetch from Polygon
-                        const polyNFTs = await openSeaNFTService.fetchUserNFTs(address, 'polygon')
-                        console.log(`[NFT Store] Found ${polyNFTs.length} Polygon NFTs`)
-                        allNFTs = [...allNFTs, ...polyNFTs]
+                        // List of chains to fetch from
+                        const evmChains = ['ethereum', 'polygon', 'base', 'bsc', 'gnosis', 'arbitrum'] as const
 
-                        // TODO: Add Base and BSC support when OpenSea API supports them
+                        // Fetch concurrently for better performance
+                        const promises = evmChains.map(async (chain) => {
+                            try {
+                                const nfts = await openSeaNFTService.fetchUserNFTs(address, chain)
+                                console.log(`[NFT Store] Found ${nfts.length} ${chain} NFTs`)
+                                return nfts
+                            } catch (e) {
+                                console.warn(`[NFT Store] Failed to fetch ${chain} NFTs:`, e)
+                                return []
+                            }
+                        })
+
+                        const results = await Promise.all(promises)
+                        const failedCount = results.filter(r => r.length === 0).length
+                        const successCount = results.filter(r => r.length > 0).length
+                        console.log(`[NFT Store] EVM fetch complete. Success: ${successCount}, Empty/Failed: ${failedCount}`)
+
+                        allNFTs = [...allNFTs, ...results.flat()]
                     } catch (error) {
                         console.error(`[NFT Store] Error fetching EVM NFTs for ${address}:`, error)
                     }

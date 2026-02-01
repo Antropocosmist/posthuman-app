@@ -11,6 +11,7 @@ export const RPC_URLS = {
     POLYGON: 'https://polygon-rpc.com',
     ARBITRUM: 'https://arb1.arbitrum.io/rpc',
     BSC: 'https://bsc-dataseed.binance.org',
+    GNOSIS: 'https://rpc.gnosischain.com',
 
     // Solana
     SOLANA: 'https://solana-rpc.publicnode.com',
@@ -28,7 +29,7 @@ export const REST_URLS = {
     NEUTRON: 'https://rest.neutron.posthuman.digital'
 }
 
-export type SupportedChain = 'ETHEREUM' | 'BASE' | 'POLYGON' | 'ARBITRUM' | 'BSC' | 'SOLANA' | 'COSMOS_HUB' | 'JUNO' | 'NEUTRON' | 'OSMOSIS' | 'ATOM_ONE' | 'STARGAZE'
+export type SupportedChain = 'ETHEREUM' | 'BASE' | 'POLYGON' | 'ARBITRUM' | 'BSC' | 'GNOSIS' | 'SOLANA' | 'COSMOS_HUB' | 'JUNO' | 'NEUTRON' | 'OSMOSIS' | 'ATOM_ONE' | 'STARGAZE'
 
 export const RpcService = {
 
@@ -43,6 +44,7 @@ export const RpcService = {
                 case 'POLYGON':
                 case 'ARBITRUM':
                 case 'BSC':
+                case 'GNOSIS':
                     return await RpcService.getEvmBalance(chain, address)
                 case 'SOLANA':
                     return await RpcService.getSolanaBalance(address)
@@ -65,7 +67,7 @@ export const RpcService = {
     // ----------------------------------------------------------------
     // EVM Logic
     // ----------------------------------------------------------------
-    getEvmBalance: async (chain: 'ETHEREUM' | 'BASE' | 'POLYGON' | 'ARBITRUM' | 'BSC', address: string) => {
+    getEvmBalance: async (chain: 'ETHEREUM' | 'BASE' | 'POLYGON' | 'ARBITRUM' | 'BSC' | 'GNOSIS', address: string) => {
         const provider = new ethers.JsonRpcProvider(RPC_URLS[chain])
         const balanceWei = await provider.getBalance(address)
         const balanceEth = ethers.formatEther(balanceWei)
@@ -152,7 +154,7 @@ export const RpcService = {
     // ----------------------------------------------------------------
     // ERC20 Logic
     // ----------------------------------------------------------------
-    getErc20Balance: async (chain: 'ETHEREUM' | 'BASE' | 'POLYGON' | 'ARBITRUM' | 'BSC', contractAddress: string, walletAddress: string): Promise<number> => {
+    getErc20Balance: async (chain: 'ETHEREUM' | 'BASE' | 'POLYGON' | 'ARBITRUM' | 'BSC' | 'GNOSIS', contractAddress: string, walletAddress: string): Promise<number> => {
         try {
             const provider = new ethers.JsonRpcProvider(RPC_URLS[chain])
             const abi = ["function balance(address) view returns (uint256)", "function decimals() view returns (uint8)", "function balanceOf(address) view returns (uint256)"]

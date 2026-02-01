@@ -6,7 +6,7 @@ import type { NFT, MarketplaceListing, NFTFilters, NFTServiceInterface } from '.
 const OPENSEA_API_KEY = import.meta.env.VITE_OPENSEA_API_KEY || ''
 
 // Helper function to convert OpenSea NFT to our NFT type
-function convertOpenSeaNFT(openseaNFT: any, chain: 'ethereum' | 'polygon'): NFT {
+function convertOpenSeaNFT(openseaNFT: any, chain: 'ethereum' | 'polygon' | 'base' | 'bsc' | 'gnosis' | 'arbitrum'): NFT {
     const collection = openseaNFT.collection || {}
     const contract = openseaNFT.contract || openseaNFT.asset_contract || {}
 
@@ -49,7 +49,7 @@ export class OpenSeaNFTService implements NFTServiceInterface {
     /**
      * Fetch all NFTs owned by a specific address
      */
-    async fetchUserNFTs(address: string, chain: 'ethereum' | 'polygon' = 'ethereum'): Promise<NFT[]> {
+    async fetchUserNFTs(address: string, chain: 'ethereum' | 'polygon' | 'base' | 'bsc' | 'gnosis' | 'arbitrum' = 'ethereum'): Promise<NFT[]> {
         try {
             // Use OpenSea API to fetch NFTs (no SDK needed for this)
             const response = await fetch(
@@ -116,7 +116,7 @@ export class OpenSeaNFTService implements NFTServiceInterface {
     /**
      * Fetch detailed information about a specific NFT
      */
-    async fetchNFTDetails(contractAddress: string, tokenId: string, chain: 'ethereum' | 'polygon' = 'ethereum'): Promise<NFT> {
+    async fetchNFTDetails(contractAddress: string, tokenId: string, chain: 'ethereum' | 'polygon' | 'base' | 'bsc' | 'gnosis' | 'arbitrum' = 'ethereum'): Promise<NFT> {
         try {
             const response = await fetch(
                 `https://api.opensea.io/api/v2/chain/${chain}/contract/${contractAddress}/nfts/${tokenId}`,

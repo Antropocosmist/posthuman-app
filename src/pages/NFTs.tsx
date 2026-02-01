@@ -47,7 +47,7 @@ export function NFTs() {
             if (activeEcosystem === 'stargaze') {
                 nfts = nfts.filter(nft => nft.chain === 'stargaze')
             } else if (activeEcosystem === 'evm') {
-                nfts = nfts.filter(nft => nft.chain === 'ethereum' || nft.chain === 'polygon')
+                nfts = nfts.filter(nft => ['ethereum', 'polygon', 'base', 'bsc', 'gnosis', 'arbitrum'].includes(nft.chain))
             } else if (activeEcosystem === 'solana') {
                 nfts = nfts.filter(nft => nft.chain === 'solana')
             }
@@ -73,7 +73,7 @@ export function NFTs() {
         return {
             all: nfts.length,
             stargaze: nfts.filter(n => n.chain === 'stargaze').length,
-            evm: nfts.filter(n => n.chain === 'ethereum' || n.chain === 'polygon').length,
+            evm: nfts.filter(n => ['ethereum', 'polygon', 'base', 'bsc', 'gnosis', 'arbitrum'].includes(n.chain)).length,
             solana: nfts.filter(n => n.chain === 'solana').length,
         }
     }, [activeView, ownedNFTs, marketplaceNFTs])

@@ -35,7 +35,8 @@ const EVM_CHAINS = [
     { id: '0x2105', rpc: 'BASE' as const, name: 'Base', symbol: 'ETH' },
     { id: '0x89', rpc: 'POLYGON' as const, name: 'Polygon', symbol: 'POL' },
     { id: '0xa4b1', rpc: 'ARBITRUM' as const, name: 'Arbitrum', symbol: 'ETH' },
-    { id: '0x38', rpc: 'BSC' as const, name: 'BSC', symbol: 'BNB' }
+    { id: '0x38', rpc: 'BSC' as const, name: 'BSC', symbol: 'BNB' },
+    { id: '0x64', rpc: 'GNOSIS' as const, name: 'Gnosis', symbol: 'XDAI' }
 ]
 
 const ERC20_TOKENS = [

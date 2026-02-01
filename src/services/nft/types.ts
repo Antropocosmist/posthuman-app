@@ -21,7 +21,7 @@ export interface NFT {
     id: string
     tokenId: string
     contractAddress: string
-    chain: 'stargaze' | 'ethereum' | 'polygon' | 'solana'
+    chain: 'stargaze' | 'ethereum' | 'polygon' | 'base' | 'bsc' | 'gnosis' | 'arbitrum' | 'solana'
 
     // Metadata
     name: string
