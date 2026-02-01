@@ -1,5 +1,5 @@
 import { X } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { NFT } from '../../services/nft/types'
 import { useNFTStore } from '../../store/nftStore'
 
@@ -9,8 +9,59 @@ interface NFTDetailModalProps {
 }
 
 export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
-    const [listPrice, setListPrice] = useState('')
-    const { buyNFT, listNFT, cancelListing, isBuying, isListing, marketplaceNFTs } = useNFTStore()
+    const [price, setPrice] = useState('')
+    const [floorPriceDisplay, setFloorPriceDisplay] = useState<string | null>(null)
+    const [listingCurrency, setListingCurrency] = useState<string>('')
+
+    const {
+        isListing,
+        isBuying,
+        listNFT,
+        buyNFT,
+        cancelListing,
+        marketplaceNFTs,
+        fetchCollectionStats
+    } = useNFTStore()
+
+    // Determine currency and fetch stats on mount
+    useEffect(() => {
+        if (nft) {
+            setPrice('')
+            setFloorPriceDisplay(null)
+
+            // Determine currency
+            let code = 'STARS'
+            let denom = 'ustars'
+
+            if (nft.chain === 'stargaze') {
+                code = 'STARS'
+                denom = 'ustars'
+            } else if (['ethereum', 'polygon', 'base', 'optimism', 'arbitrum'].includes(nft.chain)) {
+                code = 'ETH'
+                denom = 'ETH'
+            } else if (nft.chain === 'solana') {
+                code = 'SOL'
+                denom = 'SOL'
+            }
+            setListingCurrency(denom) // Service expects the denom
+
+            // Fetch Floor Price
+            const address = nft.contractAddress
+            if (address) {
+                fetchCollectionStats(address, nft.chain).then(stats => {
+                    if (stats?.floorPrice) {
+                        let val = stats.floorPrice
+                        // Format if Stargaze
+                        if (nft.chain === 'stargaze') {
+                            const num = parseFloat(val)
+                            if (!isNaN(num)) val = (num / 1000000).toLocaleString(undefined, { maximumFractionDigits: 2 })
+                        }
+                        setFloorPriceDisplay(`${val} ${code}`)
+                    }
+                })
+            }
+        }
+    }, [nft, fetchCollectionStats])
 
     if (!nft) return null
 
@@ -31,14 +82,13 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
     }
 
     const handleList = async () => {
-        if (!listPrice) return
+        if (!price) return
 
         try {
-            const currency = nft.chain === 'stargaze' ? 'ustars' : 'eth'
-            await listNFT(nft, listPrice, currency)
+            await listNFT(nft, price, listingCurrency)
             onClose()
         } catch (error) {
-            console.error('List failed:', error)
+            console.error('Failed to list NFT:', error)
         }
     }
 
@@ -124,11 +174,11 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
                             </div>
                         )}
 
-                        {nft.collection.floorPrice && (
+                        {floorPriceDisplay && (
                             <div className="mb-4 p-4 rounded-xl bg-white/5 border border-white/5">
                                 <p className="text-xs text-gray-500 mb-1">Floor Price</p>
                                 <p className="text-lg font-bold text-white">
-                                    {nft.collection.floorPrice}
+                                    {floorPriceDisplay}
                                 </p>
                             </div>
                         )}
@@ -178,16 +228,21 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
                             {/* Sell/List Section */}
                             {canSell && (
                                 <div className="space-y-2">
-                                    <input
-                                        type="text"
-                                        placeholder="Enter price..."
-                                        value={listPrice}
-                                        onChange={(e) => setListPrice(e.target.value)}
-                                        className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:border-purple-500 focus:outline-none"
-                                    />
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            placeholder={`Price in ${listingCurrency === 'ustars' ? 'STARS' : (listingCurrency || 'tokens')}`}
+                                            value={price}
+                                            onChange={(e) => setPrice(e.target.value)}
+                                            className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:border-purple-500 focus:outline-none"
+                                        />
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">
+                                            {listingCurrency === 'ustars' ? 'STARS' : listingCurrency}
+                                        </div>
+                                    </div>
                                     <button
                                         onClick={handleList}
-                                        disabled={!listPrice || isListing}
+                                        disabled={!price || isListing}
                                         className="w-full py-4 rounded-xl bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white font-bold transition-colors flex items-center justify-center gap-2"
                                     >
                                         {isListing ? (

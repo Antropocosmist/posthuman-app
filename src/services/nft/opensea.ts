@@ -1,6 +1,6 @@
 import { OpenSeaSDK, Chain } from 'opensea-js'
 import { ethers } from 'ethers'
-import type { NFT, MarketplaceListing, NFTFilters, NFTServiceInterface } from './types'
+import type { NFT, MarketplaceListing, NFTCollection, NFTFilters, NFTServiceInterface } from './types'
 
 // OpenSea API configuration
 const OPENSEA_API_KEY = import.meta.env.VITE_OPENSEA_API_KEY || ''
@@ -11,11 +11,11 @@ function convertOpenSeaNFT(openseaNFT: any, chain: 'ethereum' | 'polygon' | 'bas
     const contract = openseaNFT.contract || openseaNFT.asset_contract || {}
 
     return {
-        id: `${contract.address}-${openseaNFT.identifier || openseaNFT.token_id}`,
+        id: `${contract.address} -${openseaNFT.identifier || openseaNFT.token_id} `,
         tokenId: openseaNFT.identifier || openseaNFT.token_id || '',
         contractAddress: contract.address || '',
         chain,
-        name: openseaNFT.name || `#${openseaNFT.identifier || openseaNFT.token_id}`,
+        name: openseaNFT.name || `#${openseaNFT.identifier || openseaNFT.token_id} `,
         description: openseaNFT.description || '',
         image: openseaNFT.image_url || openseaNFT.image || '',
         animationUrl: openseaNFT.animation_url,
@@ -297,6 +297,17 @@ export class OpenSeaNFTService implements NFTServiceInterface {
         } catch (error) {
             console.error('Error canceling listing on OpenSea:', error)
             throw error
+        }
+    }
+
+    /**
+     * Get collection stats (stub for now)
+     */
+    async getCollectionStats(contractAddress: string): Promise<NFTCollection> {
+        // TODO: Implement OpenSea collection stats fetch (requires slug lookup)
+        return {
+            id: contractAddress,
+            name: 'Unknown Collection',
         }
     }
 }

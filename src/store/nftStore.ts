@@ -3,6 +3,7 @@ import type {
   NFT,
   MarketplaceListing,
   NFTFilters,
+  NFTCollection,
 } from "../services/nft/types";
 import { stargazeNFTService } from "../services/nft/stargaze";
 import { openSeaNFTService } from "../services/nft/opensea";
@@ -51,6 +52,7 @@ interface NFTStore {
   buyNFT: (listing: MarketplaceListing) => Promise<void>;
   listNFT: (nft: NFT, price: string, currency: string) => Promise<void>;
   cancelListing: (nft: NFT) => Promise<void>;
+  fetchCollectionStats: (contractAddress: string, chain: string) => Promise<NFTCollection | null>;
 
   // Actions - UI State
   setSelectedNFT: (nft: NFT | null) => void;
@@ -143,7 +145,7 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
         const evmChains = ["ethereum", "polygon", "base", "bsc", "gnosis", "arbitrum"] as const;
 
         for (const address of uniqueAddresses) {
-          console.log(`[NFT Store] Fetching EVM for ${address} (ID: ${currentInternalId})`);
+          console.log(`[NFT Store] Fetching EVM for ${address}(ID: ${currentInternalId})`);
           const promises = evmChains.map(async (chain) => {
             try {
               return await openSeaNFTService.fetchUserNFTs(address, chain);
@@ -169,7 +171,7 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
 
       // 5. Final Safety Check (Race Condition)
       if (get().currentRequestId !== currentInternalId) {
-        console.log(`[NFT Store] Ignoring stale request ${currentInternalId}`);
+        console.log(`[NFT Store] Ignoring stale request ${currentInternalId} `);
         return;
       }
 
@@ -186,7 +188,7 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
       const contentMap = new Map<string, string>(); // Key: "name-tokenId", Value: fullKey
 
       filteredByType.forEach(nft => {
-        const fullKey = `${nft.chain}-${nft.contractAddress}-${nft.tokenId}`.toLowerCase();
+        const fullKey = `${nft.chain} -${nft.contractAddress} -${nft.tokenId} `.toLowerCase();
 
         // Special handling for Unstoppable Domains / ENS-like assets
         // If name and tokenId match, we treat them as the SAME asset to avoid cross-chain confusion.
@@ -195,7 +197,7 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
         let contentKey = "";
 
         if (isEVM) {
-          contentKey = `${nft.name}-${nft.tokenId}`.toLowerCase();
+          contentKey = `${nft.name} -${nft.tokenId} `.toLowerCase();
         }
 
         if (contentKey) {
@@ -230,7 +232,7 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
         ownedNFTsOffset: 100,
         hasMoreOwnedNFTs: finalNFTs.length >= 100,
       });
-      console.log(`[NFT Store] Set ownedNFTs: ${finalNFTs.length} items (ID: ${currentInternalId})`);
+      console.log(`[NFT Store] Set ownedNFTs: ${finalNFTs.length} items(ID: ${currentInternalId})`);
 
     } catch (error) {
       console.error("Error fetching owned NFTs:", error);
@@ -301,7 +303,7 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
             newNFTs = [...newNFTs, ...convertedNFTs];
           } catch (error) {
             console.error(
-              `[NFT Store] Error loading more NFTs for ${wallet.address}:`,
+              `[NFT Store] Error loading more NFTs for ${wallet.address}: `,
               error,
             );
           }
@@ -564,7 +566,7 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
         throw new Error("NFT listing ID not found. Cannot cancel.");
       }
 
-      console.log(`[NFT Store] Canceling listing ${listingId} on ${nft.chain}`);
+      console.log(`[NFT Store] Canceling listing ${listingId} on ${nft.chain} `);
 
       switch (nft.chain) {
         case "stargaze":
@@ -600,7 +602,22 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
     }
   },
 
-  // UI State Actions
+  fetchCollectionStats: async (contractAddress: string, chain: string) => {
+    try {
+      if (chain === 'stargaze') {
+        return await stargazeNFTService.getCollectionStats(contractAddress);
+      }
+      // Fallback for EVM (OpenSea)
+      // Note: OpenSea service currently has a stub for getCollectionStats
+      if (['ethereum', 'polygon', 'base', 'bsc', 'arbitrum', 'optimism', 'avalanche'].includes(chain)) {
+        return await openSeaNFTService.getCollectionStats(contractAddress);
+      }
+      return null;
+    } catch (error) {
+      console.error("Failed to fetch collection stats:", error);
+      return null;
+    }
+  },
   setSelectedNFT: (nft) => set({ selectedNFT: nft }),
 
   setActiveEcosystem: (ecosystem) => {

@@ -421,7 +421,10 @@ export class StargazeNFTService implements NFTServiceInterface {
                     collection: nft.contractAddress,
                     token_id: nft.tokenId,
                     price: {
-                        amount: price,
+                        // Convert to micro-units if ustars (6 decimals)
+                        amount: (currency === 'ustars' || !currency)
+                            ? Math.floor(parseFloat(price) * 1000000).toString()
+                            : price,
                         denom: currency || 'ustars',
                     },
                     // Optional: set expiration (e.g., 30 days from now)
@@ -528,7 +531,7 @@ export class StargazeNFTService implements NFTServiceInterface {
     /**
      * Get collection information
      */
-    async getCollectionInfo(contractAddress: string): Promise<NFTCollection> {
+    async getCollectionStats(contractAddress: string): Promise<NFTCollection> {
         try {
             const { data } = await client.query<any>({
                 query: GET_COLLECTION_INFO,

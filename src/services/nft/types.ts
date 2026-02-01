@@ -93,6 +93,9 @@ export interface NFTServiceInterface {
 
     // Cancel listing
     cancelListing(listingId: string, sellerAddress: string): Promise<string> // returns tx hash
+
+    // Fetch collection stats (floor price, etc)
+    getCollectionStats(contractAddress: string): Promise<NFTCollection>
 }
 
 // Stargaze-specific types
