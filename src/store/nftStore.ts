@@ -246,13 +246,67 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
       // Check cancellation
       if (get().currentRequestId !== requestId) return;
 
-      // Final Deduplication
+      // STRICT FILTER: Ensure we only keep NFTs that match the requested ecosystem
+      if (targetEcosystem === "stargaze") {
+        allNFTs = allNFTs.filter((n) => n.chain === "stargaze");
+      } else if (targetEcosystem === "evm") {
+        allNFTs = allNFTs.filter((n) =>
+          ["ethereum", "polygon", "base", "bsc", "gnosis", "arbitrum"].includes(
+            n.chain,
+          ),
+        );
+      } else if (targetEcosystem === "solana") {
+        allNFTs = allNFTs.filter((n) => n.chain === "solana");
+      }
+
+      // Final Deduplication & Cross-Chain Cleanup
       const uniqueNFTs = new Map<string, NFT>();
+
       allNFTs.forEach((nft) => {
-        const key =
+        // 1. Full Key for exact matches
+        const fullKey =
           `${nft.chain}-${nft.contractAddress}-${nft.tokenId}`.toLowerCase();
-        if (!uniqueNFTs.has(key)) {
-          uniqueNFTs.set(key, nft);
+
+        // 2. Cross-chain Check for EVM
+        // If we already have this asset (Same Contract + ID) from another EVM chain, skip it.
+        // This handles OpenSea returning the same asset for multiple chain queries.
+        const isEVM = [
+          "ethereum",
+          "polygon",
+          "base",
+          "bsc",
+          "gnosis",
+          "arbitrum",
+        ].includes(nft.chain);
+
+        if (isEVM && nft.contractAddress) {
+          let duplicateFound = false;
+          for (const existing of uniqueNFTs.values()) {
+            if (
+              [
+                "ethereum",
+                "polygon",
+                "base",
+                "bsc",
+                "gnosis",
+                "arbitrum",
+              ].includes(existing.chain)
+            ) {
+              if (
+                existing.contractAddress.toLowerCase() ===
+                nft.contractAddress.toLowerCase() &&
+                existing.tokenId === nft.tokenId
+              ) {
+                duplicateFound = true;
+                break;
+              }
+            }
+          }
+          if (duplicateFound) return; // Skip this duplicate
+        }
+
+        if (!uniqueNFTs.has(fullKey)) {
+          uniqueNFTs.set(fullKey, nft);
         }
       });
 
