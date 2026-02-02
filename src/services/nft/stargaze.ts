@@ -536,12 +536,14 @@ export class StargazeNFTService implements NFTServiceInterface {
      * Get collection information
      */
     async getCollectionStats(contractAddress: string): Promise<NFTCollection> {
+        console.log(`[Stargaze] Fetching stats for contract: ${contractAddress}`)
         try {
             const { data } = await client.query<any>({
                 query: GET_COLLECTION_INFO,
                 variables: { collectionAddr: contractAddress },
                 fetchPolicy: 'network-only', // Ensure fresh data
             })
+            console.log(`[Stargaze] Stats Query raw data for ${contractAddress}:`, data)
 
             // Extract collection info from the first token's collection field
             const collectionData = data?.tokens?.tokens?.[0]?.collection
