@@ -139,7 +139,10 @@ const GET_USER_ASKS = gql`
                     url
                 }
                 imageUrl
-                listPrice
+                listPrice {
+                    amount
+                    denom
+                }
                 collection {
                     contractAddress
                     name
