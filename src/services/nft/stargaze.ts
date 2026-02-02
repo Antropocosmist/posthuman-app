@@ -111,13 +111,17 @@ const GET_NFT_DETAILS = gql`
 
 const GET_COLLECTION_INFO = gql`
     query GetCollectionInfo($collectionAddr: String!) {
-        collection(collectionAddr: $collectionAddr) {
-            contractAddress
-            name
-            description
-            image
-            floorPrice
-            totalSupply
+        tokens(collectionAddr: $collectionAddr, limit: 1) {
+            tokens {
+                collection {
+                    contractAddress
+                    name
+                    description
+                    image
+                    floorPrice
+                    totalSupply
+                }
+            }
         }
     }
 `
@@ -539,7 +543,9 @@ export class StargazeNFTService implements NFTServiceInterface {
                 fetchPolicy: 'network-only', // Ensure fresh data
             })
 
-            let floorPrice = data?.collection?.floorPrice
+            // Extract collection info from the first token's collection field
+            const collectionData = data?.tokens?.tokens?.[0]?.collection
+            let floorPrice = collectionData?.floorPrice
 
             // Fallback: If floor price is missing or 0, fetch lowest listing
             if (!floorPrice || floorPrice === '0' || floorPrice === 0) {
@@ -577,7 +583,7 @@ export class StargazeNFTService implements NFTServiceInterface {
                 formattedFloor = floorPrice + ' STARS'
             }
 
-            if (!data?.collection) {
+            if (!collectionData) {
                 // If main query failed but fallback worked? Unlikely as main query fetches metadata.
                 // But we can return partial.
                 if (formattedFloor) {
@@ -591,12 +597,12 @@ export class StargazeNFTService implements NFTServiceInterface {
             }
 
             return {
-                id: data.collection.contractAddress,
-                name: data.collection.name,
-                description: data.collection.description,
-                image: data.collection.image,
+                id: collectionData.contractAddress || contractAddress,
+                name: collectionData.name,
+                description: collectionData.description,
+                image: collectionData.image,
                 floorPrice: formattedFloor,
-                totalSupply: data.collection.totalSupply,
+                totalSupply: collectionData.totalSupply,
             }
         } catch (error) {
             console.error('Error fetching collection info from Stargaze:', error)
