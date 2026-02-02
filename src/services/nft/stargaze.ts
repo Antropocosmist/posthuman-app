@@ -117,6 +117,9 @@ const GET_COLLECTION_INFO = gql`
                     contractAddress
                     name
                     floorPrice
+                    tradingAsset {
+                        symbol
+                    }
                 }
             }
         }
@@ -571,15 +574,21 @@ export class StargazeNFTService implements NFTServiceInterface {
             // Simple version for now: Use what we have, but format it.
             // If raw integer (ustars), convert to STARS.
             // Heuristic: If > 1000000, likely ustars.
+            // Dynamic Currency Support
+            const symbol = collectionData?.tradingAsset?.symbol || 'STARS'
             let formattedFloor = floorPrice ? String(floorPrice) : undefined
 
-            if (floorPrice && !isNaN(Number(floorPrice)) && Number(floorPrice) > 1000) {
-                // Assume ustars (divide by 10^6)
-                const val = Number(floorPrice) / 1000000
-                // Format with max 2 decimals if needed
-                formattedFloor = val.toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' STARS'
-            } else if (floorPrice) {
-                formattedFloor = floorPrice + ' STARS'
+            if (floorPrice && !isNaN(Number(floorPrice))) {
+                const num = Number(floorPrice)
+                // Heuristic: If > 1000, assume microunits (uatom, ustars, etc are 6 decimals)
+                // If it's a very low price (e.g. 0.5 STARS), it would be sent as 500000.
+                // If it's literally "4" (4 units), it would be sent as 4000000.
+                if (num > 1000) {
+                    const val = num / 1000000
+                    formattedFloor = val.toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' ' + symbol
+                } else {
+                    formattedFloor = floorPrice + ' ' + symbol
+                }
             }
 
             if (!collectionData) {
