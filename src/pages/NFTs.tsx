@@ -33,6 +33,11 @@ export function NFTs() {
 
     // Filter NFTs based on ecosystem and search query
     const filteredNFTs = useMemo(() => {
+        // Safety check: specific ecosystem selected but no matching wallet connected?
+        if (activeEcosystem === 'evm' && !wallets.some(w => w.chain === 'EVM')) return []
+        if (activeEcosystem === 'solana' && !wallets.some(w => w.chain === 'Solana')) return []
+        if (activeEcosystem === 'stargaze' && !wallets.some(w => (w.chain === 'Cosmos' || w.chain === 'Gno') && w.address.startsWith('stars'))) return []
+
         let nfts = activeView === 'owned'
             ? ownedNFTs
             : ownedNFTs.filter(n => n.isListed)
@@ -59,7 +64,7 @@ export function NFTs() {
         }
 
         return nfts
-    }, [activeView, ownedNFTs, searchQuery, activeEcosystem])
+    }, [activeView, ownedNFTs, searchQuery, activeEcosystem, wallets])
 
     // Calculate NFT counts per ecosystem
     const nftCounts = useMemo(() => {
