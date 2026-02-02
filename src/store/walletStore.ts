@@ -401,71 +401,17 @@ export const useWalletStore = create<WalletState>()(
                             }
 
                             // 2. Keplr EVM Support
+                            // [DISABLED] - User feedback indicates this is confusing (shows Rabby/MM NFTs under Keplr)
+                            // We should only connect Cosmos addresses for Keplr.
+                            /*
                             try {
                                 if (typeof window.ethereum !== 'undefined') {
-                                    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
-                                    const evmAddress = accounts[0]
-
-                                    for (const chainCfg of EVM_CHAINS) {
-                                        try {
-                                            // 1. Native Balance
-                                            const nativeBal = await RpcService.getBalance(chainCfg.rpc, evmAddress)
-                                            if (nativeBal > 0) {
-                                                const price = prices[chainCfg.symbol] || 0
-                                                const newWallet: ConnectedWallet = {
-                                                    id: `keplr-${chainCfg.id}-${evmAddress.substr(-4)}`,
-                                                    name: `${chainCfg.name} (Keplr)`,
-                                                    chain: 'EVM',
-                                                    address: evmAddress,
-                                                    icon: `${BASE_URL}icons/keplr.png`,
-                                                    balance: nativeBal * price,
-                                                    nativeBalance: nativeBal,
-                                                    symbol: chainCfg.symbol,
-                                                    chainId: chainCfg.id,
-                                                    walletProvider: 'Keplr'
-                                                }
-
-                                                const currentWallets = get().wallets
-                                                if (!currentWallets.find(w => w.id === newWallet.id)) {
-                                                    set((state) => ({ wallets: [...state.wallets, newWallet] }))
-                                                }
-                                            }
-
-                                            // 2. ERC20 Discovery (USDC, USDT)
-                                            for (const token of ERC20_TOKENS) {
-                                                const contract = (token.contracts as any)[chainCfg.id]
-                                                if (contract) {
-                                                    const tokenBal = await RpcService.getErc20Balance(chainCfg.rpc, contract, evmAddress)
-                                                    if (tokenBal > 0) { // Always show stablecoins
-                                                        const tokenPrice = prices[token.symbol] || 1
-                                                        const tokenWallet: ConnectedWallet = {
-                                                            id: `keplr-${token.symbol}-${chainCfg.id}-${evmAddress.substr(-4)}`,
-                                                            name: `${token.symbol} on ${chainCfg.name} (Keplr)`,
-                                                            chain: 'EVM',
-                                                            address: evmAddress,
-                                                            icon: `${BASE_URL}icons/keplr.png`,
-                                                            balance: tokenBal * tokenPrice,
-                                                            nativeBalance: tokenBal,
-                                                            symbol: token.symbol,
-                                                            chainId: chainCfg.id,
-                                                            walletProvider: 'Keplr'
-                                                        }
-
-                                                        if (!get().wallets.find(w => w.id === tokenWallet.id)) {
-                                                            set((state) => ({ wallets: [...state.wallets, tokenWallet] }))
-                                                        }
-                                                    }
-                                                }
-                                            }
-
-                                        } catch (err) {
-                                            console.error(`Failed Keplr discovery for ${chainCfg.name}:`, err)
-                                        }
-                                    }
+                                    // ... (Logic removed to avoid ghost EVM connections)
                                 }
                             } catch (err) {
                                 console.warn("Keplr EVM connection failed or not accepted:", err)
                             }
+                            */
 
                             set({ isModalOpen: false })
                             return
