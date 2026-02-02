@@ -6,7 +6,7 @@ import type { NFT, NFTCollection, MarketplaceListing, NFTFilters, NFTServiceInte
 
 const STARGAZE_GRAPHQL_ENDPOINT = 'https://graphql.mainnet.stargaze-apis.com/graphql'
 const STARGAZE_RPC_ENDPOINT = 'https://rpc.stargaze-apis.com'
-const STARGAZE_MARKETPLACE_CONTRACT = 'stars1fvhcnyddukcqfnt7nlwv3thm5we22lyxyxylr9h77cvgkcn43xfsvgv0pl' // Stargaze marketplace v2
+const STARGAZE_MARKETPLACE_CONTRACT = 'stars1e6g3yhasf7cr2vnae7qxytrys4e8v8wchyj377juvxfk9k6t695s38jkgw' // Mainnet Marketplace V2
 
 // Initialize Apollo Client for Stargaze
 const client = new ApolloClient({
@@ -449,6 +449,7 @@ export class StargazeNFTService implements NFTServiceInterface {
             // {"set_ask":{"collection":"...","token_id":"...","details":{"price":{"denom":"...","amount":"..."}}}}
             const listMsg = {
                 set_ask: {
+                    sale_type: 'fixed_price',
                     collection: nft.contractAddress,
                     token_id: nft.tokenId,
                     details: {
