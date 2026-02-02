@@ -1,6 +1,21 @@
 import { useState, useEffect } from 'react'
 import { LogOut, User, Mail, Shield, AlertTriangle, CheckCircle2, Cloud, Edit2, Wallet } from 'lucide-react'
-import { supabase, isSupabaseConfigured } from '../services/supa'
+import { auth } from '../config/firebase'
+import {
+    onAuthStateChanged,
+    signInAnonymously,
+    signInWithPopup,
+    GoogleAuthProvider,
+    GithubAuthProvider,
+    TwitterAuthProvider,
+    OAuthProvider,
+    createUserWithEmailAndPassword,
+    signInWithEmailAndPassword,
+    sendPasswordResetEmail,
+    updateProfile,
+    signOut,
+    linkWithPopup
+} from 'firebase/auth'
 import { useWalletStore } from '../store/walletStore'
 import { AvatarSelectionModal } from '../components/AvatarSelectionModal'
 
@@ -16,35 +31,21 @@ export function Profile() {
     const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false)
 
     useEffect(() => {
-        if (!isSupabaseConfigured()) {
-            setLoading(false)
-            return
-        }
-
-        // Check active session
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setUser(session?.user ?? null)
-            setLoading(false)
-        }).catch(err => {
-            console.error("Session check failed:", err)
+        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+            setUser(currentUser)
             setLoading(false)
         })
-
-        // Listen for auth changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setUser(session?.user ?? null)
-        })
-
-        return () => subscription.unsubscribe()
+        return () => unsubscribe()
     }, [])
 
-    // Auto-login anonymously when wallet is connected (if not already logged in)
+    // Auto-login anonymously when wallet is connected
     useEffect(() => {
-        if (wallets.length > 0 && !user && !loading && isSupabaseConfigured()) {
+        if (wallets.length > 0 && !user && !loading) {
             const loginAnonymously = async () => {
                 console.log("Wallet connected, signing in anonymously...")
-                const { error } = await supabase.auth.signInAnonymously()
-                if (error) {
+                try {
+                    await signInAnonymously(auth)
+                } catch (error: any) {
                     console.error("Anon login failed:", error)
                     setMessage({ type: 'error', text: error.message })
                 }
@@ -53,52 +54,53 @@ export function Profile() {
         }
     }, [wallets, user, loading])
 
-    const handleSocialLogin = async (provider: 'google' | 'twitter' | 'github' | 'discord') => {
-        if (!isSupabaseConfigured()) {
-            setMessage({ type: 'error', text: 'Cloud sync is not configured (Missing API Keys).' })
-            return
+    const handleSocialLogin = async (providerName: 'google' | 'twitter' | 'github' | 'discord') => {
+        let provider: any;
+        if (providerName === 'google') provider = new GoogleAuthProvider();
+        if (providerName === 'twitter') provider = new TwitterAuthProvider();
+        if (providerName === 'github') provider = new GithubAuthProvider();
+        if (providerName === 'discord') provider = new OAuthProvider('discord.com');
+
+        try {
+            await signInWithPopup(auth, provider);
+            localStorage.setItem('posthuman_auth_redirect', 'true');
+        } catch (error: any) {
+            setMessage({ type: 'error', text: error.message });
         }
-        const { error } = await supabase.auth.signInWithOAuth({
-            provider,
-            options: {
-                redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}`
-            }
-        })
-        if (!error) {
-            localStorage.setItem('posthuman_auth_redirect', 'true')
-        }
-        if (error) setMessage({ type: 'error', text: error.message })
     }
 
-    const handleSocialLink = async (provider: 'twitter' | 'github' | 'discord') => {
+    const handleSocialLink = async (providerName: 'twitter' | 'github' | 'discord') => {
         setLoading(true)
-        const { error } = await supabase.auth.linkIdentity({
-            provider,
-            options: {
-                redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}`
-            }
-        })
-        if (error) {
-            setMessage({ type: 'error', text: error.message })
-            setLoading(false)
+        if (!auth.currentUser) return;
+
+        let provider: any;
+        if (providerName === 'twitter') provider = new TwitterAuthProvider();
+        if (providerName === 'github') provider = new GithubAuthProvider();
+        if (providerName === 'discord') provider = new OAuthProvider('discord.com');
+
+        try {
+            await linkWithPopup(auth.currentUser, provider);
+            setMessage({ type: 'success', text: `Linked ${providerName} successfully!` });
+        } catch (error: any) {
+            setMessage({ type: 'error', text: error.message });
         }
-        // Redirect happens automatically
-        // Redirect happens automatically
+        setLoading(false)
     }
 
     const handleUpdateAvatar = async (url: string) => {
         setLoading(true)
-        const { error } = await supabase.auth.updateUser({
-            data: { avatar_url: url }
-        })
+        if (!auth.currentUser) return;
 
-        if (error) {
-            setMessage({ type: 'error', text: "Failed to update avatar: " + error.message })
-        } else {
+        try {
+            await updateProfile(auth.currentUser, { photoURL: url })
             setMessage({ type: 'success', text: "Avatar updated successfully!" })
-            // Refresh user
-            const { data: { user: updatedUser } } = await supabase.auth.getUser()
-            setUser(updatedUser)
+            // React state will update via onAuthStateChanged listener eventually, 
+            // but we might need to force refresh or set local state if listener is slow?
+            // Usually onAuthStateChanged fires on token refresh, but updateProfile might not trigger it immediately.
+            // We can manually update local user state.
+            setUser({ ...auth.currentUser, photoURL: url })
+        } catch (error: any) {
+            setMessage({ type: 'error', text: "Failed to update avatar: " + error.message })
         }
         setLoading(false)
     }
@@ -119,27 +121,19 @@ export function Profile() {
 
     const handleEmailAuth = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (!isSupabaseConfigured()) {
-            setMessage({ type: 'error', text: 'Cloud sync is not configured.' })
-            return
-        }
-
         setLoading(true)
         setMessage(null)
 
-        if (authMode === 'signup') {
-            const { error } = await supabase.auth.signUp({ email: email.trim(), password })
-            if (error) setMessage({ type: 'error', text: error.message })
-            else setMessage({ type: 'success', text: 'Check your email for the confirmation link!' })
-        } else {
-            const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
-            if (error) {
-                let msg = error.message
-                if (msg.includes("Invalid login credentials")) {
-                    msg += " (Did you Sign Up first? OAuth accounts need a separate password set.)"
-                }
-                setMessage({ type: 'error', text: msg })
+        try {
+            if (authMode === 'signup') {
+                await createUserWithEmailAndPassword(auth, email.trim(), password)
+                // Firebase automatically signs in.
+                setMessage({ type: 'success', text: 'Account created!' })
+            } else {
+                await signInWithEmailAndPassword(auth, email.trim(), password)
             }
+        } catch (error: any) {
+            setMessage({ type: 'error', text: error.message })
         }
         setLoading(false)
     }
@@ -153,39 +147,21 @@ export function Profile() {
         setLoading(true)
         setMessage(null)
 
-        const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-            redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}#/profile?reset=true`,
-        })
-
-        if (error) {
-            setMessage({ type: 'error', text: error.message })
-        } else {
+        try {
+            await sendPasswordResetEmail(auth, email.trim())
             setMessage({ type: 'success', text: 'Password reset link sent! Check your email.' })
+        } catch (error: any) {
+            setMessage({ type: 'error', text: error.message })
         }
         setLoading(false)
     }
 
     const handleLogout = async () => {
-        await supabase.auth.signOut()
+        await signOut(auth)
     }
 
-    if (!isSupabaseConfigured()) {
-        return (
-            <div className="max-w-md mx-auto pt-20 px-4 text-center">
-                <div className="bg-[#14141b] border border-white/5 rounded-3xl p-8">
-                    <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-                    <h2 className="text-xl font-bold text-white mb-2">Cloud Sync Not Configured</h2>
-                    <p className="text-gray-400 text-sm mb-6">
-                        The application is missing Supabase credentials. Cloud sync and profiles are currently disabled.
-                    </p>
-                    <div className="text-xs text-gray-500 font-mono bg-black/50 p-4 rounded-xl">
-                        VITE_SUPABASE_URL<br />
-                        VITE_SUPABASE_ANON_KEY
-                    </div>
-                </div>
-            </div>
-        )
-    }
+    // Firebase is always configured via static config
+    // if (!isSupabaseConfigured()) checks removed
 
     if (loading) {
         return <div className="flex justify-center pt-40"><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div></div>
@@ -214,8 +190,8 @@ export function Profile() {
                 <div className="p-6 rounded-3xl bg-[#14141b] border border-white/5 backdrop-blur-xl mb-6 flex items-center gap-4">
                     <div className="relative group">
                         <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-2xl font-bold text-white shadow-xl overflow-hidden border-2 border-transparent group-hover:border-white/20 transition-all">
-                            {user.user_metadata?.avatar_url ? (
-                                <img src={user.user_metadata.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+                            {user.photoURL ? (
+                                <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" />
                             ) : (
                                 user.email?.[0]?.toUpperCase() || <User />
                             )}

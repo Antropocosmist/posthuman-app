@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
-import { supabase } from '../services/supa'
+import { storage } from '../config/firebase'
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { X, Upload, Loader2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useWalletStore } from '../store/walletStore'
@@ -31,25 +32,15 @@ export function AvatarSelectionModal({ isOpen, onClose, onSelect }: AvatarSelect
         const file = e.target.files[0]
         const fileExt = file.name.split('.').pop()
         const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`
-        const filePath = `${fileName}`
+        const filePath = `avatars/${fileName}`
 
         setUploading(true)
         setUploadError(null)
 
         try {
-            // Upload to Supabase Storage 'avatars' bucket
-            const { error: uploadErr } = await supabase.storage
-                .from('avatars')
-                .upload(filePath, file)
-
-            if (uploadErr) {
-                throw uploadErr
-            }
-
-            // Get Public URL
-            const { data: { publicUrl } } = supabase.storage
-                .from('avatars')
-                .getPublicUrl(filePath)
+            const storageRef = ref(storage, filePath)
+            await uploadBytes(storageRef, file)
+            const publicUrl = await getDownloadURL(storageRef)
 
             onSelect(publicUrl)
             onClose()

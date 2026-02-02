@@ -11,96 +11,36 @@ import { Settings } from './pages/Settings'
 // Placeholder for Chat
 const Chat = () => <div className="text-2xl font-bold">Chat System</div>
 
-import { supabase } from './services/supa'
+import { auth } from './config/firebase'
+import { onAuthStateChanged } from 'firebase/auth'
+
+// ... imports remain ...
 
 import { useWalletStore } from './store/walletStore'
 
 function App() {
-  const [isAuthProcessing, setIsAuthProcessing] = useState(true) // Start true to check session first
+  const [isAuthProcessing, setIsAuthProcessing] = useState(true)
   const [authError, setAuthError] = useState<string | null>(null)
 
   useEffect(() => {
-    const handleInitialAuth = async () => {
-      const hash = window.location.hash
+    // Firebase Auth Listener
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      console.log("🔥 Firebase Auth State Changed:", user ? user.email : "No User");
 
-      // Relaxed check: Simply look for access_token.
-      if (hash.includes('access_token')) {
-        console.log("🔒 Auth Token detected in hash")
-
-        try {
-          // Aggressive cleanup: remove everything up to the first param
-          const cleanHash = hash.substring(hash.indexOf('access_token'))
-          const params = new URLSearchParams(cleanHash)
-
-          const access_token = params.get('access_token')
-          const refresh_token = params.get('refresh_token')
-
-          if (access_token) {
-            console.log("🔑 Access Token extracted. Refresh Token:", refresh_token ? "Found" : "Missing")
-
-            const sessionParams: any = { access_token }
-            if (refresh_token) sessionParams.refresh_token = refresh_token
-
-            const { error } = await supabase.auth.setSession(sessionParams)
-
-            if (error) throw error
-
-            console.log("✅ Session established via manual parse!")
-            localStorage.removeItem('posthuman_auth_redirect')
-
-            // Sync Trades
-            useWalletStore.getState().fetchTrades()
-
-            window.location.hash = '#/profile'
-            setIsAuthProcessing(false)
-            return
-          } else {
-            throw new Error("Token present but could not be parsed.")
-          }
-        } catch (err: any) {
-          console.error("❌ Auth Error:", err)
-          setAuthError(err.message || "Authentication Failed")
-          setTimeout(() => setIsAuthProcessing(false), 3000)
-          return
-        }
-      }
-
-      // 2. Standard Session Check (Fallback)
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
+      if (user) {
         // Sync Trades (Standard Load)
         useWalletStore.getState().fetchTrades()
-
-        const wasLoggingIn = localStorage.getItem('posthuman_auth_redirect')
-        if (wasLoggingIn === 'true') {
-          console.log("🔄 Redirect flag found (Standard Check), going to profile...")
-          localStorage.removeItem('posthuman_auth_redirect')
-          window.location.hash = '#/profile'
-          return
-        }
       } else {
-        if (localStorage.getItem('posthuman_auth_redirect') === 'true') {
-          console.warn("⚠️ Redirect flag set but no session found.")
-          localStorage.removeItem('posthuman_auth_redirect')
-        }
-      }
-
-      setIsAuthProcessing(false)
-    }
-
-    handleInitialAuth()
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) {
-        useWalletStore.getState().fetchTrades()
-      }
-      if (event === 'SIGNED_OUT') {
-        console.log("👋 User signed out, clearing local state...")
         useWalletStore.getState().clearState()
       }
-    })
+      setIsAuthProcessing(false)
+    }, (error) => {
+      console.error("Firebase Auth Error:", error);
+      setAuthError(error.message);
+      setIsAuthProcessing(false);
+    });
 
-    return () => subscription.unsubscribe()
+    return () => unsubscribe();
   }, [])
 
   // 3. React to Hydration Completion
