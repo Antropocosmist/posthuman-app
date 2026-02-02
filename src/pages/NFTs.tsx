@@ -39,7 +39,7 @@ export function NFTs() {
         if (activeEcosystem === 'stargaze' && !wallets.some(w => (w.chain === 'Cosmos' || w.chain === 'Gno') && w.address.startsWith('stars'))) return []
 
         let nfts = activeView === 'owned'
-            ? ownedNFTs
+            ? ownedNFTs.filter(n => !n.isListed)
             : ownedNFTs.filter(n => n.isListed)
 
         // Filter by ecosystem
@@ -68,7 +68,9 @@ export function NFTs() {
 
     // Calculate NFT counts per ecosystem
     const nftCounts = useMemo(() => {
-        const nfts = activeView === 'owned' ? ownedNFTs : ownedNFTs.filter(n => n.isListed)
+        const nfts = activeView === 'owned'
+            ? ownedNFTs.filter(n => !n.isListed)
+            : ownedNFTs.filter(n => n.isListed)
 
         return {
             all: nfts.length,

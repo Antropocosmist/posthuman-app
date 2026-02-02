@@ -420,22 +420,21 @@ export class StargazeNFTService implements NFTServiceInterface {
             }
 
             // Create listing message
+            // User provided payload structure:
+            // {"set_ask":{"collection":"...","token_id":"...","details":{"price":{"denom":"...","amount":"..."}}}}
             const listMsg = {
                 set_ask: {
-                    sale_type: 'fixed_price',
                     collection: nft.contractAddress,
                     token_id: nft.tokenId,
-                    price: {
-                        // Convert to micro-units if ustars (6 decimals)
-                        amount: (currency === 'ustars' || !currency)
-                            ? Math.floor(parseFloat(price) * 1000000).toString()
-                            : price,
-                        denom: currency || 'ustars',
-                    },
-                    // Optional: set expiration (e.g., 30 days from now)
-                    expires: {
-                        at_time: String(Date.now() * 1000000 + 30 * 24 * 60 * 60 * 1000000000), // nanoseconds
-                    },
+                    details: {
+                        price: {
+                            // Convert to micro-units if ustars (6 decimals)
+                            amount: (currency === 'ustars' || !currency)
+                                ? Math.floor(parseFloat(price) * 1000000).toString()
+                                : price,
+                            denom: currency || 'ustars',
+                        }
+                    }
                 }
             }
 
@@ -445,7 +444,8 @@ export class StargazeNFTService implements NFTServiceInterface {
                     sender: sellerAddress,
                     contract: STARGAZE_MARKETPLACE_CONTRACT,
                     msg: toUtf8(JSON.stringify(listMsg)),
-                    funds: [],
+                    // Listing fee: 0.5 STARS (500,000 ustars)
+                    funds: [{ denom: 'ustars', amount: '500000' }],
                 },
             }
 
