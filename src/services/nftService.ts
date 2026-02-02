@@ -6,6 +6,7 @@ export interface NFT {
     image: string
     collectionName?: string
     description?: string
+    contractAddress?: string
 }
 
 // ------------------------------------------------------------------
@@ -43,6 +44,7 @@ const fetchStargazeNFTs = async (address: string, offset: number = 0): Promise<N
           }
           collection {
             name
+            contractAddress
           }
         }
       }
@@ -86,6 +88,7 @@ const fetchStargazeNFTs = async (address: string, offset: number = 0): Promise<N
             name: t.name || `Stargaze #${t.tokenId}`,
             image: formatIpfsUrl(t.media?.url),
             collectionName: t.collection?.name,
+            contractAddress: t.collection?.contractAddress,
             description: t.description
         }))
     } catch (e) {

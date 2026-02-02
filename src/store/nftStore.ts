@@ -128,8 +128,8 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
             const nfts = await fetchNFTs(address, "Cosmos", "stargaze-1", 0);
             const converted = nfts.map(nft => ({
               id: nft.id, tokenId: nft.id, name: nft.name, description: nft.description || "",
-              image: nft.image, chain: "stargaze" as const, contractAddress: "", owner: address,
-              collection: { id: "", name: nft.collectionName || "Unknown", image: nft.image },
+              image: nft.image, chain: "stargaze" as const, contractAddress: nft.contractAddress || "", owner: address,
+              collection: { id: nft.contractAddress || "", name: nft.collectionName || "Unknown", image: nft.image },
               isListed: false, marketplace: undefined
             }));
             fetchedNFTs = [...fetchedNFTs, ...converted];
@@ -289,10 +289,10 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
               description: nft.description || "",
               image: nft.image,
               chain: "stargaze" as const,
-              contractAddress: "",
+              contractAddress: nft.contractAddress || "",
               owner: wallet.address,
               collection: {
-                id: "",
+                id: nft.contractAddress || "",
                 name: nft.collectionName || "Unknown Collection",
                 image: nft.image,
               },
