@@ -1,11 +1,13 @@
 import { useEffect, useMemo } from 'react'
 import { Search } from 'lucide-react'
 import { useNFTStore } from '../store/nftStore'
+import { useWalletStore } from '../store/walletStore'
 import { NFTGrid } from '../components/nft/NFTGrid'
 import { EcosystemFilter } from '../components/nft/EcosystemFilter'
 import { NFTDetailModal } from '../components/nft/NFTDetailModal'
 
 export function NFTs() {
+    const { wallets } = useWalletStore()
     const {
         ownedNFTs,
         selectedNFT,
@@ -24,10 +26,10 @@ export function NFTs() {
         clearError,
     } = useNFTStore()
 
-    // Load NFTs on mount and when view/ecosystem changes
+    // Load NFTs on mount and when view/ecosystem changes, OR when wallets update
     useEffect(() => {
         fetchOwnedNFTs()
-    }, [activeView, activeEcosystem])
+    }, [activeView, activeEcosystem, wallets])
 
     // Filter NFTs based on ecosystem and search query
     const filteredNFTs = useMemo(() => {
