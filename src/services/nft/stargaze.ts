@@ -24,21 +24,20 @@ const client = new ApolloClient({
 
 // GraphQL Queries
 const GET_USER_NFTS = gql`
-    query GetUserNFTs($ownerAddr: String!) {
-        tokens(ownerAddr: $ownerAddr) {
+    query GetUserNFTs($owner: String!) {
+        tokens(owner: $owner) {
             tokens {
                 tokenId
                 name
                 description
-                image
+                imageUrl
+                media {
+                    url
+                }
                 collection {
                     contractAddress
                     name
                     description
-                    image
-                }
-                owner {
-                    addr
                 }
                 traits {
                     name
@@ -219,7 +218,7 @@ export class StargazeNFTService implements NFTServiceInterface {
             // 1. Fetch tokens in wallet
             const tokensPromise = client.query<any>({
                 query: GET_USER_NFTS,
-                variables: { ownerAddr: address },
+                variables: { owner: address },
             })
 
             // 2. Fetch active asks (listings) - important because Stargaze escrows listed NFTs
