@@ -453,10 +453,8 @@ export class StargazeNFTService implements NFTServiceInterface {
                     token_id: nft.tokenId,
                     details: {
                         price: {
-                            // Convert to micro-units if ustars (6 decimals)
-                            amount: (currency === 'ustars' || !currency)
-                                ? Math.floor(parseFloat(price) * 1000000).toString()
-                                : price,
+                            // Convert to micro-units (assume 6 decimals for Cosmos tokens like STARS, ATOM)
+                            amount: Math.floor(parseFloat(price) * 1000000).toString(),
                             denom: currency || 'ustars',
                         }
                     }
