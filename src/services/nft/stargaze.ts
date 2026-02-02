@@ -1,5 +1,6 @@
 import { ApolloClient, InMemoryCache, gql, HttpLink } from '@apollo/client'
 import { SigningStargateClient } from '@cosmjs/stargate'
+import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate'
 import { toUtf8 } from '@cosmjs/encoding'
 import type { NFT, NFTCollection, MarketplaceListing, NFTFilters, NFTServiceInterface } from './types'
 
@@ -127,8 +128,49 @@ const GET_COLLECTION_INFO = gql`
     }
 `
 
+const GET_USER_ASKS = gql`
+    query GetUserAsks($seller: String!) {
+        tokens(sellerAddrOrName: $seller, limit: 100, filterForSale: LISTED) {
+            tokens {
+                tokenId
+                name
+                media {
+                    url
+                }
+                imageUrl
+                listPrice
+                collection {
+                    contractAddress
+                    name
+                    tradingAsset {
+                        symbol
+                        denom
+                    }
+                }
+            }
+        }
+    }
+`
+
 // Helper function to convert Stargaze NFT to our NFT type
 function convertStargazeNFT(stargazeNFT: any, collection: any): NFT {
+    // Handle image from various possible fields
+    const image = stargazeNFT.imageUrl || stargazeNFT.media?.url || stargazeNFT.image || ''
+
+    // Handle listing info
+    let listingPrice = stargazeNFT.price?.amount
+    let listingCurrency = stargazeNFT.price?.denom || 'ustars'
+
+    if (stargazeNFT.listPrice) {
+        // listPrice from 'tokens' query is scalar (micro-amount)
+        listingPrice = stargazeNFT.listPrice
+
+        // Try to get currency from collection trading asset
+        if (collection?.tradingAsset?.denom) {
+            listingCurrency = collection.tradingAsset.denom
+        }
+    }
+
     return {
         id: `${collection.contractAddress}-${stargazeNFT.tokenId}`,
         tokenId: stargazeNFT.tokenId,
@@ -136,7 +178,7 @@ function convertStargazeNFT(stargazeNFT: any, collection: any): NFT {
         chain: 'stargaze',
         name: stargazeNFT.name || `#${stargazeNFT.tokenId}`,
         description: stargazeNFT.description || '',
-        image: stargazeNFT.image || '',
+        image: image,
         animationUrl: stargazeNFT.animationUrl,
         externalUrl: stargazeNFT.externalUrl,
         collection: {
@@ -146,12 +188,14 @@ function convertStargazeNFT(stargazeNFT: any, collection: any): NFT {
             image: collection.image,
             floorPrice: collection.floorPrice,
             totalSupply: collection.totalSupply,
+            floorPriceCurrency: collection.tradingAsset?.symbol,
+            floorPriceDenom: collection.tradingAsset?.denom
         },
         owner: stargazeNFT.owner?.addr || '',
-        marketplace: stargazeNFT.forSale ? 'stargaze' : undefined,
-        isListed: stargazeNFT.forSale || false,
-        listingPrice: stargazeNFT.price?.amount,
-        listingCurrency: stargazeNFT.price?.denom || 'ustars',
+        marketplace: (stargazeNFT.forSale || stargazeNFT.listPrice) ? 'stargaze' : undefined,
+        isListed: !!(stargazeNFT.forSale || stargazeNFT.listPrice),
+        listingPrice: listingPrice,
+        listingCurrency: listingCurrency,
         traits: stargazeNFT.traits?.map((trait: any) => ({
             trait_type: trait.name,
             value: trait.value,
@@ -159,35 +203,6 @@ function convertStargazeNFT(stargazeNFT: any, collection: any): NFT {
     }
 }
 
-const GET_USER_ASKS = gql`
-    query GetUserAsks($seller: String!) {
-        asks(seller: $seller, limit: 100) {
-            asks {
-                id
-                tokenId
-                price {
-                    amount
-                    denom
-                }
-                collection {
-                    contractAddress
-                    name
-                    image
-                    description
-                }
-                token {
-                    name
-                    description
-                    image
-                    traits {
-                        name
-                        value
-                    }
-                }
-            }
-        }
-    }
-`
 
 // Stargaze NFT Service Implementation
 export class StargazeNFTService implements NFTServiceInterface {
@@ -195,6 +210,7 @@ export class StargazeNFTService implements NFTServiceInterface {
      * Fetch all NFTs owned by a specific address, including those listed for sale
      */
     async fetchUserNFTs(address: string): Promise<NFT[]> {
+        console.log(`[Stargaze] Fetching NFTs for ${address}`)
         try {
             // 1. Fetch tokens in wallet
             const tokensPromise = client.query<any>({
@@ -206,12 +222,18 @@ export class StargazeNFTService implements NFTServiceInterface {
             const asksPromise = client.query<any>({
                 query: GET_USER_ASKS,
                 variables: { seller: address },
+                fetchPolicy: 'network-only', // Ensure fresh data
             })
 
             const [tokensResult, asksResult] = await Promise.all([tokensPromise, asksPromise])
 
             const tokens = tokensResult.data?.tokens?.tokens || []
-            const asks = asksResult.data?.asks?.asks || []
+            const asks = asksResult.data?.tokens?.tokens || []
+
+            console.log(`[Stargaze] Found ${tokens.length} wallet tokens and ${asks.length} listed asks for ${address}`)
+            if (asks.length > 0) {
+                console.log('[Stargaze] First ask sample:', asks[0])
+            }
 
             // Convert wallet tokens
             const walletNFTs: NFT[] = tokens.map((token: any) =>
@@ -219,19 +241,22 @@ export class StargazeNFTService implements NFTServiceInterface {
             )
 
             // Convert asks to NFTs
-            const askNFTs: NFT[] = asks.map((ask: any) => {
-                const nft = convertStargazeNFT(ask.token, ask.collection)
-                // Override listing properties
+            const askNFTs: NFT[] = asks.map((token: any) => {
+                // The 'token' object here is similar to wallet token, but has listPrice
+                // We pass it to convertStargazeNFT.
+                // Note: convertStargazeNFT handles listPrice if present.
+                const nft = convertStargazeNFT(token, token.collection)
+                // Explicitly set isListed because the query filters for listed items
                 nft.isListed = true
-                // We construct listingId strictly as collection-tokenId because our cancelListing
-                // implementation parses it effectively to call the contract.
-                nft.listingId = `${ask.collection.contractAddress}-${ask.tokenId}`
-                nft.listingPrice = ask.price.amount
-                nft.listingCurrency = ask.price.denom
+                // The new GET_USER_ASKS query returns tokens directly with listPrice,
+                // so we can derive listingId from contractAddress and tokenId.
+                nft.listingId = `${token.collection.contractAddress}-${token.tokenId}`
+                nft.listingPrice = token.listPrice?.amount
+                nft.listingCurrency = token.listPrice?.denom
                 nft.owner = address // User is the owner (seller)
                 // Ensure ID matches what we expect
-                nft.id = `${ask.collection.contractAddress}-${ask.tokenId}`
-                nft.tokenId = ask.tokenId // Ensure tokenId is set
+                nft.id = `${token.collection.contractAddress}-${token.tokenId}`
+                nft.tokenId = token.tokenId // Ensure tokenId is set
                 return nft
             })
 
@@ -328,8 +353,8 @@ export class StargazeNFTService implements NFTServiceInterface {
             // Get offline signer
             const offlineSigner = await wallet.getOfflineSigner('stargaze-1')
 
-            // Create signing client
-            const client = await SigningStargateClient.connectWithSigner(
+            // Create signing client (CosmWasm)
+            const client = await SigningCosmWasmClient.connectWithSigner(
                 STARGAZE_RPC_ENDPOINT,
                 offlineSigner
             )
