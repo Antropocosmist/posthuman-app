@@ -119,6 +119,7 @@ const GET_COLLECTION_INFO = gql`
                     floorPrice
                     tradingAsset {
                         symbol
+                        denom
                     }
                 }
             }
@@ -576,6 +577,7 @@ export class StargazeNFTService implements NFTServiceInterface {
             // Heuristic: If > 1000000, likely ustars.
             // Dynamic Currency Support
             const symbol = collectionData?.tradingAsset?.symbol || 'STARS'
+            const denom = collectionData?.tradingAsset?.denom || 'ustars'
             let formattedFloor = floorPrice ? String(floorPrice) : undefined
 
             if (floorPrice && !isNaN(Number(floorPrice))) {
@@ -599,6 +601,8 @@ export class StargazeNFTService implements NFTServiceInterface {
                         id: contractAddress,
                         name: 'Collection',
                         floorPrice: formattedFloor,
+                        floorPriceCurrency: symbol,
+                        floorPriceDenom: denom,
                     }
                 }
                 throw new Error('Collection not found')
@@ -610,6 +614,8 @@ export class StargazeNFTService implements NFTServiceInterface {
                 description: collectionData.description,
                 image: collectionData.image,
                 floorPrice: formattedFloor,
+                floorPriceCurrency: symbol,
+                floorPriceDenom: denom,
                 totalSupply: collectionData.totalSupply,
             }
         } catch (error) {

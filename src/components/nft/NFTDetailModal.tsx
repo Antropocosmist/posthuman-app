@@ -12,6 +12,7 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
     const [price, setPrice] = useState('')
     const [floorPriceDisplay, setFloorPriceDisplay] = useState<string | null>(null)
     const [listingCurrency, setListingCurrency] = useState<string>('')
+    const [currencyCode, setCurrencyCode] = useState<string>('') // Display symbol (e.g. STARS, ATOM)
     const [activeAction, setActiveAction] = useState<'sell' | 'transfer' | 'burn' | 'auction' | null>(null)
 
     const {
@@ -30,7 +31,7 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
             setPrice('')
             setFloorPriceDisplay(null)
 
-            // Determine currency
+            // Determine initial currency
             let code = 'STARS'
             let denom = 'ustars'
 
@@ -45,6 +46,7 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
                 denom = 'SOL'
             }
             setListingCurrency(denom) // Service expects the denom
+            setCurrencyCode(code)
 
             // Fetch Floor Price
             const address = nft.contractAddress
@@ -53,7 +55,18 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
                     .then(stats => {
                         if (stats?.floorPrice) {
                             const val = stats.floorPrice
+
+                            // Dynamic Currency from Stats (Stargaze)
+                            if (stats.floorPriceCurrency) {
+                                code = stats.floorPriceCurrency
+                                setCurrencyCode(code)
+                            }
+                            if (stats.floorPriceDenom) {
+                                setListingCurrency(stats.floorPriceDenom)
+                            }
+
                             // If value already includes currency code (e.g. from Stargaze service), don't append it
+                            // Or if checks against the dynamic code we just fetched
                             if (val.toUpperCase().includes(code.toUpperCase())) {
                                 setFloorPriceDisplay(val)
                             } else {
@@ -314,7 +327,7 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
                                                     />
                                                     <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
                                                         <span className="text-sm font-bold text-gray-400 border-l border-white/10 pl-3">
-                                                            {listingCurrency === 'ustars' ? 'STARS' : (listingCurrency || 'TOKEN')}
+                                                            {currencyCode || (listingCurrency === 'ustars' ? 'STARS' : (listingCurrency || 'TOKEN'))}
                                                         </span>
                                                     </div>
                                                 </div>

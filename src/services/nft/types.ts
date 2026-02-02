@@ -12,6 +12,8 @@ export interface NFTCollection {
     description?: string
     image?: string
     floorPrice?: string
+    floorPriceCurrency?: string // Symbol (e.g. STARS, ATOM)
+    floorPriceDenom?: string    // Denom (e.g. ustars, uatom)
     totalSupply?: number
     verified?: boolean
 }
