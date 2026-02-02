@@ -116,10 +116,7 @@ const GET_COLLECTION_INFO = gql`
                 collection {
                     contractAddress
                     name
-                    description
-                    image
                     floorPrice
-                    totalSupply
                 }
             }
         }
