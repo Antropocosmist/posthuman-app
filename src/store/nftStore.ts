@@ -124,16 +124,12 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
           if (get().currentRequestId !== currentInternalId) return; // Early exit
           // ... (Existing Stargaze Fetch Logic - abbreviated for edit, utilizing imports)
           try {
-            const { fetchNFTs } = await import("../services/nftService");
-            const nfts = await fetchNFTs(address, "Cosmos", "stargaze-1", 0);
-            const converted = nfts.map(nft => ({
-              id: nft.id, tokenId: nft.id, name: nft.name, description: nft.description || "",
-              image: nft.image, chain: "stargaze" as const, contractAddress: nft.contractAddress || "", owner: address,
-              collection: { id: nft.contractAddress || "", name: nft.collectionName || "Unknown", image: nft.image },
-              isListed: false, marketplace: undefined
-            }));
-            fetchedNFTs = [...fetchedNFTs, ...converted];
-          } catch (e) { console.error("Stargaze fetch error", e); }
+            // Use the robust Stargaze service which handles listings (escrowed NFTs) correctly
+            const nfts = await stargazeNFTService.fetchUserNFTs(address);
+            fetchedNFTs = [...fetchedNFTs, ...nfts];
+          } catch (e) {
+            console.error("Stargaze fetch error", e);
+          }
         }
       }
 
