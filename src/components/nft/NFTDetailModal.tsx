@@ -49,17 +49,26 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
             // Fetch Floor Price
             const address = nft.contractAddress
             if (address) {
-                fetchCollectionStats(address, nft.chain).then(stats => {
-                    if (stats?.floorPrice) {
-                        let val = stats.floorPrice
-                        // Format if Stargaze
-                        if (nft.chain === 'stargaze') {
-                            const num = parseFloat(val)
-                            if (!isNaN(num)) val = (num / 1000000).toLocaleString(undefined, { maximumFractionDigits: 2 })
+                fetchCollectionStats(address, nft.chain)
+                    .then(stats => {
+                        if (stats?.floorPrice) {
+                            const val = stats.floorPrice
+                            // If value already includes currency code (e.g. from Stargaze service), don't append it
+                            if (val.toUpperCase().includes(code.toUpperCase())) {
+                                setFloorPriceDisplay(val)
+                            } else {
+                                setFloorPriceDisplay(`${val} ${code}`)
+                            }
+                        } else {
+                            setFloorPriceDisplay('N/A')
                         }
-                        setFloorPriceDisplay(`${val} ${code}`)
-                    }
-                })
+                    })
+                    .catch((err) => {
+                        console.error('Error fetching floor price:', err)
+                        setFloorPriceDisplay('N/A')
+                    })
+            } else {
+                setFloorPriceDisplay('N/A')
             }
         }
     }, [nft, fetchCollectionStats])
