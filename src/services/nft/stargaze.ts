@@ -155,10 +155,24 @@ const GET_USER_ASKS = gql`
     }
 `
 
+// Helper to format IPFS URLs
+function formatIpfsUrl(url: string): string {
+    if (!url) return ''
+    if (url.startsWith('ipfs://')) {
+        return url.replace('ipfs://', 'https://ipfs.io/ipfs/')
+    }
+    // Handle Stargaze Gateway (Restricted) -> Switch to Public Gateway
+    if (url.includes('ipfs-gw.stargaze-apis.com')) {
+        return url.replace('ipfs-gw.stargaze-apis.com', 'ipfs.io')
+    }
+    return url
+}
+
 // Helper function to convert Stargaze NFT to our NFT type
 function convertStargazeNFT(stargazeNFT: any, collection: any): NFT {
     // Handle image from various possible fields
-    const image = stargazeNFT.imageUrl || stargazeNFT.media?.url || stargazeNFT.image || ''
+    const rawImage = stargazeNFT.imageUrl || stargazeNFT.media?.url || stargazeNFT.image || ''
+    const image = formatIpfsUrl(rawImage)
 
     // Handle listing info
     let listingPrice = stargazeNFT.price?.amount
@@ -188,7 +202,7 @@ function convertStargazeNFT(stargazeNFT: any, collection: any): NFT {
             id: collection.contractAddress,
             name: collection.name || 'Unknown Collection',
             description: collection.description,
-            image: collection.image,
+            image: formatIpfsUrl(collection.image),
             floorPrice: collection.floorPrice,
             totalSupply: collection.totalSupply,
             floorPriceCurrency: collection.tradingAsset?.symbol,
