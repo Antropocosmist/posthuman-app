@@ -1,5 +1,5 @@
 import { ApolloClient, InMemoryCache, gql, HttpLink } from '@apollo/client'
-import { SigningStargateClient } from '@cosmjs/stargate'
+
 import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate'
 import { toUtf8 } from '@cosmjs/encoding'
 import type { NFT, NFTCollection, MarketplaceListing, NFTFilters, NFTServiceInterface } from './types'
@@ -420,8 +420,8 @@ export class StargazeNFTService implements NFTServiceInterface {
             // Get offline signer
             const offlineSigner = await wallet.getOfflineSigner('stargaze-1')
 
-            // Create signing client
-            const client = await SigningStargateClient.connectWithSigner(
+            // Create signing client (CosmWasm)
+            const client = await SigningCosmWasmClient.connectWithSigner(
                 STARGAZE_RPC_ENDPOINT,
                 offlineSigner
             )
@@ -513,8 +513,8 @@ export class StargazeNFTService implements NFTServiceInterface {
             // Get offline signer
             const offlineSigner = await wallet.getOfflineSigner('stargaze-1')
 
-            // Create signing client
-            const client = await SigningStargateClient.connectWithSigner(
+            // Create signing client (CosmWasm)
+            const client = await SigningCosmWasmClient.connectWithSigner(
                 STARGAZE_RPC_ENDPOINT,
                 offlineSigner
             )
