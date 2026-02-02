@@ -97,6 +97,41 @@ interface WalletState {
 // Define Base URL for assets
 const BASE_URL = import.meta.env.BASE_URL
 
+// EIP-6963 Interfaces
+interface EIP6963ProviderInfo {
+    uuid: string;
+    name: string;
+    icon: string;
+    rdns: string;
+}
+
+interface EIP6963ProviderDetail {
+    info: EIP6963ProviderInfo;
+    provider: any;
+}
+
+interface EIP6963AnnounceProviderEvent extends CustomEvent {
+    detail: {
+        info: EIP6963ProviderInfo;
+        provider: any;
+    };
+}
+
+// Global map to store discovered providers
+const discoveredProviders = new Map<string, EIP6963ProviderDetail>();
+
+// Listen for EIP-6963 announcements
+if (typeof window !== 'undefined') {
+    window.addEventListener('eip6963:announceProvider', ((event: EIP6963AnnounceProviderEvent) => {
+        const { info, provider } = event.detail;
+        discoveredProviders.set(info.name.toLowerCase(), { info, provider });
+        console.log(`[WalletStore] Discovered EIP-6963 Provider: ${info.name}`);
+    }) as EventListener);
+
+    // Request providers to announce themselves
+    window.dispatchEvent(new Event('eip6963:requestProvider'));
+}
+
 export const useWalletStore = create<WalletState>()(
     persist(
         (set, get) => ({
@@ -401,20 +436,87 @@ export const useWalletStore = create<WalletState>()(
                             }
 
                             // 2. Keplr EVM Support
-                            // [DISABLED] - User feedback indicates this is confusing (shows Rabby/MM NFTs under Keplr)
-                            // We should only connect Cosmos addresses for Keplr.
-                            /*
                             try {
-                                if (typeof window.ethereum !== 'undefined') {
-                                    // ... (Logic removed to avoid ghost EVM connections)
+                                let keplrEvmProvider = null;
+
+                                // Priority 1: EIP-6963 Discovered Provider
+                                const discovered = discoveredProviders.get('keplr');
+                                if (discovered) {
+                                    keplrEvmProvider = discovered.provider;
+                                    console.log('[WalletStore] Using EIP-6963 Keplr Provider for EVM');
+                                }
+                                // Priority 2: Global window.ethereum if it claims to be Keplr
+                                else if (typeof window.ethereum !== 'undefined' && (window.ethereum as any).isKeplr) {
+                                    keplrEvmProvider = window.ethereum;
+                                    console.log('[WalletStore] Using window.ethereum (isKeplr=true) for EVM');
+                                }
+
+                                if (keplrEvmProvider) {
+                                    const accounts = await keplrEvmProvider.request({ method: 'eth_requestAccounts' })
+                                    const evmAddress = accounts[0]
+
+                                    for (const chainCfg of EVM_CHAINS) {
+                                        try {
+                                            // 1. Native Balance
+                                            const nativeBal = await RpcService.getBalance(chainCfg.rpc, evmAddress)
+                                            if (nativeBal > 0) {
+                                                const price = prices[chainCfg.symbol] || 0
+                                                const newWallet: ConnectedWallet = {
+                                                    id: `keplr-${chainCfg.id}-${evmAddress.substr(-4)}`,
+                                                    name: `${chainCfg.name} (Keplr)`,
+                                                    chain: 'EVM',
+                                                    address: evmAddress,
+                                                    icon: `${BASE_URL}icons/keplr.png`,
+                                                    balance: nativeBal * price,
+                                                    nativeBalance: nativeBal,
+                                                    symbol: chainCfg.symbol,
+                                                    chainId: chainCfg.id,
+                                                    walletProvider: 'Keplr'
+                                                }
+
+                                                const currentWallets = get().wallets
+                                                if (!currentWallets.find(w => w.id === newWallet.id)) {
+                                                    set((state) => ({ wallets: [...state.wallets, newWallet] }))
+                                                }
+                                            }
+
+                                            // 2. ERC20 Discovery (USDC, USDT)
+                                            for (const token of ERC20_TOKENS) {
+                                                const contract = (token.contracts as any)[chainCfg.id]
+                                                if (contract) {
+                                                    const tokenBal = await RpcService.getErc20Balance(chainCfg.rpc, contract, evmAddress)
+                                                    if (tokenBal > 0) { // Always show stablecoins
+                                                        const tokenPrice = prices[token.symbol] || 1
+                                                        const tokenWallet: ConnectedWallet = {
+                                                            id: `keplr-${token.symbol}-${chainCfg.id}-${evmAddress.substr(-4)}`,
+                                                            name: `${token.symbol} on ${chainCfg.name} (Keplr)`,
+                                                            chain: 'EVM',
+                                                            address: evmAddress,
+                                                            icon: `${BASE_URL}icons/keplr.png`,
+                                                            balance: tokenBal * tokenPrice,
+                                                            nativeBalance: tokenBal,
+                                                            symbol: token.symbol,
+                                                            chainId: chainCfg.id,
+                                                            walletProvider: 'Keplr'
+                                                        }
+
+                                                        if (!get().wallets.find(w => w.id === tokenWallet.id)) {
+                                                            set((state) => ({ wallets: [...state.wallets, tokenWallet] }))
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                        } catch (err) {
+                                            console.error(`Failed Keplr discovery for ${chainCfg.name}:`, err)
+                                        }
+                                    }
+                                } else {
+                                    console.log('[WalletStore] Keplr EVM provider not found. Skipping EVM connection.');
                                 }
                             } catch (err) {
                                 console.warn("Keplr EVM connection failed or not accepted:", err)
                             }
-                            */
-
-                            set({ isModalOpen: false })
-                            return
                         } else {
                             alert('Keplr Wallet not detected! Please install it.')
                             return
