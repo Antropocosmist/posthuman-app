@@ -1,6 +1,7 @@
 import { ApolloClient, InMemoryCache, gql, HttpLink } from '@apollo/client'
 
 import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate'
+import { GasPrice } from '@cosmjs/stargate'
 import { toUtf8 } from '@cosmjs/encoding'
 import type { NFT, NFTCollection, MarketplaceListing, NFTFilters, NFTServiceInterface } from './types'
 
@@ -356,7 +357,8 @@ export class StargazeNFTService implements NFTServiceInterface {
             // Create signing client (CosmWasm)
             const client = await SigningCosmWasmClient.connectWithSigner(
                 STARGAZE_RPC_ENDPOINT,
-                offlineSigner
+                offlineSigner,
+                { gasPrice: GasPrice.fromString('1ustars') }
             )
 
             // Parse price (assuming it's in ustars)
@@ -423,7 +425,8 @@ export class StargazeNFTService implements NFTServiceInterface {
             // Create signing client (CosmWasm)
             const client = await SigningCosmWasmClient.connectWithSigner(
                 STARGAZE_RPC_ENDPOINT,
-                offlineSigner
+                offlineSigner,
+                { gasPrice: GasPrice.fromString('1ustars') }
             )
 
             // First, approve the NFT for the marketplace (if not already approved)
@@ -514,7 +517,8 @@ export class StargazeNFTService implements NFTServiceInterface {
             // Create signing client (CosmWasm)
             const client = await SigningCosmWasmClient.connectWithSigner(
                 STARGAZE_RPC_ENDPOINT,
-                offlineSigner
+                offlineSigner,
+                { gasPrice: GasPrice.fromString('1ustars') }
             )
 
             // Note: listingId in Stargaze is typically the collection + token_id
