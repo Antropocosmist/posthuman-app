@@ -449,7 +449,6 @@ export class StargazeNFTService implements NFTServiceInterface {
             // {"set_ask":{"collection":"...","token_id":"...","details":{"price":{"denom":"...","amount":"..."}}}}
             const listMsg = {
                 set_ask: {
-                    sale_type: 'fixed_price',
                     collection: nft.contractAddress,
                     token_id: nft.tokenId,
                     details: {
