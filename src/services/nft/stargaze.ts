@@ -546,31 +546,60 @@ export class StargazeNFTService implements NFTServiceInterface {
                 askId = Number(listingId)
             } else {
                 // It's likely collection-tokenId. We need to query the Ask ID.
-                console.log(`[Stargaze] Resolving Ask ID for ${listingId}...`)
+                console.log(`[Stargaze] Resolving Ask ID for ${listingId} via contract query...`)
                 const collectionAddr = listingId.split('-')[0]
                 const tokenId = listingId.split('-')[1]
 
-                // Use the Marketplace Listings query filtered by collection to find this token
-                // This is a bit inefficient but necessary without a direct "GetAskByToken" query exposed easily
-                const { data } = await client.query<any>({
-                    query: GET_MARKETPLACE_LISTINGS,
-                    variables: {
-                        limit: 100, // Hope it's in the first 100? or we might need to filter better if possible
-                        collectionAddr: collectionAddr,
-                        sortBy: 'PRICE_ASC' // Arbitrary
-                    },
-                    fetchPolicy: 'network-only'
-                })
+                // Use the Marketplace Contract query "ask" directly
+                // This bypasses unreliable indexer queries
+                try {
+                    const queryMsg = {
+                        ask: {
+                            collection: collectionAddr,
+                            token_id: parseInt(tokenId) // Stargaze Marketplace V2 usually works with integer if provided, but let's be careful.
+                            // If this fails, we catch and try string.
+                        }
+                    }
+                    console.log('[Stargaze] Querying contract for ask:', queryMsg)
 
-                const asks = data?.asks?.asks || []
-                const targetAsk = asks.find((a: any) => a.tokenId === tokenId)
+                    const response = await signingClient.queryContractSmart(
+                        STARGAZE_MARKETPLACE_CONTRACT,
+                        queryMsg
+                    )
 
-                if (!targetAsk) {
-                    throw new Error(`Could not find active listing for token ${tokenId}. It might have been sold or cancelled.`)
+                    console.log('[Stargaze] Contract ask response:', response)
+
+                    if (!response?.ask?.id) {
+                        throw new Error(`Could not find active listing (Ask ID) for token ${tokenId}.`)
+                    }
+
+                    askId = response.ask.id
+                    console.log(`[Stargaze] Resolved Ask ID: ${askId}`)
+                } catch (err: any) {
+                    console.warn('[Stargaze] First attempt to resolve Ask ID failed, trying fallback...', err)
+                    // Try fallback with string token_id just in case
+                    try {
+                        const queryMsgString = {
+                            ask: {
+                                collection: collectionAddr,
+                                token_id: tokenId
+                            }
+                        }
+                        const response = await signingClient.queryContractSmart(
+                            STARGAZE_MARKETPLACE_CONTRACT,
+                            queryMsgString
+                        )
+                        if (response?.ask?.id) {
+                            askId = response.ask.id
+                            console.log(`[Stargaze] Resolved Ask ID (string token_id): ${askId}`)
+                        } else {
+                            throw err // Original error if specific response not effective
+                        }
+                    } catch (e) {
+                        console.error('[Stargaze] Failed to resolve Ask ID from contract:', err)
+                        throw new Error(`Failed to resolve listing ID for token ${tokenId}. It might not be listed or the contract query failed.`)
+                    }
                 }
-
-                console.log(`[Stargaze] Resolved Ask ID: ${targetAsk.id}`)
-                askId = targetAsk.id
             }
 
             const cancelMsg = {
@@ -627,6 +656,7 @@ export class StargazeNFTService implements NFTServiceInterface {
             let floorPrice = collectionData?.floorPrice
 
             // Fallback: If floor price is missing or 0, fetch lowest listing
+            // NOTE: We wrap this in try-catch and simple log to avoid breaking the UI if GET_MARKETPLACE_LISTINGS fails
             if (!floorPrice || floorPrice === '0' || floorPrice === 0) {
                 try {
                     const { data: askData } = await client.query<any>({
@@ -644,7 +674,7 @@ export class StargazeNFTService implements NFTServiceInterface {
                         floorPrice = cheapest.price.amount
                     }
                 } catch (e) {
-                    console.warn('Fallback floor fetch failed', e)
+                    console.warn('Fallback floor fetch failed (likely due to indexer issues):', e)
                 }
             }
 
