@@ -1,4 +1,5 @@
 import type { NFT } from '../../services/nft/types'
+import { formatPrice } from '../../utils/currency'
 
 const CHAIN_ICONS: Record<string, string> = {
     ethereum: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/info/logo.png',
@@ -9,55 +10,6 @@ const CHAIN_ICONS: Record<string, string> = {
     arbitrum: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/arbitrum/info/logo.png',
     solana: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/solana/info/logo.png',
     stargaze: 'https://raw.githubusercontent.com/cosmos/chain-registry/master/stargaze/images/stars.png'
-}
-
-// IBC Denom Mapping
-const IBC_MAPPING: Record<string, string> = {
-    // ATOM on Stargaze (channel-0) - Common hash
-    'ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2': 'ATOM',
-    // User Reported Hash (likely specific channel/path)
-    'ibc/9DF365E2C0EF4EA02FA771F638E6F566B96D7437704258E298F5670B8F804368': 'ATOM',
-    'uatom': 'ATOM',
-    'ustars': 'STARS'
-}
-
-const formatPrice = (amount: string | number | undefined, denom: string | undefined) => {
-    if (!amount) return ''
-
-    let value = Number(amount)
-    let symbol = denom || ''
-
-    // Normalize denom (handle IBC hash casing if needed, though usually uppercase/lowercase mix)
-    // We check exact match or case-insensitive match for basic denoms
-    const normalizedDenom = denom?.toLowerCase() || ''
-
-    // Check IBC Mapping
-    // Try exact match first (for case-sensitive hashes), then normalized
-    let mappedSymbol = IBC_MAPPING[symbol] || IBC_MAPPING[symbol.toUpperCase()];
-
-    if (!mappedSymbol) {
-        // Fallback checks
-        if (normalizedDenom === 'ustars') mappedSymbol = 'STARS'
-        if (normalizedDenom === 'uatom') mappedSymbol = 'ATOM'
-
-        // Check for User's specific hash prefix if exact match failed (safety net)
-        if (symbol.startsWith('ibc/9DF365E')) mappedSymbol = 'ATOM'
-    }
-
-    if (mappedSymbol) {
-        symbol = mappedSymbol
-        // If it was a 'u' denom (micro), divide by 1M
-        // Most IBC tokens on Cosmos are 6 decimals.
-        // We assume conversion is needed if we mapped to STARS or ATOM from a raw hash/u-denom
-        value = value / 1_000_000
-    }
-
-    // Format number: Max 2 decimals if integer-ish, else up to 6
-    const formattedValue = value.toLocaleString(undefined, {
-        maximumFractionDigits: value % 1 === 0 ? 0 : 2
-    })
-
-    return `${formattedValue} ${symbol}`
 }
 
 interface NFTCardProps {

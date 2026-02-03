@@ -2,6 +2,7 @@ import { X, ShoppingBag, Send, Flame, Gavel, ChevronLeft, Tag } from 'lucide-rea
 import { useState, useEffect } from 'react'
 import type { NFT } from '../../services/nft/types'
 import { useNFTStore } from '../../store/nftStore'
+import { formatPrice } from '../../utils/currency'
 
 interface NFTDetailModalProps {
     nft: NFT | null
@@ -188,14 +189,12 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
                         </div>
 
                         {/* Price Info */}
-                        {nft.isListed && nft.listingPrice && (
-                            <div className="mb-4 p-4 rounded-xl bg-purple-600/10 border border-purple-500/20">
-                                <p className="text-xs text-purple-400 mb-1">Listed Price</p>
-                                <p className="text-2xl font-bold text-white">
-                                    {nft.listingPrice} {nft.listingCurrency?.toUpperCase() || 'STARS'}
-                                </p>
-                            </div>
-                        )}
+                        <div className="mb-4 p-4 rounded-xl bg-purple-600/10 border border-purple-500/20">
+                            <p className="text-xs text-purple-400 mb-1">Listed Price</p>
+                            <p className="text-2xl font-bold text-white">
+                                {formatPrice(nft.listingPrice, nft.listingCurrency)}
+                            </p>
+                        </div>
 
                         {floorPriceDisplay && (
                             <div className="mb-4 p-4 rounded-xl bg-white/5 border border-white/5">
