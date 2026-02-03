@@ -28,6 +28,8 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
         fetchCollectionStats
     } = useNFTStore()
 
+    const { wallets } = useWalletStore() // Moved up to satisfy Rules of Hooks
+
     // Determine currency and fetch stats on mount
     useEffect(() => {
         if (nft) {
@@ -96,7 +98,7 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
     const canBuy = isMarketplaceListing
     const canSell = !nft.isListed && !isMarketplaceListing
 
-    const { wallets } = useWalletStore() // Need wallets to check ownership
+    // wallets is now destructured at the top level
 
     const handleBuy = async () => {
         if (!listing) return
