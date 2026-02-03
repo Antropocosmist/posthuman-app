@@ -245,7 +245,7 @@ export class StargazeNFTService implements NFTServiceInterface {
             const [tokensResult, asksResult] = await Promise.all([tokensPromise, asksPromise])
 
             const tokens = tokensResult.data?.tokens?.tokens || []
-            const asks = asksResult.data?.asks?.asks || []
+            const asks = asksResult.data?.tokens?.tokens || []
 
             console.log(`[Stargaze] Found ${tokens.length} wallet tokens and ${asks.length} listed asks for ${address}`)
             if (asks.length > 0) {
@@ -605,7 +605,7 @@ export class StargazeNFTService implements NFTServiceInterface {
             }
 
             // Broadcast transaction
-            const result = await client.signAndBroadcast(
+            const result = await signingClient.signAndBroadcast(
                 sellerAddress,
                 [executeMsg],
                 'auto',
