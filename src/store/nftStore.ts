@@ -455,12 +455,20 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
       };
 
       const walletChainType = getWalletChainType(nft.chain);
-      const sellerWallet = walletStore.wallets.find(
+      // First try to find exact wallet match
+      let sellerWallet = walletStore.wallets.find(
         (w) => w.address === nft.owner && w.chain === walletChainType,
       );
 
+      // Fallback: If strict match fails (e.g. casing differences or indexer lag), 
+      // check if we have ANY wallet of this chain type connected.
+      // Since the user is viewing "My NFTs", they likely own it.
       if (!sellerWallet) {
-        throw new Error("You must own this NFT to list it");
+        sellerWallet = walletStore.wallets.find((w) => w.chain === walletChainType);
+      }
+
+      if (!sellerWallet) {
+        throw new Error("You must own this NFT to list it (or connect the correct wallet)");
       }
 
       let listingId: string;

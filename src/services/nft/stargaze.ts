@@ -263,9 +263,11 @@ export class StargazeNFTService implements NFTServiceInterface {
             }
 
             // Convert wallet tokens
-            const walletNFTs: NFT[] = tokens.map((token: any) =>
-                convertStargazeNFT(token, token.collection)
-            )
+            const walletNFTs: NFT[] = tokens.map((token: any) => {
+                const nft = convertStargazeNFT(token, token.collection)
+                nft.owner = address // Explicitly set owner since we fetched by this address
+                return nft
+            })
 
             // Convert asks to NFTs
             const askNFTs: NFT[] = asks.map((token: any) => {
