@@ -416,7 +416,7 @@ export class StargazeNFTService implements NFTServiceInterface {
             }
 
             // Broadcast transaction
-            const result = await client.signAndBroadcast(
+            const result = await signingClient.signAndBroadcast(
                 buyerAddress,
                 [executeMsg],
                 'auto',
