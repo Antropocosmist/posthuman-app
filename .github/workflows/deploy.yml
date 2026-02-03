@@ -29,8 +29,8 @@ jobs:
 
       - name: Build
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          # VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          # VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_HELIUS_API_KEY: ${{ secrets.VITE_HELIUS_API_KEY }}
           VITE_OPENSEA_API_KEY: ${{ secrets.VITE_OPENSEA_API_KEY }}
         run: npm run build
