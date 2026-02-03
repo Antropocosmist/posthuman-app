@@ -10,6 +10,8 @@ const IBC_MAPPING: Record<string, string> = {
     'ibc/ED07A3391A112B175915CD8FAF43A2DA8E4790EDE125678649524C4F84A58F9E': 'OSMO',
     // Lowercase version for safety
     'ibc/ed07a3391a112b175915cd8faf43a2da8e4790ede125678649524c4f84a58f9e': 'OSMO',
+    // Specific hash reported by user
+    'ibc/ED07A3391A112B175915CD8FAF43A2DA8E4790EDE12566649D0C2F97716B8518': 'OSMO',
     'uatom': 'ATOM',
     'ustars': 'STARS',
     'uosmo': 'OSMO'
