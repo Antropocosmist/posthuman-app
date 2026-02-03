@@ -278,10 +278,9 @@ export class OpenSeaNFTService implements NFTServiceInterface {
             console.log('[OpenSea] Initializing SDK with:', { chain, hasApiKey: !!OPENSEA_API_KEY })
             try {
                 console.log('[OpenSea] SDK Class:', OpenSeaSDK)
-                // Initialize OpenSea SDK with signer
-                // Note: v8 SDK might need specific usage with ethers v6
-                // Passing window.ethereum as provider might be safer if ethers v6 provider is issues
-                const sdk = new OpenSeaSDK(window.ethereum as any, {
+                // Initialize OpenSea SDK with provider
+                // With node polyfills enabled, this should work correctly with ethers v6 provider
+                const sdk = new OpenSeaSDK(provider as any, {
                     chain,
                     apiKey: OPENSEA_API_KEY,
                 })
