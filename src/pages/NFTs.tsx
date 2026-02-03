@@ -6,15 +6,20 @@ import { NFTGrid } from '../components/nft/NFTGrid'
 import { EcosystemFilter } from '../components/nft/EcosystemFilter'
 import { NFTDetailModal } from '../components/nft/NFTDetailModal'
 
+// Helper to safely count array length
+const itemCount = (arr: any[]) => Array.isArray(arr) ? arr.length : 0
+
 export function NFTs() {
     const { wallets } = useWalletStore()
     const {
         ownedNFTs,
+        marketplaceNFTs,
         selectedNFT,
         activeEcosystem,
         activeView,
         searchQuery,
         isLoadingOwned,
+        isLoadingMarketplace,
         hasMoreOwnedNFTs,
         error,
         fetchOwnedNFTs,
@@ -46,14 +51,21 @@ export function NFTs() {
 
         let nfts = activeView === 'owned'
             ? ownedNFTs.filter(n => !n.isListed)
-            : ownedNFTs.filter(n => n.isListed)
+            : marketplaceNFTs.map(listing => ({
+                ...listing.nft,
+                isListed: true,
+                listingPrice: listing.price,
+                listingCurrency: listing.currency,
+                listingId: listing.listingId,
+                marketplace: listing.marketplace
+            }))
 
         // Filter by ecosystem
         if (activeEcosystem !== 'all') {
             if (activeEcosystem === 'stargaze') {
                 nfts = nfts.filter(nft => nft.chain === 'stargaze')
             } else if (activeEcosystem === 'evm') {
-                nfts = nfts.filter(nft => ['ethereum', 'polygon', 'base', 'bsc', 'gnosis', 'arbitrum'].includes(nft.chain))
+                nfts = nfts.filter(nft => ['ethereum', 'polygon', 'base', 'bsc', 'gnosis', 'arbitrum', 'optimism'].includes(nft.chain))
             } else if (activeEcosystem === 'solana') {
                 nfts = nfts.filter(nft => nft.chain === 'solana')
             }
@@ -70,23 +82,23 @@ export function NFTs() {
         }
 
         return nfts
-    }, [activeView, ownedNFTs, searchQuery, activeEcosystem, wallets])
+    }, [activeView, ownedNFTs, marketplaceNFTs, searchQuery, activeEcosystem, wallets])
 
     // Calculate NFT counts per ecosystem
     const nftCounts = useMemo(() => {
         const nfts = activeView === 'owned'
             ? ownedNFTs.filter(n => !n.isListed)
-            : ownedNFTs.filter(n => n.isListed)
+            : marketplaceNFTs.map(l => l.nft)
 
         return {
             all: nfts.length,
             stargaze: nfts.filter(n => n.chain === 'stargaze').length,
-            evm: nfts.filter(n => ['ethereum', 'polygon', 'base', 'bsc', 'gnosis', 'arbitrum'].includes(n.chain)).length,
+            evm: nfts.filter(n => ['ethereum', 'polygon', 'base', 'bsc', 'gnosis', 'arbitrum', 'optimism'].includes(n.chain)).length,
             solana: nfts.filter(n => n.chain === 'solana').length,
         }
-    }, [activeView, ownedNFTs])
+    }, [activeView, ownedNFTs, marketplaceNFTs])
 
-    const isLoading = isLoadingOwned
+    const isLoading = activeView === 'owned' ? isLoadingOwned : isLoadingMarketplace
 
     return (
         <div className="max-w-7xl mx-auto">
@@ -128,9 +140,9 @@ export function NFTs() {
                     `}
                 >
                     Listed NFTs
-                    {ownedNFTs.filter(n => n.isListed).length > 0 && (
+                    {itemCount(marketplaceNFTs) > 0 && (
                         <span className="ml-2 px-2 py-0.5 rounded-full bg-black/10 text-xs">
-                            {ownedNFTs.filter(n => n.isListed).length}
+                            {itemCount(marketplaceNFTs)}
                         </span>
                     )}
                 </button>
