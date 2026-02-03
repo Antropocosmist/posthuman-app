@@ -117,6 +117,9 @@ export class OpenSeaNFTService implements NFTServiceInterface {
 
             console.log(`[OpenSea] Fetching listings from: ${url}`)
 
+            const hasApiKey = !!OPENSEA_API_KEY;
+            console.log(`[OpenSea] Using API Key: ${hasApiKey ? 'YES' : 'NO'}`);
+
             const response = await fetch(
                 url,
                 {
@@ -125,7 +128,10 @@ export class OpenSeaNFTService implements NFTServiceInterface {
             )
 
             if (!response.ok) {
-                console.warn(`[OpenSea] listings API error (${url}):`, response.statusText)
+                console.error(`[OpenSea] listings API error (${url}): ${response.status} ${response.statusText}`);
+                if (response.status === 401 || response.status === 403) {
+                    console.error("[OpenSea] 🚨 API Key Missing or Invalid! The 'orders' endpoint likely requires a valid API Key.");
+                }
                 return []
             }
 
