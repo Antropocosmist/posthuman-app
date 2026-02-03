@@ -7,26 +7,36 @@ const OPENSEA_API_KEY = import.meta.env.VITE_OPENSEA_API_KEY || ''
 
 // Helper function to convert OpenSea NFT to our NFT type
 function convertOpenSeaNFT(openseaNFT: any, chain: 'ethereum' | 'polygon' | 'base' | 'bsc' | 'gnosis' | 'arbitrum', ownerAddress?: string): NFT {
-    const collection = openseaNFT.collection || {}
-    const contract = openseaNFT.contract || openseaNFT.asset_contract || {}
+    // OpenSea API v2 can return 'contract' as string or object
+    const contractRaw = openseaNFT.contract || openseaNFT.asset_contract
+    const contractAddress = typeof contractRaw === 'string' ? contractRaw : (contractRaw?.address || '')
+
+    // OpenSea API v2 can return 'collection' as string (slug) or object
+    const collectionRaw = openseaNFT.collection
+    const collectionSlug = typeof collectionRaw === 'string' ? collectionRaw : (collectionRaw?.slug || contractAddress)
+    const collectionName = typeof collectionRaw === 'object' ? (collectionRaw.name || contractRaw?.name) : 'Unknown Collection'
+
+    // Use identifier or token_id
+    const tokenId = openseaNFT.identifier || openseaNFT.token_id || ''
 
     return {
-        id: `${contract.address} -${openseaNFT.identifier || openseaNFT.token_id} `,
-        tokenId: openseaNFT.identifier || openseaNFT.token_id || '',
-        contractAddress: contract.address || '',
+        id: `${contractAddress}-${tokenId}`,
+        tokenId,
+        contractAddress,
         chain,
-        name: openseaNFT.name || `#${openseaNFT.identifier || openseaNFT.token_id} `,
+        name: openseaNFT.name || `#${tokenId}`,
         description: openseaNFT.description || '',
         image: openseaNFT.image_url || openseaNFT.image || '',
         animationUrl: openseaNFT.animation_url,
         externalUrl: openseaNFT.external_link || openseaNFT.permalink,
         collection: {
-            id: collection.slug || contract.address,
-            name: collection.name || contract.name || 'Unknown Collection',
-            description: collection.description,
-            image: collection.image_url || collection.featured_image_url,
-            floorPrice: collection.stats?.floor_price?.toString(),
-            totalSupply: collection.stats?.total_supply,
+            id: collectionSlug,
+            name: collectionName,
+            description: typeof collectionRaw === 'object' ? collectionRaw.description : '',
+            image: typeof collectionRaw === 'object' ? (collectionRaw.image_url || collectionRaw.featured_image_url) : '',
+            // Floor price comes from collection stats, not usually in the NFT list response, but we might have it in stats
+            floorPrice: typeof collectionRaw === 'object' ? collectionRaw.stats?.floor_price?.toString() : undefined,
+            totalSupply: typeof collectionRaw === 'object' ? collectionRaw.stats?.total_supply : undefined,
         },
         owner: ownerAddress || openseaNFT.owner?.address || openseaNFT.top_ownerships?.[0]?.owner?.address || '',
         marketplace: 'opensea',
