@@ -130,15 +130,11 @@ const GET_COLLECTION_INFO = gql`
 
 const GET_USER_ASKS = gql`
     query GetUserAsks($seller: String!) {
-        tokens(sellerAddrOrName: $seller, limit: 100, filterForSale: LISTED) {
-            tokens {
+        asks(seller: $seller, limit: 100) {
+            asks {
+                id
                 tokenId
-                name
-                media {
-                    url
-                }
-                imageUrl
-                listPrice {
+                price {
                     amount
                     denom
                 }
@@ -149,6 +145,14 @@ const GET_USER_ASKS = gql`
                         symbol
                         denom
                     }
+                }
+                token {
+                    name
+                    description
+                    media {
+                        url
+                    }
+                    image
                 }
             }
         }
@@ -245,7 +249,7 @@ export class StargazeNFTService implements NFTServiceInterface {
             const [tokensResult, asksResult] = await Promise.all([tokensPromise, asksPromise])
 
             const tokens = tokensResult.data?.tokens?.tokens || []
-            const asks = asksResult.data?.tokens?.tokens || []
+            const asks = asksResult.data?.asks?.asks || []
 
             console.log(`[Stargaze] Found ${tokens.length} wallet tokens and ${asks.length} listed asks for ${address}`)
             if (asks.length > 0) {
@@ -258,22 +262,37 @@ export class StargazeNFTService implements NFTServiceInterface {
             )
 
             // Convert asks to NFTs
-            const askNFTs: NFT[] = asks.map((token: any) => {
-                // The 'token' object here is similar to wallet token, but has listPrice
-                // We pass it to convertStargazeNFT.
+            const askNFTs: NFT[] = asks.map((ask: any) => {
+                // The 'ask' structure is slightly different (wrapper around token)
+                // We adapt it to convertStargazeNFT format
+                const token = ask.token || {}
+
+                // Synthesize a token object
+                const tokenData = {
+                    tokenId: ask.tokenId,
+                    name: token.name,
+                    description: token.description,
+                    image: token.image,
+                    media: token.media,
+                    // Pass price here so convertStargazeNFT picks it up
+                    price: ask.price,
+                    listPrice: ask.price?.amount, // Explicitly pass listPrice
+                }
+
                 // Note: convertStargazeNFT handles listPrice if present.
-                const nft = convertStargazeNFT(token, token.collection)
-                // Explicitly set isListed because the query filters for listed items
+                const nft = convertStargazeNFT(tokenData, ask.collection)
+
+                // Explicitly set isListed
                 nft.isListed = true
-                // The new GET_USER_ASKS query returns tokens directly with listPrice,
-                // so we can derive listingId from contractAddress and tokenId.
-                nft.listingId = `${token.collection.contractAddress}-${token.tokenId}`
-                nft.listingPrice = token.listPrice?.amount
-                nft.listingCurrency = token.listPrice?.denom
+                // CRITICAL: Set correct Ask ID for cancellation
+                nft.listingId = String(ask.id)
+                nft.listingPrice = ask.price?.amount
+                nft.listingCurrency = ask.price?.denom
                 nft.owner = address // User is the owner (seller)
+
                 // Ensure ID matches what we expect
-                nft.id = `${token.collection.contractAddress}-${token.tokenId}`
-                nft.tokenId = token.tokenId // Ensure tokenId is set
+                nft.id = `${ask.collection.contractAddress}-${ask.tokenId}`
+                nft.tokenId = ask.tokenId
                 return nft
             })
 
@@ -537,12 +556,10 @@ export class StargazeNFTService implements NFTServiceInterface {
                 { gasPrice: GasPrice.fromString('1ustars') }
             )
 
-            // Note: listingId in Stargaze is typically the collection + token_id
-            // Parse it if needed, or use the listing data directly
+            // Note: Stargaze Marketplace V2 uses numeric ask ID
             const cancelMsg = {
                 remove_ask: {
-                    collection: listingId.split('-')[0], // Assuming format: collection-tokenId
-                    token_id: listingId.split('-')[1],
+                    id: parseInt(listingId)
                 }
             }
 
