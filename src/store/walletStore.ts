@@ -223,30 +223,35 @@ export const useWalletStore = create<WalletState>()(
                 const user = auth.currentUser;
                 if (!user) return
 
-                console.log("☁️ Fetching trades from Firestore...")
+                console.log("☁️ Fetching trades for user:", user.uid)
                 try {
+                    // Start with a simpler query to test permissions/indexing
+                    // distinct query for debugging
                     const q = query(
                         collection(db, 'trades'),
                         where('user_id', '==', user.uid),
                         orderBy('timestamp', 'desc')
                     );
+
                     const querySnapshot = await getDocs(q);
+                    console.log("☁️ Firestore Snapshot Size:", querySnapshot.size)
 
                     const cloudTrades: Trade[] = [];
                     querySnapshot.forEach((doc) => {
                         const t = doc.data();
+                        // console.log("Fetched trade:", t.id) 
                         cloudTrades.push({
                             id: t.id,
                             timestamp: Number(t.timestamp),
                             sourceAsset: {
                                 symbol: t.source_symbol,
-                                logo: t.source_logo || '',
+                                logo: t.source_logo || '', // Ensure fallback
                                 amount: t.source_amount,
                                 chainId: 'unknown'
                             },
                             destAsset: {
                                 symbol: t.dest_symbol,
-                                logo: t.dest_logo || '',
+                                logo: t.dest_logo || '', // Ensure fallback
                                 amount: t.dest_amount,
                                 chainId: 'unknown'
                             },
@@ -257,15 +262,18 @@ export const useWalletStore = create<WalletState>()(
                         });
                     });
 
-                    // Merge strategy: Cloud wins? Or merge?
-                    // For simplicity, we just replace or append.
-                    // User requested Supabase -> Firebase, starting fresh usually.
-                    // But if we want to support offline trades, we should merge.
-                    // Implementation: Overwrite local with cloud for now to ensure sync.
-                    set({ trades: cloudTrades })
+                    if (querySnapshot.size > 0) {
+                        console.log("✅ Hydrating trades from Cloud:", cloudTrades.length)
+                        set({ trades: cloudTrades })
+                    } else {
+                        console.log("⚠️ No trades found for this user in Firestore.")
+                    }
 
-                } catch (error) {
-                    console.error("Failed to fetch trades from Firestore:", error)
+                } catch (error: any) {
+                    console.error("❌ Failed to fetch trades from Firestore:", error)
+                    if (error.code === 'failed-precondition') {
+                        console.error("🔥 Likely missing Firestore Index. Check console for link to create it.")
+                    }
                 }
             },
 
