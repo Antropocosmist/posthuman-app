@@ -344,6 +344,9 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
             const evmWallets = walletStore.wallets.filter(w => w.chain === "EVM");
             const uniqueWallets = Array.from(new Map(evmWallets.map(w => [w.address.toLowerCase(), w])).values());
 
+            console.log(`[NFT Store] DEBUG: Found ${evmWallets.length} EVM wallets, deduped to ${uniqueWallets.length}`);
+            uniqueWallets.forEach(w => console.log(`[NFT Store] DEBUG: Wallet: ${w.address}`));
+
             // Chains supported by OpenSea Orders API
             const openseaChains = ["ethereum", "polygon", "base", "arbitrum", "optimism"];
 
@@ -355,6 +358,9 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
                   ...targetFilters,
                   seller: wallet.address,
                   chain: chain
+                }).then(results => {
+                  console.log(`[NFT Store] DEBUG: Chain ${chain} returned ${results.length} listings`);
+                  return results;
                 }).catch(e => {
                   console.warn(`Failed to fetch listings for ${chain}:`, e);
                   return [];
@@ -362,7 +368,9 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
               );
 
               const results = await Promise.all(listingsPromises);
-              allListings = [...allListings, ...results.flat()];
+              const flattened = results.flat();
+              console.log(`[NFT Store] DEBUG: Total listings for wallet ${wallet.address}: ${flattened.length}`);
+              allListings = [...allListings, ...flattened];
             }
           } else {
             // Normal fetch with filters (e.g. collection specified)
@@ -379,14 +387,22 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
         try {
           const listings =
             await magicEdenNFTService.fetchMarketplaceListings(targetFilters);
+          console.log(`[NFT Store] DEBUG: MagicEden returned ${listings.length} listings`);
           allListings = [...allListings, ...listings];
         } catch (error) {
           console.error("Error fetching Magic Eden marketplace:", error);
         }
       }
 
+      console.log(`[NFT Store] DEBUG: allListings count before dedupe: ${allListings.length}`);
+
       // Deduplicate listings by listingId
       const uniqueListings = Array.from(new Map(allListings.map(l => [l.listingId, l])).values());
+
+      console.log(`[NFT Store] DEBUG: uniqueListings count after dedupe: ${uniqueListings.length}`);
+      if (uniqueListings.length > 0) {
+        console.log('[NFT Store] DEBUG: Unique IDs:', uniqueListings.map(l => l.listingId));
+      }
 
       set({ marketplaceNFTs: uniqueListings, isLoadingMarketplace: false });
     } catch (error) {
