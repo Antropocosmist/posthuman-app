@@ -50,7 +50,7 @@ export function NFTs() {
         if (activeEcosystem === 'stargaze' && !wallets.some(w => (w.chain === 'Cosmos' || w.chain === 'Gno') && w.address.startsWith('stars'))) return []
 
         let nfts = activeView === 'owned'
-            ? ownedNFTs.filter(n => !n.isListed)
+            ? ownedNFTs.filter(n => !marketplaceNFTs.some(l => l.nft.id === n.id || (l.nft.tokenId === n.tokenId && l.nft.contractAddress === n.contractAddress)))
             : marketplaceNFTs.map(listing => ({
                 ...listing.nft,
                 isListed: true,
