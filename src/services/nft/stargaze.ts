@@ -130,11 +130,15 @@ const GET_COLLECTION_INFO = gql`
 
 const GET_USER_ASKS = gql`
     query GetUserAsks($seller: String!) {
-        asks(seller: $seller, limit: 100) {
-            asks {
-                id
+        tokens(sellerAddrOrName: $seller, limit: 100, filterForSale: LISTED) {
+            tokens {
                 tokenId
-                price {
+                name
+                media {
+                    url
+                }
+                imageUrl
+                listPrice {
                     amount
                     denom
                 }
@@ -145,14 +149,6 @@ const GET_USER_ASKS = gql`
                         symbol
                         denom
                     }
-                }
-                token {
-                    name
-                    description
-                    media {
-                        url
-                    }
-                    image
                 }
             }
         }
@@ -556,10 +552,45 @@ export class StargazeNFTService implements NFTServiceInterface {
                 { gasPrice: GasPrice.fromString('1ustars') }
             )
 
-            // Note: Stargaze Marketplace V2 uses numeric ask ID
+            // Note: listingId passed here might be "collection-tokenId" because our fetch query doesn't return Ask ID.
+            // We need to resolve the numeric Ask ID first.
+            let askId: number
+
+            // Check if listingId is already numeric (improbable with current logic but good for safety)
+            if (!isNaN(Number(listingId)) && !listingId.includes('-')) {
+                askId = Number(listingId)
+            } else {
+                // It's likely collection-tokenId. We need to query the Ask ID.
+                console.log(`[Stargaze] Resolving Ask ID for ${listingId}...`)
+                const collectionAddr = listingId.split('-')[0]
+                const tokenId = listingId.split('-')[1]
+
+                // Use the Marketplace Listings query filtered by collection to find this token
+                // This is a bit inefficient but necessary without a direct "GetAskByToken" query exposed easily
+                const { data } = await client.query<any>({
+                    query: GET_MARKETPLACE_LISTINGS,
+                    variables: {
+                        limit: 100, // Hope it's in the first 100? or we might need to filter better if possible
+                        collectionAddr: collectionAddr,
+                        sortBy: 'PRICE_ASC' // Arbitrary
+                    },
+                    fetchPolicy: 'network-only'
+                })
+
+                const asks = data?.asks?.asks || []
+                const targetAsk = asks.find((a: any) => a.tokenId === tokenId)
+
+                if (!targetAsk) {
+                    throw new Error(`Could not find active listing for token ${tokenId}. It might have been sold or cancelled.`)
+                }
+
+                console.log(`[Stargaze] Resolved Ask ID: ${targetAsk.id}`)
+                askId = targetAsk.id
+            }
+
             const cancelMsg = {
                 remove_ask: {
-                    id: parseInt(listingId)
+                    id: askId
                 }
             }
 
