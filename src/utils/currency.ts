@@ -6,7 +6,10 @@ const IBC_MAPPING: Record<string, string> = {
     // User Reported Hash (likely specific channel/path)
     'ibc/9DF365E2C0EF4EA02FA771F638E6F566B96D7437704258E298F5670B8F804368': 'ATOM',
     // OSMO on Stargaze (channel-5)
+    // OSMO on Stargaze (channel-5)
     'ibc/ED07A3391A112B175915CD8FAF43A2DA8E4790EDE125678649524C4F84A58F9E': 'OSMO',
+    // Lowercase version for safety
+    'ibc/ed07a3391a112b175915cd8faf43a2da8e4790ede125678649524c4f84a58f9e': 'OSMO',
     'uatom': 'ATOM',
     'ustars': 'STARS',
     'uosmo': 'OSMO'
@@ -23,8 +26,8 @@ export const formatPrice = (amount: string | number | undefined, denom: string |
     const normalizedDenom = denom?.toLowerCase() || ''
 
     // Check IBC Mapping
-    // Try exact match first (for case-sensitive hashes), then normalized
-    let mappedSymbol = IBC_MAPPING[symbol] || IBC_MAPPING[symbol.toUpperCase()];
+    // Try exact match first, then uppercase (standard IBC), then fully normalized (lowercase)
+    let mappedSymbol = IBC_MAPPING[symbol] || IBC_MAPPING[symbol.toUpperCase()] || IBC_MAPPING[normalizedDenom];
 
     if (!mappedSymbol) {
         // Fallback checks
