@@ -36,6 +36,9 @@ export const formatPrice = (amount: string | number | undefined, denom: string |
 
         // Check for User's specific hash prefix if exact match failed (safety net)
         if (symbol.startsWith('ibc/9DF365E')) mappedSymbol = 'ATOM'
+
+        // Safety check for OSMO (Stargaze)
+        if (symbol.toUpperCase().startsWith('IBC/ED07A339')) mappedSymbol = 'OSMO'
     }
 
     if (mappedSymbol) {
