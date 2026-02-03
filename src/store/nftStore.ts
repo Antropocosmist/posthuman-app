@@ -312,6 +312,8 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
     filters?: NFTFilters,
   ) => {
     set({ isLoadingMarketplace: true, error: null });
+    console.log(`[NFT Store] fetchMarketplaceNFTs called for ecosystem: ${ecosystem || get().activeEcosystem}`);
+
 
     try {
       const targetEcosystem = ecosystem || get().activeEcosystem;

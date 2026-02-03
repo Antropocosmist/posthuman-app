@@ -28,7 +28,13 @@ export function NFTs() {
 
     // Load NFTs on mount and when view/ecosystem changes, OR when wallets update
     useEffect(() => {
-        fetchOwnedNFTs()
+        if (activeView === 'owned') {
+            fetchOwnedNFTs()
+        } else {
+            // When switching to marketplace, fetch listings
+            // We pass activeEcosystem to ensure we filter correctly from the start
+            useNFTStore.getState().fetchMarketplaceNFTs(activeEcosystem)
+        }
     }, [activeView, activeEcosystem, wallets])
 
     // Filter NFTs based on ecosystem and search query
