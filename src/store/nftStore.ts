@@ -572,9 +572,34 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
           throw new Error(`Cancellation not supported for ${nft.chain} yet`);
       }
 
-      set({ isListing: false, selectedNFT: null }); // Close modal immediately for better UX
+      // OPTIMISTIC UPDATE: Update state immediately without waiting for API
+      // 1. Remove from marketplace listings if present
+      const currentMarketplace = get().marketplaceNFTs;
+      set({
+        marketplaceNFTs: currentMarketplace.filter(item => item.listingId !== listingId)
+      });
 
-      // Refresh NFTs after cancellation in background
+      // 2. Update owned NFTs state to reflect unlisting
+      const currentOwned = get().ownedNFTs;
+      set({
+        ownedNFTs: currentOwned.map(item => {
+          if (item.id === nft.id) {
+            return {
+              ...item,
+              isListed: false,
+              listingPrice: undefined,
+              listingCurrency: undefined,
+              marketplace: undefined,
+              listingId: undefined
+            };
+          }
+          return item;
+        })
+      });
+
+      set({ isListing: false, selectedNFT: null }); // Close modal immediately
+
+      // Refresh NFTs after cancellation in background (eventual consistency)
       get().refreshNFTs();
 
     } catch (error) {
