@@ -546,53 +546,62 @@ export class StargazeNFTService implements NFTServiceInterface {
                 askId = Number(listingId)
             } else {
                 // It's likely collection-tokenId. We need to query the Ask ID.
-                console.log(`[Stargaze] Resolving Ask ID for ${listingId} via contract query (ask)...`)
-                // Logic to split carefully in case proper logic is needed
-                // Stargaze collection addresses are usually quite long (stars1...) and don't contain hyphens
-                // but let's be safe: find first hyphen
+                console.log(`[Stargaze] Resolving Ask ID for ${listingId} via contract query (asks_by_creator_collection)...`)
+
                 const firstHyphenIndex = listingId.indexOf('-')
                 if (firstHyphenIndex === -1) {
                     throw new Error(`Invalid listing ID format: ${listingId}`)
                 }
 
                 const collectionAddr = listingId.substring(0, firstHyphenIndex)
-                // Token ID is the rest (may contain hyphens if some weird NFT, but unlikely on Stargaze)
                 const tokenId = listingId.substring(firstHyphenIndex + 1)
 
-                // Use "ask" query directly. Schema confirms 'ask' is valid.
-                // We use String for token_id as is standard for CosmWasm NFTs and matches listNFT.
+                // Use "asks_by_creator_collection" query.
+                // This variant was confirmed in the schema error message.
+                // It likely takes { collection: ..., creator: ... }
                 try {
                     const queryMsg = {
-                        ask: {
+                        asks_by_creator_collection: {
                             collection: collectionAddr,
-                            token_id: tokenId
+                            creator: sellerAddress, // "creator" of the Ask is the seller
+                            limit: 100 // Assume user has < 100 active listings in this collection
                         }
                     }
-                    console.log('[Stargaze] Querying contract for ask:', queryMsg)
+                    console.log('[Stargaze] Querying contract for asks_by_creator_collection:', queryMsg)
 
                     const response = await signingClient.queryContractSmart(
                         STARGAZE_MARKETPLACE_CONTRACT,
                         queryMsg
                     )
 
-                    console.log('[Stargaze] Contract ask response:', response)
+                    console.log('[Stargaze] Contract asks response:', response)
 
-                    // The response for 'ask' typically contains the ask object directly under 'ask' key
-                    if (!response?.ask?.id) {
-                        throw new Error(`Listing not found for token ${tokenId}. It might have been sold or cancelled already.`)
+                    // Response is likely { asks: [...] }
+                    const asks = response?.asks || []
+
+                    // Filter to find our specific token
+                    const targetAsk = asks.find((a: any) =>
+                        // Token ID in response might be string or int, compare loosely or stringify
+                        String(a.token_id) === String(tokenId)
+                    )
+
+                    if (!targetAsk) {
+                        // Fallback logging
+                        console.warn('[Stargaze] Token not found in user listings:', asks)
+                        throw new Error(`Listing for token ${tokenId} not found in your active asks.`)
                     }
 
-                    askId = response.ask.id
+                    askId = targetAsk.id
                     console.log(`[Stargaze] Resolved Ask ID: ${askId}`)
                 } catch (err: any) {
                     console.error('[Stargaze] Failed to resolve Ask ID via contract:', err)
 
-                    // Specific handling for "not found" which might come as an error
                     if (err.message?.includes('not found') || err.message?.includes('Offer contains no asks')) {
                         throw new Error(`Listing not active for token ${tokenId}. Please refresh your view.`)
                     }
-
-                    throw new Error(`Failed to resolve listing ID for ${tokenId}. Contract query failed: ${err.message}`)
+                    // If "unknown field creator" or similar, we might need 'seller' key? 
+                    // But 'asks_by_creator_collection' implies 'creator'.
+                    throw new Error(`Failed to resolve listing ID: ${err.message}`)
                 }
             }
 
