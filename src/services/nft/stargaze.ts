@@ -49,29 +49,30 @@ const GET_USER_NFTS = gql`
 `
 
 const GET_MARKETPLACE_LISTINGS = gql`
-    query GetMarketplaceListings($limit: Int, $offset: Int, $sortBy: String, $collectionAddr: String) {
-        asks(limit: $limit, offset: $offset, sortBy: $sortBy, collectionAddr: $collectionAddr) {
-            asks {
-                id
+    query GetMarketplaceListings($limit: Int, $offset: Int, $sortBy: TokenSort, $collectionAddr: String) {
+        tokens(limit: $limit, offset: $offset, sortBy: $sortBy, collectionAddr: $collectionAddr, filterForSale: LISTED) {
+            tokens {
                 tokenId
-                price {
+                name
+                description
+                media {
+                    url
+                }
+                listPrice {
                     amount
                     denom
                 }
-                seller
+                owner {
+                    address
+                }
                 collection {
                     contractAddress
                     name
                     image
                 }
-                token {
+                traits {
                     name
-                    description
-                    image
-                    traits {
-                        name
-                        value
-                    }
+                    value
                 }
             }
         }
@@ -88,7 +89,7 @@ const GET_NFT_DETAILS = gql`
             animationUrl
             externalUrl
             owner {
-                addr
+                address
             }
             collection {
                 contractAddress
@@ -102,7 +103,7 @@ const GET_NFT_DETAILS = gql`
                 value
             }
             forSale
-            price {
+            listPrice {
                 amount
                 denom
             }
@@ -180,13 +181,22 @@ function convertStargazeNFT(stargazeNFT: any, collection: any): NFT {
 
     if (stargazeNFT.listPrice) {
         // listPrice from 'tokens' query is scalar (micro-amount)
-        listingPrice = stargazeNFT.listPrice
+        listingPrice = stargazeNFT.listPrice.amount
+        listingCurrency = stargazeNFT.listPrice.denom || listingCurrency
 
         // Try to get currency from collection trading asset
         if (collection?.tradingAsset?.denom) {
             listingCurrency = collection.tradingAsset.denom
         }
     }
+
+    // Also check standard price field
+    if (!listingPrice && stargazeNFT.price?.amount) {
+        listingPrice = stargazeNFT.price.amount
+        listingCurrency = stargazeNFT.price.denom || listingCurrency
+    }
+
+    const ownerAddress = stargazeNFT.owner?.address || stargazeNFT.owner?.addr || ''
 
     return {
         id: `${collection.contractAddress}-${stargazeNFT.tokenId}`,
@@ -208,7 +218,7 @@ function convertStargazeNFT(stargazeNFT: any, collection: any): NFT {
             floorPriceCurrency: collection.tradingAsset?.symbol,
             floorPriceDenom: collection.tradingAsset?.denom
         },
-        owner: stargazeNFT.owner?.addr || '',
+        owner: ownerAddress,
         marketplace: (stargazeNFT.forSale || stargazeNFT.listPrice) ? 'stargaze' : undefined,
         isListed: !!(stargazeNFT.forSale || stargazeNFT.listPrice),
         listingPrice: listingPrice,
@@ -301,29 +311,31 @@ export class StargazeNFTService implements NFTServiceInterface {
         try {
             const limit = 50
             const offset = 0
-            const sortBy = filters?.sortBy || 'recently_listed'
+            const sortBy = filters?.sortBy || 'PRICE_ASC' // Valid TokenSort enum
 
             const { data } = await client.query<any>({
                 query: GET_MARKETPLACE_LISTINGS,
                 variables: { limit, offset, sortBy },
             })
 
-            if (!data?.asks?.asks) {
-                return []
-            }
+            const tokens = data?.tokens?.tokens || []
 
-            return data.asks.asks.map((ask: any) => ({
-                nft: convertStargazeNFT(ask.token, ask.collection),
-                price: ask.price.amount,
-                currency: ask.price.denom,
-                seller: ask.seller,
-                listingId: ask.id,
-                marketplace: 'stargaze' as const,
-                createdAt: new Date(), // TODO: Get actual creation date from API
-            }))
+            return tokens.map((token: any) => {
+                const nft = convertStargazeNFT(token, token.collection)
+                return {
+                    nft: nft,
+                    price: nft.listingPrice || '0',
+                    currency: nft.listingCurrency || 'ustars',
+                    seller: token.owner?.address || '',
+                    listingId: nft.listingId || `${token.collection.contractAddress}-${token.tokenId}`,
+                    marketplace: 'stargaze' as const,
+                    createdAt: new Date(),
+                }
+            })
         } catch (error) {
             console.error('Error fetching marketplace listings from Stargaze:', error)
-            throw new Error('Failed to fetch marketplace listings from Stargaze')
+            // Don't throw, return empty
+            return []
         }
     }
 
@@ -538,8 +550,8 @@ export class StargazeNFTService implements NFTServiceInterface {
             )
 
             // Note: listingId passed here might be "collection-tokenId" because our fetch query doesn't return Ask ID.
-            // We need to resolve the numeric Ask ID first.
-            let askId: number
+            // We need to resolve the string Ask ID first.
+            let askId: string
 
             // Check if listingId is already numeric (improbable with current logic but good for safety)
             if (!isNaN(Number(listingId)) && !listingId.includes('-')) {
@@ -556,20 +568,18 @@ export class StargazeNFTService implements NFTServiceInterface {
                 const collectionAddr = listingId.substring(0, firstHyphenIndex)
                 const tokenId = listingId.substring(firstHyphenIndex + 1)
 
-                // Strategy: Try "asks_by_collection_denom".
-                // Previous attempts with 'ask', 'asks', 'asks_by_creator_collection' failed with "unknown request" or parameter errors.
-                // 'asks_by_collection_denom' is a valid variant per schema error.
-                // It likely takes { collection: ..., denom: ... }
-                // We assume most listings are in 'ustars'.
+                // Strategy: Use "asks_by_creator_collection" which is much more efficient and specific
                 try {
                     const queryMsg = {
-                        asks_by_collection_denom: {
+                        asks_by_creator_collection: {
                             collection: collectionAddr,
-                            denom: 'ustars',
-                            limit: 100
+                            creator: sellerAddress,
+                            query_options: {
+                                limit: 100
+                            }
                         }
                     }
-                    console.log('[Stargaze] Querying contract for asks_by_collection_denom:', queryMsg)
+                    console.log('[Stargaze] Querying contract for asks_by_creator_collection:', queryMsg)
 
                     const response = await signingClient.queryContractSmart(
                         STARGAZE_MARKETPLACE_CONTRACT,
@@ -578,21 +588,19 @@ export class StargazeNFTService implements NFTServiceInterface {
 
                     console.log('[Stargaze] Contract asks response:', response)
 
-                    const asks = response?.asks || []
+                    // Response is an array of asks directly
+                    const asks = Array.isArray(response) ? response : (response?.asks || [])
 
                     // Filter to find our specific token
-                    // Stargaze V2 asks usually have 'token_id' field.
                     const targetAsk = asks.find((a: any) =>
                         String(a.token_id) === String(tokenId)
                     )
 
                     if (!targetAsk) {
-                        // Fallback: If not found in ustars, maybe it was listed in another denom?
-                        // But we can't easily guess. 99% are ustars.
-                        throw new Error(`Listing for token ${tokenId} not found in 'ustars' asks.`)
+                        throw new Error(`Listing for token ${tokenId} not found in seller's active asks.`)
                     }
 
-                    // The ID is a string hash
+                    // The ID is a string (hash) for Stargaze V2 asks
                     askId = targetAsk.id
                     console.log(`[Stargaze] Resolved Ask ID: ${askId}`)
                 } catch (err: any) {
