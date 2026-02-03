@@ -1,5 +1,5 @@
 import { OpenSeaSDK, Chain } from 'opensea-js'
-import { ethers } from 'ethers'
+import { ethers, formatUnits } from 'ethers'
 import type { NFT, MarketplaceListing, NFTCollection, NFTFilters, NFTServiceInterface } from './types'
 
 // OpenSea API configuration
@@ -164,15 +164,32 @@ export class OpenSeaNFTService implements NFTServiceInterface {
                     || item.protocol_data?.parameters?.offer?.[0]
                     || {}
 
-                // Price
-                const priceValue = item.current_price
+                // Price is usually in Wei for EVM chains
+                const rawPrice = item.current_price
                     || item.price?.current?.value
                     || '0'
 
+                // Format price (assuming 18 decimals for ETH/WETH/MATIC default)
+                // TODO: Check payment_token_contract for decimals if available
+                let formattedPrice = '0'
+                try {
+                    formattedPrice = formatUnits(rawPrice, 18)
+                } catch (e) {
+                    formattedPrice = rawPrice // Fallback if format fails
+                }
+
+                // Determine currency
+                // OpenSea orders usually use WETH on Polygon, ETH on Mainnet
+                // We can check item.taker_asset_bundle?.assets?.[0]?.token_code or similar
+                // For now, heuristic based on chain:
+                let currency = 'ETH'
+                if (chain === 'polygon') currency = 'WETH' // Polygon listings usually WETH
+                if (chain === 'base') currency = 'ETH'
+
                 return {
                     nft: convertOpenSeaNFT(nftData, chain as any),
-                    price: priceValue,
-                    currency: 'ETH', // Defaulting to ETH as most common, tough to extract symbol safely from all variations without more logic
+                    price: formattedPrice,
+                    currency: currency,
                     seller: item.maker?.address || filters?.seller || '',
                     listingId: item.order_hash || '',
                     marketplace: 'opensea' as const,

@@ -387,22 +387,14 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
         try {
           const listings =
             await magicEdenNFTService.fetchMarketplaceListings(targetFilters);
-          console.log(`[NFT Store] DEBUG: MagicEden returned ${listings.length} listings`);
           allListings = [...allListings, ...listings];
         } catch (error) {
           console.error("Error fetching Magic Eden marketplace:", error);
         }
       }
 
-      console.log(`[NFT Store] DEBUG: allListings count before dedupe: ${allListings.length}`);
-
       // Deduplicate listings by listingId
       const uniqueListings = Array.from(new Map(allListings.map(l => [l.listingId, l])).values());
-
-      console.log(`[NFT Store] DEBUG: uniqueListings count after dedupe: ${uniqueListings.length}`);
-      if (uniqueListings.length > 0) {
-        console.log('[NFT Store] DEBUG: Unique IDs:', uniqueListings.map(l => l.listingId));
-      }
 
       set({ marketplaceNFTs: uniqueListings, isLoadingMarketplace: false });
     } catch (error) {
