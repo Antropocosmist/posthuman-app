@@ -14,7 +14,14 @@ function convertOpenSeaNFT(openseaNFT: any, chain: 'ethereum' | 'polygon' | 'bas
     // OpenSea API v2 can return 'collection' as string (slug) or object
     const collectionRaw = openseaNFT.collection
     const collectionSlug = typeof collectionRaw === 'string' ? collectionRaw : (collectionRaw?.slug || contractAddress)
-    const collectionName = typeof collectionRaw === 'object' ? (collectionRaw.name || contractRaw?.name) : 'Unknown Collection'
+    // Helper to format slug into Title Case (e.g. "wildcard-flair" -> "Wildcard Flair")
+    const formatSlug = (s: string) => s.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+
+    // If collection is a string (slug) or missing name, fallback to properly formatted slug, then contract name
+    const collectionName = (typeof collectionRaw === 'object' ? collectionRaw.name : undefined)
+        || (collectionSlug && collectionSlug !== contractAddress ? formatSlug(collectionSlug) : undefined)
+        || contractRaw?.name
+        || 'Unknown Collection'
 
     // Use identifier or token_id
     const tokenId = openseaNFT.identifier || openseaNFT.token_id || ''
