@@ -5,8 +5,11 @@ const IBC_MAPPING: Record<string, string> = {
     'ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2': 'ATOM',
     // User Reported Hash (likely specific channel/path)
     'ibc/9DF365E2C0EF4EA02FA771F638E6F566B96D7437704258E298F5670B8F804368': 'ATOM',
+    // OSMO on Stargaze (channel-5)
+    'ibc/ED07A3391A112B175915CD8FAF43A2DA8E4790EDE125678649524C4F84A58F9E': 'OSMO',
     'uatom': 'ATOM',
-    'ustars': 'STARS'
+    'ustars': 'STARS',
+    'uosmo': 'OSMO'
 }
 
 export const formatPrice = (amount: string | number | undefined, denom: string | undefined): string => {
