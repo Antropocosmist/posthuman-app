@@ -160,13 +160,7 @@ export class OpenSeaNFTService implements NFTServiceInterface {
                 // Listing object usually has 'price.current.value'
 
                 // Extraction for Orders endpoint:
-                // Both have order_hash usually
-
-                // Helper to get nested nft data
-                // In orders, item.maker_asset_bundle.assets[0] or item.protocol_data.parameters.offer[0]
-                // But v2 orders endpoint usually returns efficient structure.
-
-                // Let's rely on protocol_data for OrderV2 structures if available
+                // Check protocol_data if available
                 const nftData = item.maker_asset_bundle?.assets?.[0]
                     || item.protocol_data?.parameters?.offer?.[0]
                     || {}
@@ -176,19 +170,26 @@ export class OpenSeaNFTService implements NFTServiceInterface {
                     || item.price?.current?.value
                     || '0'
 
+                // DEBUG: Inspect the item structure for price and maker issues
+                if (item.order_hash || rawPrice === '0') {
+                    console.log('[OpenSea] Processing Item:', {
+                        hash: item.order_hash,
+                        current_price: item.current_price,
+                        rawPrice,
+                        maker: item.maker
+                    })
+                }
+
                 // Format price (assuming 18 decimals for ETH/WETH/MATIC default)
-                // TODO: Check payment_token_contract for decimals if available
                 let formattedPrice = '0'
                 try {
                     formattedPrice = formatUnits(rawPrice, 18)
                 } catch (e) {
                     formattedPrice = rawPrice // Fallback if format fails
+                    console.error('[OpenSea] Price format error:', e)
                 }
 
                 // Determine currency
-                // OpenSea orders usually use WETH on Polygon, ETH on Mainnet
-                // We can check item.taker_asset_bundle?.assets?.[0]?.token_code or similar
-                // For now, heuristic based on chain:
                 let currency = 'ETH'
                 if (chain === 'polygon') currency = 'WETH' // Polygon listings usually WETH
                 if (chain === 'base') currency = 'ETH'

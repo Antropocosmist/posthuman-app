@@ -2,6 +2,7 @@ import { X, ShoppingBag, Send, Flame, Gavel, ChevronLeft, Tag } from 'lucide-rea
 import { useState, useEffect } from 'react'
 import type { NFT } from '../../services/nft/types'
 import { useNFTStore } from '../../store/nftStore'
+import { useWalletStore } from '../../store/walletStore'
 import { formatPrice } from '../../utils/currency'
 
 interface NFTDetailModalProps {
@@ -95,8 +96,23 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
     const canBuy = isMarketplaceListing
     const canSell = !nft.isListed && !isMarketplaceListing
 
+    const { wallets } = useWalletStore() // Need wallets to check ownership
+
     const handleBuy = async () => {
         if (!listing) return
+
+        // Prevent buying own listing
+        const isOwner = wallets.some(w => w.address.toLowerCase() === listing.seller.toLowerCase())
+        console.log('[NFTDetailModal] Check Owner:', {
+            isOwner,
+            listingSeller: listing.seller,
+            myWallets: wallets.map(w => w.address)
+        })
+
+        if (isOwner) {
+            console.warn("Cannot buy your own listing")
+            return
+        }
 
         try {
             await buyNFT(listing)
@@ -230,8 +246,8 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
 
                         {/* Actions */}
                         <div className="mt-auto space-y-3">
-                            {/* Buy Button */}
-                            {canBuy && (
+                            {/* Buy Button - Only show if not the owner */}
+                            {canBuy && !wallets.some(w => w.address.toLowerCase() === listing?.seller.toLowerCase()) && (
                                 <button
                                     onClick={handleBuy}
                                     disabled={isBuying}
@@ -342,8 +358,8 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
                                                             key={d}
                                                             onClick={() => setDuration(d)}
                                                             className={`py-2 px-3 rounded-lg text-xs font-medium transition-colors border ${duration === d
-                                                                    ? 'bg-purple-600 border-purple-500 text-white'
-                                                                    : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
+                                                                ? 'bg-purple-600 border-purple-500 text-white'
+                                                                : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
                                                                 }`}
                                                         >
                                                             {d === 1 ? '1 Day' : d === 30 ? '1 Month' : d === 90 ? '3 Months' : d === 180 ? '6 Months' : `${d} Days`}
