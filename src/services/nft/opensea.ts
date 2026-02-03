@@ -94,8 +94,8 @@ export class OpenSeaNFTService implements NFTServiceInterface {
      */
     async fetchMarketplaceListings(filters?: NFTFilters): Promise<MarketplaceListing[]> {
         try {
-            // Default chain
-            const chain = filters?.ecosystem === 'evm' ? 'ethereum' : 'ethereum'
+            // Determine chain: use filter if provided, otherwise default to ethereum
+            const chain = filters?.chain || (filters?.ecosystem === 'evm' ? 'ethereum' : 'ethereum')
 
             let url = ''
 

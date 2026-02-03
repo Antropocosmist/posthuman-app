@@ -339,13 +339,25 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
           if (!targetFilters.collection && !targetFilters.search) {
             const walletStore = useWalletStore.getState();
             const evmWallets = walletStore.wallets.filter(w => w.chain === "EVM");
+            // Chains supported by OpenSea Orders API
+            const openseaChains = ["ethereum", "polygon", "base", "arbitrum", "optimism"];
 
             for (const wallet of evmWallets) {
-              const listings = await openSeaNFTService.fetchMarketplaceListings({
-                ...targetFilters,
-                seller: wallet.address
-              });
-              allListings = [...allListings, ...listings];
+              // OpenSea makers query is chain-specific. We need to check all relevant chains.
+              // We runs these in parallel for the wallet to speed it up
+              const listingsPromises = openseaChains.map(chain =>
+                openSeaNFTService.fetchMarketplaceListings({
+                  ...targetFilters,
+                  seller: wallet.address,
+                  chain: chain
+                }).catch(e => {
+                  console.warn(`Failed to fetch listings for ${chain}:`, e);
+                  return [];
+                })
+              );
+
+              const results = await Promise.all(listingsPromises);
+              allListings = [...allListings, ...results.flat()];
             }
           } else {
             // Normal fetch with filters (e.g. collection specified)

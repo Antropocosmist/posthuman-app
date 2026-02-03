@@ -77,6 +77,7 @@ export interface NFTFilters {
     sortBy?: 'price_asc' | 'price_desc' | 'recently_listed' | 'recently_sold'
     seller?: string
     search?: string
+    chain?: string
 }
 
 export interface NFTServiceInterface {
