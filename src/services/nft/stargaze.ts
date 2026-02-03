@@ -24,8 +24,8 @@ const client = new ApolloClient({
 
 // GraphQL Queries
 const GET_USER_NFTS = gql`
-    query GetUserNFTs($owner: String!) {
-        tokens(owner: $owner) {
+    query GetUserNFTs($owner: String!, $limit: Int, $offset: Int) {
+        tokens(owner: $owner, limit: $limit, offset: $offset) {
             tokens {
                 tokenId
                 name
@@ -226,13 +226,13 @@ export class StargazeNFTService implements NFTServiceInterface {
     /**
      * Fetch all NFTs owned by a specific address, including those listed for sale
      */
-    async fetchUserNFTs(address: string): Promise<NFT[]> {
-        console.log(`[Stargaze] Fetching NFTs for ${address}`)
+    async fetchUserNFTs(address: string, limit: number = 100, offset: number = 0): Promise<NFT[]> {
+        console.log(`[Stargaze] Fetching NFTs for ${address} (limit: ${limit}, offset: ${offset})`)
         try {
             // 1. Fetch tokens in wallet
             const tokensPromise = client.query<any>({
                 query: GET_USER_NFTS,
-                variables: { owner: address },
+                variables: { owner: address, limit, offset },
             })
 
             // 2. Fetch active asks (listings) - important because Stargaze escrows listed NFTs
