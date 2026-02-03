@@ -340,11 +340,14 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
 
           if (!targetFilters.collection && !targetFilters.search) {
             const walletStore = useWalletStore.getState();
+            // Deduplicate wallets by address to prevent duplicate queries
             const evmWallets = walletStore.wallets.filter(w => w.chain === "EVM");
+            const uniqueWallets = Array.from(new Map(evmWallets.map(w => [w.address.toLowerCase(), w])).values());
+
             // Chains supported by OpenSea Orders API
             const openseaChains = ["ethereum", "polygon", "base", "arbitrum", "optimism"];
 
-            for (const wallet of evmWallets) {
+            for (const wallet of uniqueWallets) {
               // OpenSea makers query is chain-specific. We need to check all relevant chains.
               // We runs these in parallel for the wallet to speed it up
               const listingsPromises = openseaChains.map(chain =>
@@ -382,7 +385,10 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
         }
       }
 
-      set({ marketplaceNFTs: allListings, isLoadingMarketplace: false });
+      // Deduplicate listings by listingId
+      const uniqueListings = Array.from(new Map(allListings.map(l => [l.listingId, l])).values());
+
+      set({ marketplaceNFTs: uniqueListings, isLoadingMarketplace: false });
     } catch (error) {
       console.error("Error fetching marketplace NFTs:", error);
       set({
