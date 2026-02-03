@@ -275,31 +275,40 @@ export class OpenSeaNFTService implements NFTServiceInterface {
             // Determine chain for SDK
             const chain = nftChain === 'ethereum' ? Chain.Mainnet : Chain.Polygon
 
-            // Initialize OpenSea SDK with signer
-            const sdk = new OpenSeaSDK(provider as any, {
-                chain,
-                apiKey: OPENSEA_API_KEY,
-            })
+            console.log('[OpenSea] Initializing SDK with:', { chain, hasApiKey: !!OPENSEA_API_KEY })
+            try {
+                console.log('[OpenSea] SDK Class:', OpenSeaSDK)
+                // Initialize OpenSea SDK with signer
+                // Note: v8 SDK might need specific usage with ethers v6
+                // Passing window.ethereum as provider might be safer if ethers v6 provider is issues
+                const sdk = new OpenSeaSDK(window.ethereum as any, {
+                    chain,
+                    apiKey: OPENSEA_API_KEY,
+                })
 
-            // Convert price to wei (assuming price is in ETH/MATIC)
-            const priceInWei = ethers.parseEther(price)
+                // Convert price to wei (assuming price is in ETH/MATIC)
+                const priceInWei = ethers.parseEther(price)
 
-            // Create listing using OpenSea SDK
-            // Note: Using 'amount' instead of 'startAmount' for v8
-            const listing = await sdk.createListing({
-                asset: {
-                    tokenAddress: nft.contractAddress,
-                    tokenId: nft.tokenId,
-                },
-                accountAddress: sellerAddress,
-                amount: ethers.formatEther(priceInWei),
-                // expirationTime is seconds
-                expirationTime: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
-            }) as any
+                console.log('[OpenSea] Creating listing for:', { token: nft.contractAddress, id: nft.tokenId, price })
 
-            const orderHash = listing.orderHash || listing.hash || listing
-            console.log('Listing created successfully:', orderHash)
-            return orderHash || 'listing-created'
+                // Create listing using OpenSea SDK
+                const listing = await sdk.createListing({
+                    asset: {
+                        tokenAddress: nft.contractAddress,
+                        tokenId: nft.tokenId,
+                    },
+                    accountAddress: sellerAddress,
+                    amount: ethers.formatEther(priceInWei),
+                    expirationTime: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
+                }) as any
+
+                const orderHash = listing.orderHash || listing.hash || listing
+                console.log('Listing created successfully:', orderHash)
+                return orderHash || 'listing-created'
+            } catch (sdkError) {
+                console.error('[OpenSea] SDK Error:', sdkError)
+                throw sdkError
+            }
         } catch (error) {
             console.error('Error listing NFT on OpenSea:', error)
             throw error
