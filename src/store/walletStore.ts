@@ -1145,16 +1145,25 @@ export const useWalletStore = create<WalletState>()(
                                 msgObj = cosmosMsgWrapper.msg
                             }
                             // FIX: Convert snake_case keys to camelCase for CosmJS compatibility
-                            console.log(`🔄 Converting keys to camelCase...`)
+                            // BUT preserve the 'msg' field content (Contract Payload) from corruption!
+                            const msgContent = msgObj.msg; // Save original
+
+                            console.log(`🔄 Converting keys to camelCase (skipping internal 'msg' conversion)...`)
                             const camelMsgObj = (get() as any)._convertKeysToCamelCase(msgObj)
+
+                            // Restore original msg content if it was an object (to prevent recursive camelCase)
+                            if (msgContent && typeof msgContent === 'object') {
+                                camelMsgObj.msg = msgContent
+                            }
 
                             // FIX: Handle specific type requirements (e.g. Wasm msg as Uint8Array)
                             if (cosmosMsgWrapper.msg_type_url?.includes('wasm') || cosmosMsgWrapper.msg_type_url?.includes('MsgExecuteContract')) {
                                 console.log(`⚙️ Handling Wasm message conversion (msg -> Uint8Array)...`)
                                 // For MsgExecuteContract, the 'msg' field is a JSON object in Skip response
                                 // but must be encoded as Uint8Array for CosmJS
-                                if (camelMsgObj.msg && (typeof camelMsgObj.msg === 'object' || typeof camelMsgObj.msg === 'string')) {
+                                if (camelMsgObj.msg) {
                                     const { toUtf8 } = await import('@cosmjs/encoding')
+                                    // Use the RESTORED (snake_case) msgContent for stringify
                                     const msgString = typeof camelMsgObj.msg === 'string' ? camelMsgObj.msg : JSON.stringify(camelMsgObj.msg)
                                     camelMsgObj.msg = toUtf8(msgString)
                                     console.log(`✅ Converted 'msg' field to Uint8Array`)
@@ -1180,23 +1189,27 @@ export const useWalletStore = create<WalletState>()(
                                 }
                                 console.log(`💰 Using fee:`, fee)
 
+                                let result;
                                 if (cosmosMsgWrapper.msg_type_url?.includes('cosmwasm')) {
                                     console.log(`🔧 Using CosmWasm client for wasm message`)
                                     const client = await SigningCosmWasmClient.connectWithSigner(rpc, offlineSigner)
                                     console.log(`✅ Connected CosmWasm client`)
                                     console.log(`✍️ Calling signAndBroadcast with explicit fee... (Keplr should prompt now)`)
-                                    const result = await client.signAndBroadcast(wallet.address, [encodeMsg], fee)
-                                    txHash = result.transactionHash
-                                    console.log(`✅ Transaction broadcast! Hash: ${txHash}`)
+                                    result = await client.signAndBroadcast(wallet.address, [encodeMsg], fee)
                                 } else {
                                     console.log(`🔧 Using Stargate client for standard message`)
                                     const client = await SigningStargateClient.connectWithSigner(rpc, offlineSigner)
                                     console.log(`✅ Connected Stargate client`)
                                     console.log(`✍️ Calling signAndBroadcast with explicit fee... (Keplr should prompt now)`)
-                                    const result = await client.signAndBroadcast(wallet.address, [encodeMsg], fee)
-                                    txHash = result.transactionHash
-                                    console.log(`✅ Transaction broadcast! Hash: ${txHash}`)
+                                    result = await client.signAndBroadcast(wallet.address, [encodeMsg], fee)
                                 }
+
+                                if (result.code !== 0) {
+                                    throw new Error(`Transaction failed with code ${result.code}: ${result.rawLog}`)
+                                }
+
+                                txHash = result.transactionHash
+                                console.log(`✅ Transaction broadcast success! Hash: ${txHash}`)
 
                                 results.push(txHash)
                             } catch (err: any) {
