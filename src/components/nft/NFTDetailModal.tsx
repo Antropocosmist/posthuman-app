@@ -15,6 +15,7 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
     const [listingCurrency, setListingCurrency] = useState<string>('')
     const [currencyCode, setCurrencyCode] = useState<string>('') // Display symbol (e.g. STARS, ATOM)
     const [activeAction, setActiveAction] = useState<'sell' | 'transfer' | 'burn' | 'auction' | null>(null)
+    const [duration, setDuration] = useState<number>(30) // Default 30 days
 
     const {
         isListing,
@@ -109,7 +110,7 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
         if (!price) return
 
         try {
-            await listNFT(nft, price, listingCurrency)
+            await listNFT(nft, price, listingCurrency, duration * 24 * 60 * 60)
             onClose()
         } catch (error) {
             console.error('Failed to list NFT:', error)
@@ -330,10 +331,30 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
                                                         </span>
                                                     </div>
                                                 </div>
-                                                <p className="text-xs text-gray-500 px-1">
-                                                    Enter the amount you want to receive.
-                                                </p>
                                             </div>
+
+                                            {/* Duration Selection */}
+                                            <div className="space-y-2">
+                                                <label className="text-sm font-medium text-gray-300 px-1">Duration</label>
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    {[1, 3, 7, 30, 90, 180].map((d) => (
+                                                        <button
+                                                            key={d}
+                                                            onClick={() => setDuration(d)}
+                                                            className={`py-2 px-3 rounded-lg text-xs font-medium transition-colors border ${duration === d
+                                                                    ? 'bg-purple-600 border-purple-500 text-white'
+                                                                    : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
+                                                                }`}
+                                                        >
+                                                            {d === 1 ? '1 Day' : d === 30 ? '1 Month' : d === 90 ? '3 Months' : d === 180 ? '6 Months' : `${d} Days`}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            <p className="text-xs text-gray-500 px-1">
+                                                Enter the amount you want to receive. Listing expires in {duration} days.
+                                            </p>
 
                                             <button
                                                 onClick={handleList}

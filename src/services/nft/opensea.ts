@@ -261,7 +261,7 @@ export class OpenSeaNFTService implements NFTServiceInterface {
     /**
      * List an NFT for sale on the marketplace
      */
-    async listNFT(nft: NFT, price: string, _currency: string, sellerAddress: string): Promise<string> {
+    async listNFT(nft: NFT, price: string, _currency: string, sellerAddress: string, durationInSeconds: number = 2592000): Promise<string> {
         try {
             // Check if MetaMask is available
             if (!window.ethereum) {
@@ -308,7 +308,7 @@ export class OpenSeaNFTService implements NFTServiceInterface {
                     },
                     accountAddress: sellerAddress,
                     amount: ethers.formatEther(priceInWei),
-                    expirationTime: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
+                    expirationTime: Math.round(Date.now() / 1000 + durationInSeconds),
                 }) as any
 
                 const orderHash = listing.orderHash || listing.hash || listing

@@ -357,7 +357,7 @@ export class MagicEdenNFTService implements NFTServiceInterface {
     /**
      * List an NFT for sale on the marketplace
      */
-    async listNFT(nft: NFT, price: string, _currency: string, sellerAddress: string): Promise<string> {
+    async listNFT(nft: NFT, price: string, _currency: string, sellerAddress: string, _durationInSeconds?: number): Promise<string> {
         try {
             // Check if Phantom wallet is available
             if (!window.solana || !window.solana.isPhantom) {

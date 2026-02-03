@@ -437,7 +437,7 @@ export class StargazeNFTService implements NFTServiceInterface {
     /**
      * List an NFT for sale on the marketplace
      */
-    async listNFT(nft: NFT, price: string, currency: string, sellerAddress: string): Promise<string> {
+    async listNFT(nft: NFT, price: string, currency: string, sellerAddress: string, _durationInSeconds?: number): Promise<string> {
         try {
             // Get wallet from window (Keplr or Adena)
             if (!window.keplr && !(window as any).adena) {

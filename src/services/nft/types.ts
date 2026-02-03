@@ -91,7 +91,7 @@ export interface NFTServiceInterface {
     buyNFT(listing: MarketplaceListing, buyerAddress: string): Promise<string> // returns tx hash
 
     // List NFT for sale
-    listNFT(nft: NFT, price: string, currency: string, sellerAddress: string): Promise<string> // returns listing ID
+    listNFT(nft: NFT, price: string, currency: string, sellerAddress: string, durationInSeconds?: number): Promise<string> // returns listing ID
 
     // Cancel listing
     cancelListing(listingId: string, sellerAddress: string): Promise<string> // returns tx hash

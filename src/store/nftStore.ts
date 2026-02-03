@@ -50,7 +50,7 @@ interface NFTStore {
 
   // Actions - NFT Operations
   buyNFT: (listing: MarketplaceListing) => Promise<void>;
-  listNFT: (nft: NFT, price: string, currency: string) => Promise<void>;
+  listNFT: (nft: NFT, price: string, currency: string, durationInSeconds?: number) => Promise<void>;
   cancelListing: (nft: NFT) => Promise<void>;
   fetchCollectionStats: (contractAddress: string, chain: string) => Promise<NFTCollection | null>;
 
@@ -440,7 +440,7 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
   },
 
   // List NFT for sale
-  listNFT: async (nft: NFT, price: string, currency: string) => {
+  listNFT: async (nft: NFT, price: string, currency: string, durationInSeconds?: number) => {
     set({ isListing: true, error: null });
 
     try {
@@ -480,6 +480,7 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
             price,
             currency,
             sellerWallet.address,
+            durationInSeconds
           );
           break;
         case "ethereum":
@@ -489,6 +490,7 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
             price,
             currency,
             sellerWallet.address,
+            durationInSeconds
           );
           break;
         case "solana":
@@ -497,6 +499,7 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
             price,
             currency,
             sellerWallet.address,
+            durationInSeconds
           );
           break;
         default:
