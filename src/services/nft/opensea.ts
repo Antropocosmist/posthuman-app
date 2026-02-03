@@ -115,6 +115,8 @@ export class OpenSeaNFTService implements NFTServiceInterface {
                 return []
             }
 
+            console.log(`[OpenSea] Fetching listings from: ${url}`)
+
             const response = await fetch(
                 url,
                 {
@@ -123,16 +125,18 @@ export class OpenSeaNFTService implements NFTServiceInterface {
             )
 
             if (!response.ok) {
-                console.warn(`OpenSea listings API error (${url}):`, response.statusText)
+                console.warn(`[OpenSea] listings API error (${url}):`, response.statusText)
                 return []
             }
 
             const data = await response.json()
+            console.log(`[OpenSea] Raw listings data for ${chain}:`, data)
 
             // Response structure differs slightly between 'orders' and 'listings' endpoints
             // 'orders' endpoint returns { orders: [...] }
             // 'listings' endpoint returns { listings: [...] }
             const listings = data.orders || data.listings || []
+            console.log(`[OpenSea] Found ${listings.length} listings/orders`)
 
             return listings.map((item: any) => {
                 // If it's an order object (from maker query), structure is flatter or different
