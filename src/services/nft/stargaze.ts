@@ -546,59 +546,45 @@ export class StargazeNFTService implements NFTServiceInterface {
                 askId = Number(listingId)
             } else {
                 // It's likely collection-tokenId. We need to query the Ask ID.
-                console.log(`[Stargaze] Resolving Ask ID for ${listingId} via contract query...`)
+                console.log(`[Stargaze] Resolving Ask ID for ${listingId} via contract query (asks_by_seller)...`)
                 const collectionAddr = listingId.split('-')[0]
                 const tokenId = listingId.split('-')[1]
 
-                // Use the Marketplace Contract query "ask" directly
-                // This bypasses unreliable indexer queries
+                // Use "asks_by_seller" to find the listing. 
+                // This is robust because it queries only the user's listings.
                 try {
                     const queryMsg = {
-                        ask: {
-                            collection: collectionAddr,
-                            token_id: parseInt(tokenId) // Stargaze Marketplace V2 usually works with integer if provided, but let's be careful.
-                            // If this fails, we catch and try string.
+                        asks_by_seller: {
+                            seller: sellerAddress,
+                            limit: 100 // Assume user has < 100 active listings, or we need pagination
                         }
                     }
-                    console.log('[Stargaze] Querying contract for ask:', queryMsg)
+                    console.log('[Stargaze] Querying contract for asks_by_seller:', queryMsg)
 
                     const response = await signingClient.queryContractSmart(
                         STARGAZE_MARKETPLACE_CONTRACT,
                         queryMsg
                     )
 
-                    console.log('[Stargaze] Contract ask response:', response)
+                    console.log('[Stargaze] Contract asks_by_seller response:', response)
 
-                    if (!response?.ask?.id) {
-                        throw new Error(`Could not find active listing (Ask ID) for token ${tokenId}.`)
+                    const asks = response?.asks || []
+                    // Find the ask that matches our collection and token_id
+                    // Note: Stargaze token_id in response is likely string
+                    const targetAsk = asks.find((a: any) =>
+                        a.collection === collectionAddr &&
+                        String(a.token_id) === String(tokenId)
+                    )
+
+                    if (!targetAsk) {
+                        throw new Error(`Could not find active listing (Ask ID) for token ${tokenId} in your listings.`)
                     }
 
-                    askId = response.ask.id
+                    askId = targetAsk.id
                     console.log(`[Stargaze] Resolved Ask ID: ${askId}`)
-                } catch (err: any) {
-                    console.warn('[Stargaze] First attempt to resolve Ask ID failed, trying fallback...', err)
-                    // Try fallback with string token_id just in case
-                    try {
-                        const queryMsgString = {
-                            ask: {
-                                collection: collectionAddr,
-                                token_id: tokenId
-                            }
-                        }
-                        const response = await signingClient.queryContractSmart(
-                            STARGAZE_MARKETPLACE_CONTRACT,
-                            queryMsgString
-                        )
-                        if (response?.ask?.id) {
-                            askId = response.ask.id
-                            console.log(`[Stargaze] Resolved Ask ID (string token_id): ${askId}`)
-                        } else {
-                            throw err // Original error if specific response not effective
-                        }
-                    } catch (e) {
-                        console.error('[Stargaze] Failed to resolve Ask ID from contract:', err)
-                        throw new Error(`Failed to resolve listing ID for token ${tokenId}. It might not be listed or the contract query failed.`)
-                    }
+                } catch (err) {
+                    console.error('[Stargaze] Failed to resolve Ask ID via asks_by_seller:', err)
+                    throw new Error(`Failed to resolve listing ID for token ${tokenId}. It might not be listed or the contract query failed.`)
                 }
             }
 
