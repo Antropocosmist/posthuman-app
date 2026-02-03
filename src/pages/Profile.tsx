@@ -98,7 +98,11 @@ export function Profile() {
             // but we might need to force refresh or set local state if listener is slow?
             // Usually onAuthStateChanged fires on token refresh, but updateProfile might not trigger it immediately.
             // We can manually update local user state.
+            // Force update local state immediately
             setUser({ ...auth.currentUser, photoURL: url })
+            // Also trigger a reload of the auth state to ensure persistence
+            await auth.currentUser.reload()
+            setUser({ ...auth.currentUser })
         } catch (error: any) {
             setMessage({ type: 'error', text: "Failed to update avatar: " + error.message })
         }
