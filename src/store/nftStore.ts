@@ -270,33 +270,14 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
 
         for (const wallet of stargazeWallets) {
           try {
-            const { fetchNFTs } = await import("../services/nftService");
-            const nfts = await fetchNFTs(
+            // Use the robust Stargaze service directly for consistent pagination & types
+            const nfts = await stargazeNFTService.fetchUserNFTs(
               wallet.address,
-              wallet.chain,
-              wallet.chainId,
-              ownedNFTsOffset,
+              100,
+              ownedNFTsOffset
             );
 
-            const convertedNFTs: NFT[] = nfts.map((nft) => ({
-              id: nft.id,
-              tokenId: nft.id,
-              name: nft.name,
-              description: nft.description || "",
-              image: nft.image,
-              chain: "stargaze" as const,
-              contractAddress: nft.contractAddress || "",
-              owner: wallet.address,
-              collection: {
-                id: nft.contractAddress || "",
-                name: nft.collectionName || "Unknown Collection",
-                image: nft.image,
-              },
-              isListed: false,
-              marketplace: undefined,
-            }));
-
-            newNFTs = [...newNFTs, ...convertedNFTs];
+            newNFTs = [...newNFTs, ...nfts];
           } catch (error) {
             console.error(
               `[NFT Store] Error loading more NFTs for ${wallet.address}: `,
