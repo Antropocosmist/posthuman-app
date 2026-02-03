@@ -201,6 +201,54 @@ export class OpenSeaNFTService implements NFTServiceInterface {
     }
 
     /**
+     * Helper to switch chain
+     */
+    private async switchChain(chain: 'ethereum' | 'polygon') {
+        if (!window.ethereum) return
+
+        const chainId = chain === 'ethereum' ? '0x1' : '0x89'
+
+        try {
+            await window.ethereum.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId }],
+            })
+        } catch (switchError: any) {
+            // This error code 4902 indicates that the chain has not been added to MetaMask.
+            if (switchError.code === 4902) {
+                const chainParams = chain === 'ethereum'
+                    ? {
+                        chainId: '0x1',
+                        chainName: 'Ethereum Mainnet',
+                        nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+                        rpcUrls: ['https://eth.llamarpc.com'],
+                        blockExplorerUrls: ['https://etherscan.io'],
+                    }
+                    : {
+                        chainId: '0x89',
+                        chainName: 'Polygon Mainnet',
+                        nativeCurrency: { name: 'MATIC', symbol: 'POL', decimals: 18 },
+                        rpcUrls: ['https://polygon-rpc.com'],
+                        blockExplorerUrls: ['https://polygonscan.com'],
+                    }
+
+                try {
+                    await window.ethereum.request({
+                        method: 'wallet_addEthereumChain',
+                        params: [chainParams],
+                    })
+                } catch (addError) {
+                    console.error('Failed to add chain:', addError)
+                    throw new Error(`Please switch to ${chain} manually`)
+                }
+            } else {
+                console.error('Failed to switch chain:', switchError)
+                throw new Error(`Please switch to ${chain} manually`)
+            }
+        }
+    }
+
+    /**
      * List an NFT for sale on the marketplace
      */
     async listNFT(nft: NFT, price: string, _currency: string, sellerAddress: string): Promise<string> {
@@ -209,6 +257,10 @@ export class OpenSeaNFTService implements NFTServiceInterface {
             if (!window.ethereum) {
                 throw new Error('Please install MetaMask to list NFTs on OpenSea')
             }
+
+            // Determine chain based on NFT data
+            const nftChain = nft.chain === 'polygon' ? 'polygon' : 'ethereum'
+            await this.switchChain(nftChain)
 
             // Create ethers provider and signer
             const provider = new ethers.BrowserProvider(window.ethereum)
@@ -220,9 +272,8 @@ export class OpenSeaNFTService implements NFTServiceInterface {
                 throw new Error('Connected wallet does not match seller address')
             }
 
-            // Determine chain
-            const network = await provider.getNetwork()
-            const chain = network.chainId === 1n ? Chain.Mainnet : Chain.Polygon
+            // Determine chain for SDK
+            const chain = nftChain === 'ethereum' ? Chain.Mainnet : Chain.Polygon
 
             // Initialize OpenSea SDK with signer
             const sdk = new OpenSeaSDK(provider as any, {
@@ -242,7 +293,7 @@ export class OpenSeaNFTService implements NFTServiceInterface {
                 },
                 accountAddress: sellerAddress,
                 amount: ethers.formatEther(priceInWei),
-                // Optional: set expiration (e.g., 30 days from now)
+                // expirationTime is seconds
                 expirationTime: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
             }) as any
 
@@ -265,8 +316,18 @@ export class OpenSeaNFTService implements NFTServiceInterface {
                 throw new Error('Please install MetaMask to cancel listings on OpenSea')
             }
 
-            // Create ethers provider and signer
+            // We don't strictly know the chain from ID, but usually it's tied to the current context.
+            // Ideally we should pass chain. For now, assume Ethereum or infer if possible.
+            // But we can check the current network and warn if it seems wrong?
+            // Better strategy: Try to infer from listingId length? No.
+            // Let's assume the user is on the right chain or we default to Ethereum.
+            // Or better, check current chain and use that SDK instance.
+
             const provider = new ethers.BrowserProvider(window.ethereum)
+            const network = await provider.getNetwork()
+            const chain = network.chainId === 137n ? Chain.Polygon : Chain.Mainnet
+
+            // Create ethers provider and signer
             const signer = await provider.getSigner()
 
             // Verify the seller address matches the signer
@@ -274,10 +335,6 @@ export class OpenSeaNFTService implements NFTServiceInterface {
             if (signerAddress.toLowerCase() !== sellerAddress.toLowerCase()) {
                 throw new Error('Connected wallet does not match seller address')
             }
-
-            // Determine chain
-            const network = await provider.getNetwork()
-            const chain = network.chainId === 1n ? Chain.Mainnet : Chain.Polygon
 
             // Initialize OpenSea SDK with signer
             const sdk = new OpenSeaSDK(provider as any, {
@@ -301,13 +358,100 @@ export class OpenSeaNFTService implements NFTServiceInterface {
     }
 
     /**
-     * Get collection stats (stub for now)
+     * Get collection stats
      */
     async getCollectionStats(contractAddress: string): Promise<NFTCollection> {
-        // TODO: Implement OpenSea collection stats fetch (requires slug lookup)
-        return {
-            id: contractAddress,
-            name: 'Unknown Collection',
+        try {
+            // Try Ethereum first, then Polygon
+            const chains = ['ethereum', 'matic']
+            let collectionStats: any = null
+            let slug = ''
+            let name = 'Unknown Collection'
+            let description = ''
+            let image = ''
+
+            // 1. Find Collection Slug via Contract
+            for (const c of chains) {
+                try {
+                    const response = await fetch(
+                        `https://api.opensea.io/api/v2/chain/${c}/contract/${contractAddress}`,
+                        {
+                            headers: OPENSEA_API_KEY ? { 'X-API-KEY': OPENSEA_API_KEY } : {},
+                        }
+                    )
+
+                    if (response.ok) {
+                        const data = await response.json()
+                        // data is { address, chain, collection: "slug" }
+                        if (data.collection) {
+                            slug = data.collection;
+                            break;
+                        }
+                    }
+                } catch (e) {
+                    continue
+                }
+            }
+
+            if (!slug) {
+                return {
+                    id: contractAddress,
+                    name: 'Unknown Collection',
+                }
+            }
+
+            // 2. Fetch Collection Details
+            const collectionResponse = await fetch(
+                `https://api.opensea.io/api/v2/collections/${slug}`,
+                {
+                    headers: OPENSEA_API_KEY ? { 'X-API-KEY': OPENSEA_API_KEY } : {},
+                }
+            )
+
+            if (collectionResponse.ok) {
+                const data = await collectionResponse.json()
+                name = data.name || name
+                description = data.description || description
+                image = data.image_url || image
+
+                // OpenSea V2 Collection Object often has stats
+                // Need to check specific API response structure. 
+                // However, safe fallback is to request stats endpoint if needed.
+            }
+
+            // 3. Fetch Stats
+            const statsResponse = await fetch(
+                `https://api.opensea.io/api/v2/collections/${slug}/stats`,
+                {
+                    headers: OPENSEA_API_KEY ? { 'X-API-KEY': OPENSEA_API_KEY } : {},
+                }
+            )
+
+            if (statsResponse.ok) {
+                const sData = await statsResponse.json()
+                // { total: { floor_price: ... } } structure usually for v2 stats
+                const floor = sData.total?.floor_price || sData.floor_price
+                if (floor) {
+                    collectionStats = { floor_price: floor, total_supply: sData.total?.total_supply }
+                }
+            }
+
+            return {
+                id: contractAddress,
+                name: name,
+                description: description,
+                image: image,
+                floorPrice: collectionStats?.floor_price ? String(collectionStats.floor_price) : undefined,
+                floorPriceCurrency: 'ETH', // OpenSea stats usually in ETH
+                totalSupply: collectionStats?.total_supply
+            }
+
+        } catch (error) {
+            console.error('Error fetching OpenSea collection stats:', error)
+            return {
+                id: contractAddress,
+                name: 'Unknown Collection',
+            }
         }
     }
 }
