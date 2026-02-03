@@ -89,35 +89,87 @@ export class OpenSeaNFTService implements NFTServiceInterface {
     /**
      * Fetch marketplace listings with optional filters
      */
+    /**
+     * Fetch marketplace listings with optional filters
+     */
     async fetchMarketplaceListings(filters?: NFTFilters): Promise<MarketplaceListing[]> {
         try {
-            // Use OpenSea API to fetch listings
+            // Default chain
             const chain = filters?.ecosystem === 'evm' ? 'ethereum' : 'ethereum'
+
+            let url = ''
+
+            // Case 1: Fetching by Seller (My Listings)
+            if (filters?.seller) {
+                // Endpoint: https://api.opensea.io/api/v2/orders/{chain}/seaport/listings?maker={address}
+                url = `https://api.opensea.io/api/v2/orders/${chain}/seaport/listings?maker=${filters.seller}`
+            }
+            // Case 2: Fetching by Collection (if valid slug provided)
+            else if (filters?.collection && filters.collection !== 'all') {
+                url = `https://api.opensea.io/api/v2/listings/collection/${filters.collection}/all`
+            }
+            // Case 3: Fallback (unsupported generic 'all' fetch, returns empty or featured)
+            else {
+                // OpenSea doesn't support "get all listings for everything". 
+                // We return empty to avoid 404s/400s or useless data.
+                return []
+            }
+
             const response = await fetch(
-                `https://api.opensea.io/api/v2/listings/collection/${filters?.collection || 'all'}/all`,
+                url,
                 {
                     headers: OPENSEA_API_KEY ? { 'X-API-KEY': OPENSEA_API_KEY } : {},
                 }
             )
 
             if (!response.ok) {
-                console.warn('OpenSea listings API error:', response.statusText)
+                console.warn(`OpenSea listings API error (${url}):`, response.statusText)
                 return []
             }
 
             const data = await response.json()
-            const listings = data.listings || []
 
-            return listings.map((listing: any) => ({
-                nft: convertOpenSeaNFT(listing.protocol_data?.parameters?.offer?.[0] || {}, chain as any),
-                price: listing.price?.current?.value || '0',
-                currency: listing.price?.current?.currency || 'ETH',
-                seller: listing.maker?.address || '',
-                listingId: listing.order_hash || '',
-                marketplace: 'opensea' as const,
-                createdAt: new Date(listing.created_date || Date.now()),
-                expiresAt: listing.expiration_time ? new Date(listing.expiration_time * 1000) : undefined,
-            }))
+            // Response structure differs slightly between 'orders' and 'listings' endpoints
+            // 'orders' endpoint returns { orders: [...] }
+            // 'listings' endpoint returns { listings: [...] }
+            const listings = data.orders || data.listings || []
+
+            return listings.map((item: any) => {
+                // If it's an order object (from maker query), structure is flatter or different
+                // If it's a listing object (from collection query), it might be different
+                // Standardizing extraction:
+
+                // Order object usually has 'maker' and 'current_price'
+                // Listing object usually has 'price.current.value'
+
+                // Extraction for Orders endpoint:
+                // Both have order_hash usually
+
+                // Helper to get nested nft data
+                // In orders, item.maker_asset_bundle.assets[0] or item.protocol_data.parameters.offer[0]
+                // But v2 orders endpoint usually returns efficient structure.
+
+                // Let's rely on protocol_data for OrderV2 structures if available
+                const nftData = item.maker_asset_bundle?.assets?.[0]
+                    || item.protocol_data?.parameters?.offer?.[0]
+                    || {}
+
+                // Price
+                const priceValue = item.current_price
+                    || item.price?.current?.value
+                    || '0'
+
+                return {
+                    nft: convertOpenSeaNFT(nftData, chain as any),
+                    price: priceValue,
+                    currency: 'ETH', // Defaulting to ETH as most common, tough to extract symbol safely from all variations without more logic
+                    seller: item.maker?.address || filters?.seller || '',
+                    listingId: item.order_hash || '',
+                    marketplace: 'opensea' as const,
+                    createdAt: new Date(item.created_date || Date.now()),
+                    expiresAt: item.expiration_time ? new Date(item.expiration_time * 1000) : undefined,
+                }
+            })
         } catch (error) {
             console.error('Error fetching marketplace listings from OpenSea:', error)
             return []

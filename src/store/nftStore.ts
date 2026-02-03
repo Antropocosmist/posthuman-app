@@ -138,7 +138,7 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
         if (get().currentRequestId !== currentInternalId) return;
         const evmWallets = wallets.filter((w) => w.chain === "EVM");
         const uniqueAddresses = [...new Set(evmWallets.map((w) => w.address.toLowerCase()))];
-        const evmChains = ["ethereum", "polygon", "base", "bsc", "gnosis", "arbitrum"] as const;
+        const evmChains = ["ethereum", "polygon", "base", "bsc", "arbitrum"] as const;
 
         for (const address of uniqueAddresses) {
           console.log(`[NFT Store] Fetching EVM for ${address}(ID: ${currentInternalId})`);
@@ -330,11 +330,28 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
       }
 
       // Fetch from OpenSea marketplace
+      // If no specific collection/search is set, we fetch listings for the CONNECTED USER (My Listings)
       if (targetEcosystem === "all" || targetEcosystem === "evm") {
         try {
-          const listings =
-            await openSeaNFTService.fetchMarketplaceListings(targetFilters);
-          allListings = [...allListings, ...listings];
+          // If viewing generic marketplace without filters, default to "My Listings" for now
+          // or if user specifically asked for their listings (implicit in dashboard view)
+
+          if (!targetFilters.collection && !targetFilters.search) {
+            const walletStore = useWalletStore.getState();
+            const evmWallets = walletStore.wallets.filter(w => w.chain === "EVM");
+
+            for (const wallet of evmWallets) {
+              const listings = await openSeaNFTService.fetchMarketplaceListings({
+                ...targetFilters,
+                seller: wallet.address
+              });
+              allListings = [...allListings, ...listings];
+            }
+          } else {
+            // Normal fetch with filters (e.g. collection specified)
+            const listings = await openSeaNFTService.fetchMarketplaceListings(targetFilters);
+            allListings = [...allListings, ...listings];
+          }
         } catch (error) {
           console.error("Error fetching OpenSea marketplace:", error);
         }

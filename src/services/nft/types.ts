@@ -75,6 +75,8 @@ export interface NFTFilters {
     maxPrice?: string
     traits?: Record<string, string[]>
     sortBy?: 'price_asc' | 'price_desc' | 'recently_listed' | 'recently_sold'
+    seller?: string
+    search?: string
 }
 
 export interface NFTServiceInterface {
