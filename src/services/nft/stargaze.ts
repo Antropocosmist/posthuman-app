@@ -258,37 +258,22 @@ export class StargazeNFTService implements NFTServiceInterface {
             )
 
             // Convert asks to NFTs
-            const askNFTs: NFT[] = asks.map((ask: any) => {
-                // The 'ask' structure is slightly different (wrapper around token)
-                // We adapt it to convertStargazeNFT format
-                const token = ask.token || {}
-
-                // Synthesize a token object
-                const tokenData = {
-                    tokenId: ask.tokenId,
-                    name: token.name,
-                    description: token.description,
-                    image: token.image,
-                    media: token.media,
-                    // Pass price here so convertStargazeNFT picks it up
-                    price: ask.price,
-                    listPrice: ask.price?.amount, // Explicitly pass listPrice
-                }
-
+            const askNFTs: NFT[] = asks.map((token: any) => {
+                // The 'token' object here is similar to wallet token, but has listPrice
+                // We pass it to convertStargazeNFT.
                 // Note: convertStargazeNFT handles listPrice if present.
-                const nft = convertStargazeNFT(tokenData, ask.collection)
-
-                // Explicitly set isListed
+                const nft = convertStargazeNFT(token, token.collection)
+                // Explicitly set isListed because the query filters for listed items
                 nft.isListed = true
-                // CRITICAL: Set correct Ask ID for cancellation
-                nft.listingId = String(ask.id)
-                nft.listingPrice = ask.price?.amount
-                nft.listingCurrency = ask.price?.denom
+                // The new GET_USER_ASKS query returns tokens directly with listPrice,
+                // so we can derive listingId from contractAddress and tokenId.
+                nft.listingId = `${token.collection.contractAddress}-${token.tokenId}`
+                nft.listingPrice = token.listPrice?.amount
+                nft.listingCurrency = token.listPrice?.denom
                 nft.owner = address // User is the owner (seller)
-
                 // Ensure ID matches what we expect
-                nft.id = `${ask.collection.contractAddress}-${ask.tokenId}`
-                nft.tokenId = ask.tokenId
+                nft.id = `${token.collection.contractAddress}-${token.tokenId}`
+                nft.tokenId = token.tokenId // Ensure tokenId is set
                 return nft
             })
 
