@@ -572,10 +572,11 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
           throw new Error(`Cancellation not supported for ${nft.chain} yet`);
       }
 
-      // Refresh NFTs after cancellation
-      await get().refreshNFTs();
+      set({ isListing: false, selectedNFT: null }); // Close modal immediately for better UX
 
-      set({ isListing: false });
+      // Refresh NFTs after cancellation in background
+      get().refreshNFTs();
+
     } catch (error) {
       console.error("Error canceling listing:", error);
       set({
