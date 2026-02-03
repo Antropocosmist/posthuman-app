@@ -386,7 +386,7 @@ export class StargazeNFTService implements NFTServiceInterface {
             const offlineSigner = await wallet.getOfflineSigner('stargaze-1')
 
             // Create signing client (CosmWasm)
-            const client = await SigningCosmWasmClient.connectWithSigner(
+            const signingClient = await SigningCosmWasmClient.connectWithSigner(
                 STARGAZE_RPC_ENDPOINT,
                 offlineSigner,
                 { gasPrice: GasPrice.fromString('1ustars') }
@@ -546,7 +546,7 @@ export class StargazeNFTService implements NFTServiceInterface {
             const offlineSigner = await wallet.getOfflineSigner('stargaze-1')
 
             // Create signing client (CosmWasm)
-            const client = await SigningCosmWasmClient.connectWithSigner(
+            const signingClient = await SigningCosmWasmClient.connectWithSigner(
                 STARGAZE_RPC_ENDPOINT,
                 offlineSigner,
                 { gasPrice: GasPrice.fromString('1ustars') }
