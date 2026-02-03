@@ -362,8 +362,9 @@ export class OpenSeaNFTService implements NFTServiceInterface {
      */
     async getCollectionStats(contractAddress: string): Promise<NFTCollection> {
         try {
-            // Try Ethereum first, then Polygon
-            const chains = ['ethereum', 'matic']
+            // Try Ethereum first, then Polygon (matic/polygon)
+            // OpenSea API sometimes uses 'matic', sometimes 'polygon'. We try both.
+            const chains = ['ethereum', 'matic', 'polygon']
             let collectionStats: any = null
             let slug = ''
             let name = 'Unknown Collection'
@@ -373,22 +374,29 @@ export class OpenSeaNFTService implements NFTServiceInterface {
             // 1. Find Collection Slug via Contract
             for (const c of chains) {
                 try {
+                    const url = `https://api.opensea.io/api/v2/chain/${c}/contract/${contractAddress}`
+                    console.log(`[OpenSea] Fetching contract info from: ${url}`)
+
                     const response = await fetch(
-                        `https://api.opensea.io/api/v2/chain/${c}/contract/${contractAddress}`,
+                        url,
                         {
-                            headers: OPENSEA_API_KEY ? { 'X-API-KEY': OPENSEA_API_KEY } : {},
+                            headers: OPENSEA_API_KEY ? { 'X-API-KEY': OPENSEA_API_KEY, 'accept': 'application/json' } : { 'accept': 'application/json' },
                         }
                     )
 
                     if (response.ok) {
                         const data = await response.json()
                         // data is { address, chain, collection: "slug" }
+                        console.log(`[OpenSea] Found collection data for ${c}:`, data)
                         if (data.collection) {
                             slug = data.collection;
                             break;
                         }
+                    } else {
+                        console.warn(`[OpenSea] Failed to fetch contract for ${c}: ${response.status} ${response.statusText}`)
                     }
                 } catch (e) {
+                    console.error(`[OpenSea] Exception fetching contract for ${c}:`, e)
                     continue
                 }
             }
