@@ -19,11 +19,12 @@ export const formatPrice = (amount: string | number | undefined, denom: string |
     if (!amount) return ''
 
     let value = Number(amount)
-    let symbol = denom || ''
+    // Trim whitespace to avoid matching errors
+    let symbol = (denom || '').trim()
 
     // Normalize denom (handle IBC hash casing if needed, though usually uppercase/lowercase mix)
     // We check exact match or case-insensitive match for basic denoms
-    const normalizedDenom = denom?.toLowerCase() || ''
+    const normalizedDenom = symbol.toLowerCase()
 
     // Check IBC Mapping
     // Try exact match first, then uppercase (standard IBC), then fully normalized (lowercase)
@@ -33,12 +34,13 @@ export const formatPrice = (amount: string | number | undefined, denom: string |
         // Fallback checks
         if (normalizedDenom === 'ustars') mappedSymbol = 'STARS'
         if (normalizedDenom === 'uatom') mappedSymbol = 'ATOM'
+        if (normalizedDenom === 'uosmo') mappedSymbol = 'OSMO'
 
         // Check for User's specific hash prefix if exact match failed (safety net)
         if (symbol.startsWith('ibc/9DF365E')) mappedSymbol = 'ATOM'
 
-        // Safety check for OSMO (Stargaze)
-        if (symbol.toUpperCase().startsWith('IBC/ED07A339')) mappedSymbol = 'OSMO'
+        // Safety check for OSMO (Stargaze) - Check includes to be safe against prefixes/suffixes
+        if (symbol.toUpperCase().includes('ED07A339')) mappedSymbol = 'OSMO'
     }
 
     if (mappedSymbol) {
