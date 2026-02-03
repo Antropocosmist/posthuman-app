@@ -6,7 +6,7 @@ import type { NFT, MarketplaceListing, NFTCollection, NFTFilters, NFTServiceInte
 const OPENSEA_API_KEY = import.meta.env.VITE_OPENSEA_API_KEY || ''
 
 // Helper function to convert OpenSea NFT to our NFT type
-function convertOpenSeaNFT(openseaNFT: any, chain: 'ethereum' | 'polygon' | 'base' | 'bsc' | 'gnosis' | 'arbitrum'): NFT {
+function convertOpenSeaNFT(openseaNFT: any, chain: 'ethereum' | 'polygon' | 'base' | 'bsc' | 'gnosis' | 'arbitrum', ownerAddress?: string): NFT {
     const collection = openseaNFT.collection || {}
     const contract = openseaNFT.contract || openseaNFT.asset_contract || {}
 
@@ -28,7 +28,7 @@ function convertOpenSeaNFT(openseaNFT: any, chain: 'ethereum' | 'polygon' | 'bas
             floorPrice: collection.stats?.floor_price?.toString(),
             totalSupply: collection.stats?.total_supply,
         },
-        owner: openseaNFT.owner?.address || openseaNFT.top_ownerships?.[0]?.owner?.address || '',
+        owner: ownerAddress || openseaNFT.owner?.address || openseaNFT.top_ownerships?.[0]?.owner?.address || '',
         marketplace: 'opensea',
         isListed: !!openseaNFT.sell_orders?.length,
         listingPrice: openseaNFT.sell_orders?.[0]?.current_price,
@@ -68,7 +68,7 @@ export class OpenSeaNFTService implements NFTServiceInterface {
             const data = await response.json()
             const nfts = data.nfts || []
 
-            return nfts.map((nft: any) => convertOpenSeaNFT(nft, chain))
+            return nfts.map((nft: any) => convertOpenSeaNFT(nft, chain, address))
         } catch (error) {
             console.error('Error fetching user NFTs from OpenSea:', error)
             // Return empty array instead of throwing to allow graceful degradation
