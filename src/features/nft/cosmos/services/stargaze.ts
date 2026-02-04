@@ -38,6 +38,11 @@ const GET_USER_NFTS = gql`
                     contractAddress
                     name
                     description
+                    floorPrice
+                    tradingAsset {
+                        symbol
+                        denom
+                    }
                 }
                 traits {
                     name
@@ -146,6 +151,7 @@ const GET_USER_ASKS = gql`
                 collection {
                     contractAddress
                     name
+                    floorPrice
                     tradingAsset {
                         symbol
                         denom
