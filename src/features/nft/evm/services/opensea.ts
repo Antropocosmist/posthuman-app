@@ -51,11 +51,13 @@ function convertOpenSeaNFT(openseaNFT: any, chain: 'ethereum' | 'polygon' | 'bas
         listingPrice: openseaNFT.sell_orders?.[0]?.current_price,
         listingCurrency: 'ETH',
         listingId: openseaNFT.sell_orders?.[0]?.order_hash || openseaNFT.sell_orders?.[0]?.hash,
-        traits: openseaNFT.traits?.map((trait: any) => ({
-            trait_type: trait.trait_type,
+        // OpenSea API v2 can return traits in different formats
+        // Try 'traits' first, then 'attributes', then 'metadata.attributes'
+        traits: (openseaNFT.traits || openseaNFT.attributes || openseaNFT.metadata?.attributes || []).map((trait: any) => ({
+            trait_type: trait.trait_type || trait.key,
             value: trait.value,
             display_type: trait.display_type,
-        })) || [],
+        })),
     }
 }
 
@@ -70,8 +72,9 @@ export class OpenSeaNFTService implements NFTServiceInterface {
     async fetchUserNFTs(address: string, chain: 'ethereum' | 'polygon' | 'base' | 'bsc' | 'gnosis' | 'arbitrum' = 'ethereum'): Promise<NFT[]> {
         try {
             // Use OpenSea API to fetch NFTs (no SDK needed for this)
+            // Include limit parameter for pagination and ensure we get all data
             const response = await fetch(
-                `https://api.opensea.io/api/v2/chain/${chain}/account/${address}/nfts`,
+                `https://api.opensea.io/api/v2/chain/${chain}/account/${address}/nfts?limit=200`,
                 {
                     headers: OPENSEA_API_KEY ? { 'X-API-KEY': OPENSEA_API_KEY } : {},
                 }
@@ -84,6 +87,18 @@ export class OpenSeaNFTService implements NFTServiceInterface {
 
             const data = await response.json()
             const nfts = data.nfts || []
+
+            console.log(`[OpenSea] Fetched ${nfts.length} NFTs for ${address} on ${chain}`)
+
+            // Debug: Log first NFT to see traits structure
+            if (nfts.length > 0) {
+                console.log('[OpenSea] Sample NFT data:', {
+                    name: nfts[0].name,
+                    hasTraits: !!nfts[0].traits,
+                    hasAttributes: !!nfts[0].attributes,
+                    traitsCount: (nfts[0].traits || nfts[0].attributes || []).length
+                })
+            }
 
             return nfts.map((nft: any) => convertOpenSeaNFT(nft, chain, address))
         } catch (error) {
