@@ -723,6 +723,68 @@ export class StargazeNFTService implements NFTServiceInterface {
     }
 
     /**
+     * Burn an NFT (permanently delete it)
+     */
+    async burnNFT(nft: NFT, senderAddress: string): Promise<string> {
+        try {
+            // Get wallet from window (Keplr or Adena)
+            if (!window.keplr && !(window as any).adena) {
+                throw new Error('Please install Keplr or Adena wallet')
+            }
+
+            const wallet = window.keplr || (window as any).adena
+
+            // Enable Stargaze chain
+            await wallet.enable('stargaze-1')
+
+            // Get offline signer
+            const offlineSigner = await wallet.getOfflineSigner('stargaze-1')
+
+            // Create signing client (CosmWasm)
+            const signingClient = await SigningCosmWasmClient.connectWithSigner(
+                STARGAZE_RPC_ENDPOINT,
+                offlineSigner,
+                { gasPrice: GasPrice.fromString('1ustars') }
+            )
+
+            // Create burn message
+            const burnMsg = {
+                burn: {
+                    token_id: nft.tokenId
+                }
+            }
+
+            const executeMsg = {
+                typeUrl: '/cosmwasm.wasm.v1.MsgExecuteContract',
+                value: {
+                    sender: senderAddress,
+                    contract: nft.contractAddress, // NFT collection contract
+                    msg: toUtf8(JSON.stringify(burnMsg)),
+                    funds: []
+                }
+            }
+
+            // Broadcast transaction
+            const result = await signingClient.signAndBroadcast(
+                senderAddress,
+                [executeMsg],
+                'auto',
+                'Burn NFT'
+            )
+
+            if (result.code !== 0) {
+                throw new Error(`Transaction failed: ${result.rawLog}`)
+            }
+
+            console.log('Burn successful:', result.transactionHash)
+            return result.transactionHash
+        } catch (error) {
+            console.error('Error burning NFT on Stargaze:', error)
+            throw error
+        }
+    }
+
+    /**
      * Get collection information
      */
     async getCollectionStats(contractAddress: string): Promise<NFTCollection> {

@@ -35,6 +35,7 @@ interface NFTStore {
   isBuying: boolean;
   isListing: boolean;
   isTransferring: boolean;
+  isBurning: boolean;
 
   // Error States
   error: string | null;
@@ -54,6 +55,7 @@ interface NFTStore {
   listNFT: (nft: NFT, price: string, currency: string, durationInSeconds?: number) => Promise<void>;
   cancelListing: (nft: NFT) => Promise<void>;
   transferNFT: (nft: NFT, recipientAddress: string) => Promise<string>;
+  burnNFT: (nft: NFT) => Promise<string>;
   fetchCollectionStats: (contractAddress: string, chain: string) => Promise<NFTCollection | null>;
 
   // Actions - UI State
@@ -84,6 +86,7 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
   isBuying: false,
   isListing: false,
   isTransferring: false,
+  isBurning: false,
 
   error: null,
 
@@ -730,6 +733,77 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
         error:
           error instanceof Error ? error.message : "Failed to transfer NFT",
         isTransferring: false,
+      });
+      throw error;
+    }
+  },
+
+  burnNFT: async (nft: NFT) => {
+    set({ isBurning: true, error: null });
+
+    try {
+      const walletStore = useWalletStore.getState();
+
+      // Helper to map NFT chain to wallet ChainType
+      const getWalletChainType = (nftChain: string): string => {
+        if (nftChain === "stargaze") return "Cosmos";
+        if (nftChain === "ethereum" || nftChain === "polygon") return "EVM";
+        if (nftChain === "solana") return "Solana";
+        return nftChain;
+      };
+
+      const walletChainType = getWalletChainType(nft.chain);
+      const ownerWallet = walletStore.wallets.find(
+        (w) => w.address.toLowerCase() === nft.owner.toLowerCase() && w.chain === walletChainType,
+      );
+
+      // Fallback: Just try to find a wallet of the correct type if owner check fails
+      const wallet = ownerWallet || walletStore.wallets.find(w => w.chain === walletChainType);
+
+      if (!wallet) {
+        throw new Error(`No connected wallet found for ${nft.chain}`);
+      }
+
+      console.log(`[NFT Store] Burning NFT ${nft.tokenId} on ${nft.chain}`);
+
+      let txHash: string;
+
+      switch (nft.chain) {
+        case "stargaze":
+          txHash = await stargazeNFTService.burnNFT(nft, wallet.address);
+          break;
+        // Future: Add EVM and Solana support
+        // case "ethereum":
+        // case "polygon":
+        //   txHash = await openSeaNFTService.burnNFT(nft, wallet.address);
+        //   break;
+        // case "solana":
+        //   txHash = await magicEdenNFTService.burnNFT(nft, wallet.address);
+        //   break;
+        default:
+          throw new Error(`Burn not supported for ${nft.chain} yet`);
+      }
+
+      console.log(`[NFT Store] Burn successful: ${txHash}`);
+
+      // OPTIMISTIC UPDATE: Remove NFT from owned list immediately
+      const currentOwned = get().ownedNFTs;
+      set({
+        ownedNFTs: currentOwned.filter(item => item.id !== nft.id)
+      });
+
+      set({ isBurning: false, selectedNFT: null }); // Close modal immediately
+
+      // Refresh NFTs after burn in background (eventual consistency)
+      get().refreshNFTs();
+
+      return txHash;
+    } catch (error) {
+      console.error("Error burning NFT:", error);
+      set({
+        error:
+          error instanceof Error ? error.message : "Failed to burn NFT",
+        isBurning: false,
       });
       throw error;
     }

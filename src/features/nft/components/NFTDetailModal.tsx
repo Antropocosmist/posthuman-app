@@ -25,10 +25,12 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
         isListing,
         isBuying,
         isTransferring,
+        isBurning,
         listNFT,
         buyNFT,
         cancelListing,
         transferNFT,
+        burnNFT,
         marketplaceNFTs,
         fetchCollectionStats
     } = useNFTStore()
@@ -185,6 +187,15 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
             if (!validation.valid) {
                 setAddressError(validation.error || 'Invalid address')
             }
+        }
+    }
+
+    const handleBurn = async () => {
+        try {
+            await burnNFT(nft)
+            onClose()
+        } catch (error) {
+            console.error('Burn failed:', error)
         }
     }
 
@@ -493,8 +504,70 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
                                         </div>
                                     )}
 
-                                    {/* Placeholders for other actions */}
-                                    {['burn', 'auction'].includes(activeAction || '') && (
+                                    {/* Burn View */}
+                                    {activeAction === 'burn' && (
+                                        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                                            <button
+                                                onClick={() => setActiveAction(null)}
+                                                className="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white font-medium transition-colors flex items-center justify-center gap-2"
+                                            >
+                                                <ChevronLeft className="w-4 h-4" />
+                                                Back
+                                            </button>
+
+                                            {/* Warning Messages */}
+                                            <div className="space-y-3">
+                                                <div className="p-4 rounded-xl bg-orange-500/10 border border-orange-500/30">
+                                                    <div className="flex items-start gap-3">
+                                                        <div className="text-orange-400 mt-0.5">⚠️</div>
+                                                        <div>
+                                                            <p className="text-sm font-bold text-orange-400 mb-1">
+                                                                THIS IS NOT BURN-TO-MINT
+                                                            </p>
+                                                            <p className="text-xs text-orange-300">
+                                                                Burn-to-mint is a different action that only happens through the Stargaze Launchpad. Burning a token via this action is irreversible.
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30">
+                                                    <div className="flex items-start gap-3">
+                                                        <div className="text-red-400 mt-0.5">🔥</div>
+                                                        <div>
+                                                            <p className="text-sm font-bold text-red-400 mb-1">
+                                                                BURNING IS IRREVERSIBLE
+                                                            </p>
+                                                            <p className="text-xs text-red-300">
+                                                                Burning is an irreversible action and deletes your item from the blockchain. Make sure you have selected the correct one, and intend to perform this action.
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <button
+                                                onClick={handleBurn}
+                                                disabled={isBurning}
+                                                className="w-full py-4 rounded-xl bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white font-bold transition-colors flex items-center justify-center gap-2"
+                                            >
+                                                {isBurning ? (
+                                                    <>
+                                                        <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                                        Burning...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Flame className="w-4 h-4" />
+                                                        Burn NFT
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* Auction Placeholder */}
+                                    {activeAction === 'auction' && (
                                         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
                                             <button
                                                 onClick={() => setActiveAction(null)}
@@ -506,11 +579,9 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
 
                                             <div className="p-8 rounded-xl bg-white/5 border border-white/10 text-center">
                                                 <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-purple-500/10 text-purple-400 mb-4">
-                                                    {activeAction === 'auction' && <Gavel className="w-6 h-6" />}
-                                                    {activeAction === 'transfer' && <Send className="w-6 h-6" />}
-                                                    {activeAction === 'burn' && <Flame className="w-6 h-6" />}
+                                                    <Gavel className="w-6 h-6" />
                                                 </div>
-                                                <h3 className="text-lg font-bold text-white mb-1 capitalize">{activeAction} NFT</h3>
+                                                <h3 className="text-lg font-bold text-white mb-1">Auction NFT</h3>
                                                 <p className="text-gray-400">This feature is coming soon!</p>
                                             </div>
                                         </div>
