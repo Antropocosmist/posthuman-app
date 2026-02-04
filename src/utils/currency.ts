@@ -57,10 +57,25 @@ export const formatPrice = (amount: string | number | undefined, denom: string |
         value = value / 1_000_000
     }
 
-    // Format number: Max 2 decimals if integer-ish, else up to 6
-    const formattedValue = value.toLocaleString(undefined, {
-        maximumFractionDigits: value % 1 === 0 ? 0 : 2
-    })
+    // Format number: Max 2 decimals if integer-ish, else up to 6 for small numbers
+    let formattedValue = '';
+
+    // DEBUG: Log price formatting attempt
+    if (value > 0 && value < 0.01) {
+        console.log('[Currency] Formatting small value:', { amount, denom, value, symbol })
+    }
+
+    if (value < 1 && value > 0) {
+        // Force manual string representation for small numbers to avoid toLocaleString rounding weirdness
+        formattedValue = value.toString();
+        if (formattedValue.length > 8) {
+            formattedValue = value.toFixed(6).replace(/\.?0+$/, '')
+        }
+    } else {
+        formattedValue = value.toLocaleString(undefined, {
+            maximumFractionDigits: value < 1 ? 6 : (value % 1 === 0 ? 0 : 2)
+        })
+    }
 
     return `${formattedValue} ${symbol}`
 }
