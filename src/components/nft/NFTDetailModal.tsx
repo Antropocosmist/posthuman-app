@@ -43,7 +43,10 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
             if (nft.chain === 'stargaze') {
                 code = 'STARS'
                 denom = 'ustars'
-            } else if (['ethereum', 'polygon', 'base', 'optimism', 'arbitrum'].includes(nft.chain)) {
+            } else if (nft.chain === 'polygon') {
+                code = 'WETH'
+                denom = 'WETH'
+            } else if (['ethereum', 'base', 'optimism', 'arbitrum'].includes(nft.chain)) {
                 code = 'ETH'
                 denom = 'ETH'
             } else if (nft.chain === 'solana') {
