@@ -105,7 +105,7 @@ export class OpenSeaNFTService implements NFTServiceInterface {
 
             // Case 1: Fetching by Seller (My Listings)
             if (filters?.seller) {
-                // Endpoint: https://api.opensea.io/api/v2/orders/{chain}/seaport/listings?maker={address}
+                // Endpoint: https://api.opensea.io/api/v2/orders/${chain}/seaport/listings?maker=${address}
                 url = `https://api.opensea.io/api/v2/orders/${chain}/seaport/listings?maker=${filters.seller}`
             }
             // Case 2: Fetching by Collection (if valid slug provided)
@@ -482,18 +482,20 @@ export class OpenSeaNFTService implements NFTServiceInterface {
 
             console.log('[OpenSea] Initializing SDK for cancellation on chain:', chain)
 
-            // 2. Initialize OpenSea SDK with the PROVIDER (not window.ethereum direct)
-            const sdk = new OpenSeaSDK(provider as any, {
+            // 2. Initialize OpenSea SDK 
+            // We pass window.ethereum directly to ensure it has full access to the wallet accounts
+            // ethers.BrowserProvider wrapper sometimes hides the account access from the SDK's internal checks
+            const sdk = new OpenSeaSDK(window.ethereum as any, {
                 chain,
                 apiKey: OPENSEA_API_KEY,
             })
 
-            console.log(`[OpenSea] Calling cancelOrder for: ${listingId} on account: ${sellerAddress}`)
+            console.log(`[OpenSea] Calling cancelOrder for: ${listingId} on account: ${signerAddress}`)
 
             // 3. Cancel the order
             const result = await sdk.cancelOrder({
                 orderHash: listingId,
-                accountAddress: sellerAddress,
+                accountAddress: signerAddress, // Use the signer address to ensure it matches the connected wallet
             }) as any
 
             console.log('[OpenSea] Cancel order result:', result)
