@@ -65,11 +65,17 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
                             const val = stats.floorPrice
 
                             // Dynamic Currency from Stats (Stargaze)
+                            // For Polygon/OpenSea, stats often return 'ETH' but we want to show 'WETH' for listings
                             if (stats.floorPriceCurrency) {
-                                code = stats.floorPriceCurrency
+                                if (nft.chain === 'polygon' && stats.floorPriceCurrency === 'ETH') {
+                                    code = 'WETH' // Enforce WETH for Polygon
+                                } else {
+                                    code = stats.floorPriceCurrency
+                                }
                                 setCurrencyCode(code)
                             }
                             if (stats.floorPriceDenom) {
+                                // Same override for denom if needed, but usually Opensea doesn't return floorPriceDenom property like Stargaze
                                 setListingCurrency(stats.floorPriceDenom)
                             }
 
