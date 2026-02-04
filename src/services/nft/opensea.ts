@@ -462,17 +462,24 @@ export class OpenSeaNFTService implements NFTServiceInterface {
                 throw new Error('Connected wallet does not match seller address')
             }
 
+            console.log('[OpenSea] Initializing SDK for cancellation on chain:', chain)
             // Initialize OpenSea SDK with signer
-            const sdk = new OpenSeaSDK(provider as any, {
+            // Try passing window.ethereum directly if provider wrapping is causing issues
+            const ethProvider = window.ethereum as any
+            const sdk = new OpenSeaSDK(ethProvider, {
                 chain,
                 apiKey: OPENSEA_API_KEY,
             })
+
+            console.log('[OpenSea] Calling cancelOrder for:', listingId)
 
             // Cancel the order using OpenSea SDK
             const result = await sdk.cancelOrder({
                 orderHash: listingId,
                 accountAddress: sellerAddress,
             }) as any
+
+            console.log('[OpenSea] Cancel order result:', result)
 
             const txHash = result.hash || result.transactionHash || result
             console.log('Cancel listing successful:', txHash)
