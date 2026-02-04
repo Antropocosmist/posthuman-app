@@ -482,10 +482,10 @@ export class OpenSeaNFTService implements NFTServiceInterface {
 
             console.log('[OpenSea] Initializing SDK for cancellation on chain:', chain)
 
-            // 2. Initialize OpenSea SDK 
-            // We pass window.ethereum directly to ensure it has full access to the wallet accounts
-            // ethers.BrowserProvider wrapper sometimes hides the account access from the SDK's internal checks
-            const sdk = new OpenSeaSDK(window.ethereum as any, {
+            // 2. Initialize OpenSea SDK with the SIGNER directly
+            // Passing the signer ensures the SDK has immediate access to the authenticated account
+            // and bypasses potential provider discovery issues.
+            const sdk = new OpenSeaSDK(signer as any, {
                 chain,
                 apiKey: OPENSEA_API_KEY,
             })
