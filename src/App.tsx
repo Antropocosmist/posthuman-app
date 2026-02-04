@@ -1,22 +1,22 @@
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-import { Layout } from './components/Layout'
-import { Dashboard } from './pages/Dashboard'
-import { Trade } from './pages/Trade'
-import { Profile } from './pages/Profile'
-import { PHMN } from './pages/PHMN'
-import { NFTs } from './pages/NFTs'
-import { Settings } from './pages/Settings'
+import { Layout } from './shared/components/Layout'
+import { Dashboard } from './features/dashboard/pages/Dashboard'
+import { Trade } from './features/trade/pages/Trade'
+import { Profile } from './features/profile/pages/Profile'
+import { PHMN } from './features/phmn/pages/PHMN'
+import { NFTs } from './features/nft/pages/NFTs'
+import { Settings } from './features/profile/pages/Settings'
 
 // Placeholder for Chat
 const Chat = () => <div className="text-2xl font-bold">Chat System</div>
 
-import { auth } from './config/firebase'
+import { auth } from './shared/config/firebase'
 import { onAuthStateChanged } from 'firebase/auth'
 
 // ... imports remain ...
 
-import { useWalletStore } from './store/walletStore'
+import { useWalletStore } from './features/wallet/store/walletStore'
 
 function App() {
   const [isAuthProcessing, setIsAuthProcessing] = useState(true)
