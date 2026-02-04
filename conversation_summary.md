@@ -7,30 +7,49 @@
 - **Library**: `opensea-js` v8+, `ethers` v6.
 
 ## The Problem
-When trying to cancel a listing on Polygon, the OpenSea SDK throws the following error:
-> `Error: Specified accountAddress is not available through wallet or provider: <CHECKSUMMED_ADDRESS>. Accounts available: none`
+When trying to cancel a listing on Polygon, the OpenSea SDK throws:
+> `Error: Specified accountAddress is not available through wallet or provider: <ADDRESS>. Accounts available: none`
 
-## Current Implementation State
-- File: `src/services/nft/opensea.ts`
-- Method: `cancelListing`
-- We are initializing the SDK using `window.ethereum` (to support Seaport transactions).
-- We explicitly call `eth_requestAccounts` and `wallet_switchEthereumChain` *before* initializing the SDK.
-- We pass the **canonical address** (found from `eth_requestAccounts`) to the `cancelOrder` method.
+## Root Cause
+The `opensea-js` SDK performs an internal check (`_requireAccountIsAvailable`) by querying the provider for accounts.
+However, due to a compatibility issue or race condition, this internal query returns an empty list `[]`, even though `window.ethereum.request({ method: 'eth_requestAccounts' })` successfully returns the user's address in our own code.
 
-## What We Have Tried
-1.  **Using `signer`**: Passed `ethers.Signer` to `OpenSeaSDK`.
-    *   *Result*: SDK initialized, but `cancelOrder` hung indefinitely (likely because `Signer` doesn't implement the full JSON-RPC provider methods needed for Seaport).
-2.  **Using `window.ethereum`**: Passed `window.ethereum` to `OpenSeaSDK`.
-    *   *Result*: "Specified accountAddress is not available".
-3.  **Forcing Auth**: Manually called `eth_requestAccounts` before SDK init.
-    *   *Result*: Same error. The log shows "Accounts available: none", implying the SDK's internal provider call to `eth_accounts` returns an empty list.
+## The Solution: Proxy Provider
+To fix this, we must **force** the SDK to see the active account by wrapping `window.ethereum` in a `Proxy`. This Proxy intercepts `eth_accounts` calls and returns the known address, bypassing the faulty check.
 
-## Technical Findings
-- We checked `node_modules/opensea-js/src/sdk.ts` and found the error comes from `_requireAccountIsAvailable`.
-- It calls `this.web3.eth.getAccounts()` (or equivalent internal method) and checks if `accountAddress` is in the list.
-- **Crucial Observation**: Even though we can fetch accounts in our code, the SDK *cannot* see them. This suggests a mismatch in the provider wrapper or a race condition where the SDK's internal provider state is stale/empty.
+## Status
+- The text for the Proxy fix was prepared but **failed to apply/push** in the previous session due to a tool error.
+- **IMMEDIATE ACTION REQUIRED**: The next agent must apply the Proxy implementation to `src/services/nft/opensea.ts`.
 
-## Suggested Next Steps
-1.  **Mock/Proxy the Provider**: Instead of passing `window.ethereum` directly, pass a Proxy object that intercepts `eth_accounts` and forces it to return the connected address. This bypasses the SDK's broken check.
-2.  **Downgrade/Upgrade SDK**: Check if this is a known issue with `opensea-js` v8 + Ethers v6 compatibility.
-3.  **Debug SDK Provider**: Add logs *inside* `node_modules/opensea-js` to see exactly what provider it is using and what `eth_accounts` returns at runtime.
+## Implementation Guide (Use this code)
+In `cancelListing` method of `src/services/nft/opensea.ts`:
+
+```typescript
+// ... inside cancelListing, after verifying 'canonicalAccount' ...
+
+// WRAP THE PROVIDER
+const providerProxy = new Proxy(window.ethereum as any, {
+    get(target, prop, receiver) {
+        if (prop === 'request') {
+            return async (args: any) => {
+                // Intercept account requests
+                if (args.method === 'eth_accounts' || args.method === 'eth_requestAccounts') {
+                    return [canonicalAccount];
+                }
+                // Pass through everything else (signing, transactions)
+                return target.request(args);
+            };
+        }
+        return Reflect.get(target, prop, receiver);
+    }
+});
+
+// INITIALIZE SDK WITH PROXY
+const sdk = new OpenSeaSDK(providerProxy, {
+    chain,
+    apiKey: OPENSEA_API_KEY,
+})
+
+// EXECUTE
+await sdk.cancelOrder({ orderHash: listingId, accountAddress: canonicalAccount });
+```
