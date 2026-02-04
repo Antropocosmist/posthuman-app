@@ -83,11 +83,12 @@ export function NFTCard({ nft, onClick }: NFTCardProps) {
                     {nft.collection.name}
                 </p>
 
+
                 {/* Floor Price */}
-                {nft.collection.floorPrice && (
+                {nft.collection.floorPrice && nft.collection.floorPriceDenom && (
                     <div className="mt-2 pt-2 border-t border-white/5">
                         <p className="text-xs text-gray-500">
-                            Floor: <span className="text-white font-medium">{nft.collection.floorPrice}</span>
+                            Floor: <span className="text-white font-medium">{formatPrice(nft.collection.floorPrice, nft.collection.floorPriceDenom)}</span>
                         </p>
                     </div>
                 )}
