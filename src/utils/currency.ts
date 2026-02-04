@@ -60,11 +60,6 @@ export const formatPrice = (amount: string | number | undefined, denom: string |
     // Format number: Max 2 decimals if integer-ish, else up to 6 for small numbers
     let formattedValue = '';
 
-    // DEBUG: Log price formatting attempt
-    if (value > 0 && value < 0.01) {
-        console.log('[Currency] Formatting small value:', { amount, denom, value, symbol })
-    }
-
     if (value < 1 && value > 0) {
         // Force manual string representation for small numbers to avoid toLocaleString rounding weirdness
         formattedValue = value.toString();

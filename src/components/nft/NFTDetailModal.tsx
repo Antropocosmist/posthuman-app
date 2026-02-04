@@ -105,11 +105,6 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
 
         // Prevent buying own listing
         const isOwner = wallets.some(w => w.address.toLowerCase() === listing.seller.toLowerCase())
-        console.log('[NFTDetailModal] Check Owner:', {
-            isOwner,
-            listingSeller: listing.seller,
-            myWallets: wallets.map(w => w.address)
-        })
 
         if (isOwner) {
             console.warn("Cannot buy your own listing")

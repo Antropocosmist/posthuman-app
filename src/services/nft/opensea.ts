@@ -204,10 +204,8 @@ export class OpenSeaNFTService implements NFTServiceInterface {
                     const integer = val.slice(0, val.length - 18)
                     const decimal = val.slice(val.length - 18).replace(/0+$/, '')
                     formattedPrice = decimal ? `${integer}.${decimal}` : integer
-                    console.log('[OpenSea] Ethers returned 0, used manual fallback:', formattedPrice)
                 }
 
-                console.log('[OpenSea] Final Formatted Price:', formattedPrice)
 
                 // Determine currency
                 let currency = 'ETH'
