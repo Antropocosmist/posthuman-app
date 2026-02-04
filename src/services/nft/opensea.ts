@@ -463,7 +463,19 @@ export class OpenSeaNFTService implements NFTServiceInterface {
                 chain = network.chainId === 137n ? Chain.Polygon : Chain.Mainnet
             }
 
-            // 1. Force Network Switch if needed
+            // 1. Ensure Wallet is Connected & Accounts are Available
+            // We do this FIRST to ensure the provider is "hot" and ready for the SDK.
+            console.log('[OpenSea] Requesting accounts...')
+            const providerAccounts = await window.ethereum.request({ method: 'eth_requestAccounts' }) as string[] || []
+            const canonicalAccount = providerAccounts.find(a => a.toLowerCase() === signerAddress.toLowerCase())
+
+            if (!canonicalAccount) {
+                // If the specific signer address isn't in the active accounts, we can't proceed
+                throw new Error(`Account ${signerAddress} is not active in your wallet. Please select it.`)
+            }
+
+            // 2. Force Network Switch if needed
+            // The SDK requires the provider to be on the correct chain for transaction signing
             try {
                 const currentNetwork = await provider.getNetwork()
                 const currentChainIdHex = '0x' + currentNetwork.chainId.toString(16)
@@ -482,25 +494,12 @@ export class OpenSeaNFTService implements NFTServiceInterface {
 
             console.log('[OpenSea] Initializing SDK for cancellation on chain:', chain)
 
-            // 2. Initialize OpenSea SDK with window.ethereum (REQUIRED for Seaport transactions)
-            // We revert to using the raw provider because 'signer' objects often lack the full JSON-RPC
-            // methods required by the SDK to build and submit complex Seaport transactions.
+            // 3. Initialize OpenSea SDK with window.ethereum
+            // Now that we've confirmed the account and chain, the SDK should see the correct state.
             const sdk = new OpenSeaSDK(window.ethereum as any, {
                 chain,
                 apiKey: OPENSEA_API_KEY,
             })
-
-            // 3. Resolve Payload Address
-            // The SDK validates that 'accountAddress' exists in the provider's accounts.
-            // We fetch the accounts directly to ensure we pass the EXACT string the provider knows.
-            // This prevents "Account not available" errors due to case sensitivity (0xabc vs 0xABC).
-            const providerAccounts = await window.ethereum.request({ method: 'eth_accounts' }) as string[] || []
-            const canonicalAccount = providerAccounts.find(a => a.toLowerCase() === signerAddress.toLowerCase())
-
-            if (!canonicalAccount) {
-                // Should not happen if signer worked, but safety check
-                throw new Error(`Account ${signerAddress} not found in wallet provider`)
-            }
 
             console.log(`[OpenSea] Calling cancelOrder for: ${listingId} on account: ${canonicalAccount}`)
 
