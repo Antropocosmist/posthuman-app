@@ -194,11 +194,14 @@ export class OpenSeaNFTService implements NFTServiceInterface {
                 if (chain === 'polygon') currency = 'WETH' // Polygon listings usually WETH
                 if (chain === 'base') currency = 'ETH'
 
+                // Safely extract maker address (API can return string or object)
+                const makerAddress = typeof item.maker === 'string' ? item.maker : (item.maker?.address || filters?.seller || '')
+
                 return {
                     nft: convertOpenSeaNFT(nftData, chain as any),
                     price: formattedPrice,
                     currency: currency,
-                    seller: item.maker?.address || filters?.seller || '',
+                    seller: makerAddress,
                     listingId: item.order_hash || '',
                     marketplace: 'opensea' as const,
                     createdAt: new Date(item.created_date || Date.now()),
