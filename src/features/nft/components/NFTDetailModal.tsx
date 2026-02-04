@@ -4,6 +4,7 @@ import type { NFT } from '../types/types'
 import { useNFTStore } from '../store/nftStore'
 import { useWalletStore } from '../../wallet/store/walletStore'
 import { formatPrice } from '../../../shared/utils/currency'
+import { validateAddress } from '../../../shared/utils/addressValidation'
 
 interface NFTDetailModalProps {
     nft: NFT | null
@@ -18,6 +19,7 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
     const [activeAction, setActiveAction] = useState<'sell' | 'transfer' | 'burn' | 'auction' | null>(null)
     const [duration, setDuration] = useState<number>(30) // Default 30 days
     const [recipientAddress, setRecipientAddress] = useState<string>('')
+    const [addressError, setAddressError] = useState<string>('')
 
     const {
         isListing,
@@ -154,11 +156,35 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
     const handleTransfer = async () => {
         if (!recipientAddress) return
 
+        // Validate address format
+        const validation = validateAddress(recipientAddress, nft.chain)
+        if (!validation.valid) {
+            setAddressError(validation.error || 'Invalid address')
+            return
+        }
+
         try {
             await transferNFT(nft, recipientAddress)
             onClose()
         } catch (error) {
             console.error('Transfer failed:', error)
+        }
+    }
+
+    const handleRecipientAddressChange = (value: string) => {
+        setRecipientAddress(value)
+
+        // Clear error when user starts typing
+        if (addressError) {
+            setAddressError('')
+        }
+
+        // Validate on change if address is not empty
+        if (value.trim()) {
+            const validation = validateAddress(value, nft.chain)
+            if (!validation.valid) {
+                setAddressError(validation.error || 'Invalid address')
+            }
         }
     }
 
@@ -431,19 +457,25 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
                                                 </label>
                                                 <input
                                                     type="text"
-                                                    placeholder={nft.chain === 'stargaze' ? 'stars1...' : 'Enter recipient address'}
+                                                    placeholder={nft.chain === 'stargaze' ? 'stars1...' : nft.chain === 'solana' ? 'Solana address...' : '0x...'}
                                                     value={recipientAddress}
-                                                    onChange={(e) => setRecipientAddress(e.target.value)}
-                                                    className="w-full px-4 py-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:border-purple-500 focus:outline-none font-mono text-sm"
+                                                    onChange={(e) => handleRecipientAddressChange(e.target.value)}
+                                                    className={`w-full px-4 py-4 rounded-xl bg-white/5 border ${addressError ? 'border-red-500' : 'border-white/10'} text-white placeholder-gray-500 focus:border-purple-500 focus:outline-none font-mono text-sm`}
                                                 />
-                                                <p className="text-xs text-gray-500 px-1">
-                                                    ⚠️ Make sure the address is correct - transfers cannot be reversed!
-                                                </p>
+                                                {addressError ? (
+                                                    <p className="text-xs text-red-400 px-1">
+                                                        ❌ {addressError}
+                                                    </p>
+                                                ) : (
+                                                    <p className="text-xs text-gray-500 px-1">
+                                                        ⚠️ Make sure the address is correct - transfers cannot be reversed!
+                                                    </p>
+                                                )}
                                             </div>
 
                                             <button
                                                 onClick={handleTransfer}
-                                                disabled={!recipientAddress || isTransferring}
+                                                disabled={!recipientAddress || isTransferring || !!addressError}
                                                 className="w-full py-4 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white font-bold transition-colors flex items-center justify-center gap-2 shadow-lg shadow-purple-500/20"
                                             >
                                                 {isTransferring ? (
