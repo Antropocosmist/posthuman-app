@@ -482,20 +482,32 @@ export class OpenSeaNFTService implements NFTServiceInterface {
 
             console.log('[OpenSea] Initializing SDK for cancellation on chain:', chain)
 
-            // 2. Initialize OpenSea SDK with the SIGNER directly
-            // Passing the signer ensures the SDK has immediate access to the authenticated account
-            // and bypasses potential provider discovery issues.
-            const sdk = new OpenSeaSDK(signer as any, {
+            // 2. Initialize OpenSea SDK with window.ethereum (REQUIRED for Seaport transactions)
+            // We revert to using the raw provider because 'signer' objects often lack the full JSON-RPC
+            // methods required by the SDK to build and submit complex Seaport transactions.
+            const sdk = new OpenSeaSDK(window.ethereum as any, {
                 chain,
                 apiKey: OPENSEA_API_KEY,
             })
 
-            console.log(`[OpenSea] Calling cancelOrder for: ${listingId} on account: ${signerAddress}`)
+            // 3. Resolve Payload Address
+            // The SDK validates that 'accountAddress' exists in the provider's accounts.
+            // We fetch the accounts directly to ensure we pass the EXACT string the provider knows.
+            // This prevents "Account not available" errors due to case sensitivity (0xabc vs 0xABC).
+            const providerAccounts = await window.ethereum.request({ method: 'eth_accounts' }) as string[] || []
+            const canonicalAccount = providerAccounts.find(a => a.toLowerCase() === signerAddress.toLowerCase())
 
-            // 3. Cancel the order
+            if (!canonicalAccount) {
+                // Should not happen if signer worked, but safety check
+                throw new Error(`Account ${signerAddress} not found in wallet provider`)
+            }
+
+            console.log(`[OpenSea] Calling cancelOrder for: ${listingId} on account: ${canonicalAccount}`)
+
+            // 4. Cancel the order
             const result = await sdk.cancelOrder({
                 orderHash: listingId,
-                accountAddress: signerAddress, // Use the signer address to ensure it matches the connected wallet
+                accountAddress: canonicalAccount,
             }) as any
 
             console.log('[OpenSea] Cancel order result:', result)
