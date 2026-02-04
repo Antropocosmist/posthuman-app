@@ -5,7 +5,7 @@ import { getStorage } from "firebase/storage";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-    apiKey: "AIzaSyB1rOehhgvjyqQMR7ZYs2dPDzOM76_5qyg",
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
     authDomain: "posthuman-app-55b32.firebaseapp.com",
     projectId: "posthuman-app-55b32",
     storageBucket: "posthuman-app-55b32.firebasestorage.app",

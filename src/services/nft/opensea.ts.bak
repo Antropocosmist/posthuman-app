@@ -1,5 +1,5 @@
 import { OpenSeaSDK, Chain } from 'opensea-js'
-import { ethers, formatUnits } from 'ethers'
+import { ethers } from 'ethers'
 import type { NFT, MarketplaceListing, NFTCollection, NFTFilters, NFTServiceInterface } from './types'
 
 // OpenSea API configuration
@@ -14,14 +14,7 @@ function convertOpenSeaNFT(openseaNFT: any, chain: 'ethereum' | 'polygon' | 'bas
     // OpenSea API v2 can return 'collection' as string (slug) or object
     const collectionRaw = openseaNFT.collection
     const collectionSlug = typeof collectionRaw === 'string' ? collectionRaw : (collectionRaw?.slug || contractAddress)
-    // Helper to format slug into Title Case (e.g. "wildcard-flair" -> "Wildcard Flair")
-    const formatSlug = (s: string) => s.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
-
-    // If collection is a string (slug) or missing name, fallback to properly formatted slug, then contract name
-    const collectionName = (typeof collectionRaw === 'object' ? collectionRaw.name : undefined)
-        || (collectionSlug && collectionSlug !== contractAddress ? formatSlug(collectionSlug) : undefined)
-        || contractRaw?.name
-        || 'Unknown Collection'
+    const collectionName = typeof collectionRaw === 'object' ? (collectionRaw.name || contractRaw?.name) : 'Unknown Collection'
 
     // Use identifier or token_id
     const tokenId = openseaNFT.identifier || openseaNFT.token_id || ''
@@ -98,131 +91,33 @@ export class OpenSeaNFTService implements NFTServiceInterface {
      */
     async fetchMarketplaceListings(filters?: NFTFilters): Promise<MarketplaceListing[]> {
         try {
-            // Determine chain: use filter if provided, otherwise default to ethereum
-            const chain = filters?.chain || (filters?.ecosystem === 'evm' ? 'ethereum' : 'ethereum')
-
-            let url = ''
-
-            // Case 1: Fetching by Seller (My Listings)
-            if (filters?.seller) {
-                // Endpoint: https://api.opensea.io/api/v2/orders/{chain}/seaport/listings?maker={address}
-                url = `https://api.opensea.io/api/v2/orders/${chain}/seaport/listings?maker=${filters.seller}`
-            }
-            // Case 2: Fetching by Collection (if valid slug provided)
-            else if (filters?.collection && filters.collection !== 'all') {
-                url = `https://api.opensea.io/api/v2/listings/collection/${filters.collection}/all`
-            }
-            // Case 3: Fallback (unsupported generic 'all' fetch, returns empty or featured)
-            else {
-                // OpenSea doesn't support "get all listings for everything". 
-                // We return empty to avoid 404s/400s or useless data.
-                return []
-            }
-
-            console.log(`[OpenSea] Fetching listings from: ${url}`)
-
-            const hasApiKey = !!OPENSEA_API_KEY;
-            console.log(`[OpenSea] Using API Key: ${hasApiKey ? 'YES' : 'NO'}`);
-
+            // Use OpenSea API to fetch listings
+            const chain = filters?.ecosystem === 'evm' ? 'ethereum' : 'ethereum'
             const response = await fetch(
-                url,
+                `https://api.opensea.io/api/v2/listings/collection/${filters?.collection || 'all'}/all`,
                 {
                     headers: OPENSEA_API_KEY ? { 'X-API-KEY': OPENSEA_API_KEY } : {},
                 }
             )
 
             if (!response.ok) {
-                console.error(`[OpenSea] listings API error (${url}): ${response.status} ${response.statusText}`);
-                if (response.status === 401 || response.status === 403) {
-                    console.error("[OpenSea] 🚨 API Key Missing or Invalid! The 'orders' endpoint likely requires a valid API Key.");
-                }
+                console.warn('OpenSea listings API error:', response.statusText)
                 return []
             }
 
             const data = await response.json()
-            console.log(`[OpenSea] Raw listings data for ${chain}:`, data)
+            const listings = data.listings || []
 
-            // Response structure differs slightly between 'orders' and 'listings' endpoints
-            // 'orders' endpoint returns { orders: [...] }
-            // 'listings' endpoint returns { listings: [...] }
-            const listings = data.orders || data.listings || []
-            console.log(`[OpenSea] Found ${listings.length} listings/orders`)
-
-            return listings.map((item: any) => {
-                // If it's an order object (from maker query), structure is flatter or different
-                // If it's a listing object (from collection query), it might be different
-                // Standardizing extraction:
-
-                // Order object usually has 'maker' and 'current_price'
-                // Listing object usually has 'price.current.value'
-
-                // Extraction for Orders endpoint:
-                // Check protocol_data if available
-                const nftData = item.maker_asset_bundle?.assets?.[0]
-                    || item.protocol_data?.parameters?.offer?.[0]
-                    || {}
-
-                // Price is usually in Wei for EVM chains
-                const rawPrice = item.current_price
-                    || item.price?.current?.value
-                    || '0'
-
-                // DEBUG: Inspect the item structure for price and maker issues
-                if (item.order_hash || rawPrice === '0') {
-                    console.log('[OpenSea] Processing Item:', {
-                        hash: item.order_hash,
-                        current_price: item.current_price,
-                        rawPrice,
-                        maker: item.maker
-                    })
-                }
-
-                // Format price (assuming 18 decimals for ETH/WETH/MATIC default)
-                let formattedPrice = '0'
-                try {
-                    formattedPrice = formatUnits(rawPrice, 18)
-                } catch (e) {
-                    console.error('[OpenSea] Price format error (ethers), using fallback:', e)
-                    // Manual fallback for 18 decimals
-                    try {
-                        const val = rawPrice.padStart(19, '0')
-                        const integer = val.slice(0, val.length - 18)
-                        const decimal = val.slice(val.length - 18).replace(/0+$/, '')
-                        formattedPrice = decimal ? `${integer}.${decimal}` : integer
-                    } catch (fallbackError) {
-                        formattedPrice = '0'
-                    }
-                }
-
-                // Double check for "0.0" or "0" result from ethers if rawPrice was NOT 0
-                if ((formattedPrice === '0' || formattedPrice === '0.0') && rawPrice !== '0') {
-                    // Try manual fallback again if ethers returned 0 unexpectedly
-                    const val = rawPrice.padStart(19, '0')
-                    const integer = val.slice(0, val.length - 18)
-                    const decimal = val.slice(val.length - 18).replace(/0+$/, '')
-                    formattedPrice = decimal ? `${integer}.${decimal}` : integer
-                }
-
-
-                // Determine currency
-                let currency = 'ETH'
-                if (chain === 'polygon') currency = 'WETH' // Polygon listings usually WETH
-                if (chain === 'base') currency = 'ETH'
-
-                // Safely extract maker address (API can return string or object)
-                const makerAddress = typeof item.maker === 'string' ? item.maker : (item.maker?.address || filters?.seller || '')
-
-                return {
-                    nft: convertOpenSeaNFT(nftData, chain as any),
-                    price: formattedPrice,
-                    currency: currency,
-                    seller: makerAddress,
-                    listingId: item.order_hash || '',
-                    marketplace: 'opensea' as const,
-                    createdAt: new Date(item.created_date || Date.now()),
-                    expiresAt: item.expiration_time ? new Date(item.expiration_time * 1000) : undefined,
-                }
-            })
+            return listings.map((listing: any) => ({
+                nft: convertOpenSeaNFT(listing.protocol_data?.parameters?.offer?.[0] || {}, chain as any),
+                price: listing.price?.current?.value || '0',
+                currency: listing.price?.current?.currency || 'ETH',
+                seller: listing.maker?.address || '',
+                listingId: listing.order_hash || '',
+                marketplace: 'opensea' as const,
+                createdAt: new Date(listing.created_date || Date.now()),
+                expiresAt: listing.expiration_time ? new Date(listing.expiration_time * 1000) : undefined,
+            }))
         } catch (error) {
             console.error('Error fetching marketplace listings from OpenSea:', error)
             return []
@@ -432,76 +327,48 @@ export class OpenSeaNFTService implements NFTServiceInterface {
     /**
      * Cancel an existing listing
      */
-    async cancelListing(listingId: string, sellerAddress: string, chainName?: string): Promise<string> {
+    async cancelListing(listingId: string, sellerAddress: string): Promise<string> {
         try {
             // Check if MetaMask is available
             if (!window.ethereum) {
                 throw new Error('Please install MetaMask to cancel listings on OpenSea')
             }
 
+            // We don't strictly know the chain from ID, but usually it's tied to the current context.
+            // Ideally we should pass chain. For now, assume Ethereum or infer if possible.
+            // But we can check the current network and warn if it seems wrong?
+            // Better strategy: Try to infer from listingId length? No.
+            // Let's assume the user is on the right chain or we default to Ethereum.
+            // Or better, check current chain and use that SDK instance.
+
             const provider = new ethers.BrowserProvider(window.ethereum)
+            const network = await provider.getNetwork()
+            const chain = network.chainId === 137n ? Chain.Polygon : Chain.Mainnet
+
+            // Create ethers provider and signer
             const signer = await provider.getSigner()
 
             // Verify the seller address matches the signer
             const signerAddress = await signer.getAddress()
             if (signerAddress.toLowerCase() !== sellerAddress.toLowerCase()) {
-                throw new Error(`Connected wallet (${signerAddress}) does not match listing owner (${sellerAddress})`)
+                throw new Error('Connected wallet does not match seller address')
             }
 
-            // Determine target chain enum and ID
-            let chain = Chain.Mainnet
-            let targetChainId = '0x1'
-
-            if (chainName) {
-                if (chainName === 'polygon') { chain = Chain.Polygon; targetChainId = '0x89'; }
-                else if (chainName === 'base') { chain = Chain.Base; targetChainId = '0x2105'; }
-                else if (chainName === 'arbitrum') { chain = Chain.Arbitrum; targetChainId = '0xa4b1'; }
-                else if (chainName === 'optimism') { chain = Chain.Optimism; targetChainId = '0xa'; }
-            } else {
-                // Fallback if no chain name provided
-                const network = await provider.getNetwork()
-                chain = network.chainId === 137n ? Chain.Polygon : Chain.Mainnet
-            }
-
-            // 1. Force Network Switch if needed
-            try {
-                const currentNetwork = await provider.getNetwork()
-                const currentChainIdHex = '0x' + currentNetwork.chainId.toString(16)
-
-                // Only switch if we have a specific target rule and we aren't on it
-                if (chainName && currentChainIdHex !== targetChainId) {
-                    console.log(`[OpenSea] Switching network to ${chainName} (${targetChainId})...`)
-                    await window.ethereum.request({
-                        method: 'wallet_switchEthereumChain',
-                        params: [{ chainId: targetChainId }],
-                    });
-                }
-            } catch (switchError) {
-                console.warn('[OpenSea] Failed to switch network automatically:', switchError)
-            }
-
-            console.log('[OpenSea] Initializing SDK for cancellation on chain:', chain)
-
-            // 2. Initialize OpenSea SDK with the PROVIDER (not window.ethereum direct)
+            // Initialize OpenSea SDK with signer
             const sdk = new OpenSeaSDK(provider as any, {
                 chain,
                 apiKey: OPENSEA_API_KEY,
             })
 
-            console.log(`[OpenSea] Calling cancelOrder for: ${listingId} on account: ${sellerAddress}`)
-
-            // 3. Cancel the order
+            // Cancel the order using OpenSea SDK
             const result = await sdk.cancelOrder({
                 orderHash: listingId,
                 accountAddress: sellerAddress,
             }) as any
 
-            console.log('[OpenSea] Cancel order result:', result)
-
             const txHash = result.hash || result.transactionHash || result
             console.log('Cancel listing successful:', txHash)
             return typeof txHash === 'string' ? txHash : 'listing-cancelled'
-
         } catch (error) {
             console.error('Error canceling listing on OpenSea:', error)
             throw error

@@ -75,9 +75,6 @@ export interface NFTFilters {
     maxPrice?: string
     traits?: Record<string, string[]>
     sortBy?: 'price_asc' | 'price_desc' | 'recently_listed' | 'recently_sold'
-    seller?: string
-    search?: string
-    chain?: string
 }
 
 export interface NFTServiceInterface {
@@ -97,7 +94,7 @@ export interface NFTServiceInterface {
     listNFT(nft: NFT, price: string, currency: string, sellerAddress: string, durationInSeconds?: number): Promise<string> // returns listing ID
 
     // Cancel listing
-    cancelListing(listingId: string, sellerAddress: string, chain?: string): Promise<string> // returns tx hash
+    cancelListing(listingId: string, sellerAddress: string): Promise<string> // returns tx hash
 
     // Fetch collection stats (floor price, etc)
     getCollectionStats(contractAddress: string): Promise<NFTCollection>
