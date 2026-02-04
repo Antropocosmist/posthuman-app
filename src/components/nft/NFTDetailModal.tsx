@@ -202,13 +202,15 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
                             </p>
                         </div>
 
-                        {/* Price Info */}
-                        <div className="mb-4 p-4 rounded-xl bg-purple-600/10 border border-purple-500/20">
-                            <p className="text-xs text-purple-400 mb-1">Listed Price</p>
-                            <p className="text-2xl font-bold text-white">
-                                {formatPrice(nft.listingPrice, nft.listingCurrency)}
-                            </p>
-                        </div>
+                        {/* Price Info - Only for listed items */}
+                        {(isMarketplaceListing || nft.isListed) && (
+                            <div className="mb-4 p-4 rounded-xl bg-purple-600/10 border border-purple-500/20">
+                                <p className="text-xs text-purple-400 mb-1">Listed Price</p>
+                                <p className="text-2xl font-bold text-white">
+                                    {formatPrice(nft.listingPrice, nft.listingCurrency)}
+                                </p>
+                            </div>
+                        )}
 
                         {floorPriceDisplay && (
                             <div className="mb-4 p-4 rounded-xl bg-white/5 border border-white/5">
