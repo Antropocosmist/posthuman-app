@@ -8,6 +8,9 @@ import type { NFT, NFTCollection, MarketplaceListing, NFTFilters, NFTServiceInte
 const STARGAZE_GRAPHQL_ENDPOINT = 'https://graphql.mainnet.stargaze-apis.com/graphql'
 const STARGAZE_RPC_ENDPOINT = 'https://rpc.stargaze-apis.com'
 const STARGAZE_MARKETPLACE_CONTRACT = 'stars1e6g3yhasf7cr2vnae7qxytrys4e8v8wchyj377juvxfk9k6t695s38jkgw' // Mainnet Marketplace V2
+const STARGAZE_AUCTION_CONTRACT = 'stars1lffsns76e9dg8tf2s779dvjyfu3sgn94l8e8vx24jy8s3lza0t3qf7ckxj' // Auction Contract
+const AUCTION_LISTING_FEE = '5000000' // 5 STARS in ustars
+
 
 // Initialize Apollo Client for Stargaze
 const client = new ApolloClient({
@@ -783,6 +786,118 @@ export class StargazeNFTService implements NFTServiceInterface {
             throw error
         }
     }
+
+    /**
+     * Create an auction for an NFT
+     * This requires two messages in one transaction:
+     * 1. Approve the auction contract to manage the NFT
+     * 2. Create the auction with reserve price and duration
+     */
+    async createAuction(
+        nft: NFT,
+        reservePrice: string,
+        reservePriceDenom: string,
+        durationInSeconds: number,
+        senderAddress: string
+    ): Promise<string> {
+        try {
+            // Get wallet from window (Keplr or Adena)
+            if (!window.keplr && !(window as any).adena) {
+                throw new Error('Please install Keplr or Adena wallet')
+            }
+
+            const wallet = window.keplr || (window as any).adena
+
+            // Enable Stargaze chain
+            await wallet.enable('stargaze-1')
+
+            // Get offline signer
+            const offlineSigner = await wallet.getOfflineSigner('stargaze-1')
+
+            // Create signing client (CosmWasm)
+            const signingClient = await SigningCosmWasmClient.connectWithSigner(
+                STARGAZE_RPC_ENDPOINT,
+                offlineSigner,
+                { gasPrice: GasPrice.fromString('1ustars') }
+            )
+
+            // Calculate expiration time (current time + duration + 5 minute buffer)
+            // Time is in nanoseconds
+            const currentTimeNs = Date.now() * 1_000_000
+            const durationNs = durationInSeconds * 1_000_000_000
+            const bufferNs = 5 * 60 * 1_000_000_000 // 5 minutes
+            const expirationTimeNs = (currentTimeNs + durationNs + bufferNs).toString()
+
+            // Message 1: Approve the auction contract to manage the NFT
+            const approveMsg = {
+                approve: {
+                    spender: STARGAZE_AUCTION_CONTRACT,
+                    token_id: nft.tokenId,
+                    expires: {
+                        at_time: expirationTimeNs
+                    }
+                }
+            }
+
+            const approveExecuteMsg = {
+                typeUrl: '/cosmwasm.wasm.v1.MsgExecuteContract',
+                value: {
+                    sender: senderAddress,
+                    contract: nft.contractAddress, // NFT collection contract
+                    msg: toUtf8(JSON.stringify(approveMsg)),
+                    funds: []
+                }
+            }
+
+            // Message 2: Create auction with 5 STARS listing fee
+            const createAuctionMsg = {
+                create_auction: {
+                    collection: nft.contractAddress,
+                    duration: durationInSeconds,
+                    reserve_price: {
+                        amount: reservePrice,
+                        denom: reservePriceDenom
+                    },
+                    token_id: nft.tokenId,
+                    seller_funds_recipient: senderAddress
+                }
+            }
+
+            const createAuctionExecuteMsg = {
+                typeUrl: '/cosmwasm.wasm.v1.MsgExecuteContract',
+                value: {
+                    sender: senderAddress,
+                    contract: STARGAZE_AUCTION_CONTRACT,
+                    msg: toUtf8(JSON.stringify(createAuctionMsg)),
+                    funds: [
+                        {
+                            amount: AUCTION_LISTING_FEE, // 5 STARS
+                            denom: 'ustars'
+                        }
+                    ]
+                }
+            }
+
+            // Broadcast both messages in a single transaction
+            const result = await signingClient.signAndBroadcast(
+                senderAddress,
+                [approveExecuteMsg, createAuctionExecuteMsg],
+                'auto',
+                'Create NFT Auction'
+            )
+
+            if (result.code !== 0) {
+                throw new Error(`Transaction failed: ${result.rawLog}`)
+            }
+
+            console.log('Auction created successfully:', result.transactionHash)
+            return result.transactionHash
+        } catch (error) {
+            console.error('Error creating auction on Stargaze:', error)
+            throw error
+        }
+    }
+
 
     /**
      * Get collection information

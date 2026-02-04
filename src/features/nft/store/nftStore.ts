@@ -36,6 +36,7 @@ interface NFTStore {
   isListing: boolean;
   isTransferring: boolean;
   isBurning: boolean;
+  isCreatingAuction: boolean;
 
   // Error States
   error: string | null;
@@ -56,6 +57,7 @@ interface NFTStore {
   cancelListing: (nft: NFT) => Promise<void>;
   transferNFT: (nft: NFT, recipientAddress: string) => Promise<string>;
   burnNFT: (nft: NFT) => Promise<string>;
+  createAuction: (nft: NFT, reservePrice: string, currency: string, durationInSeconds: number) => Promise<string>;
   fetchCollectionStats: (contractAddress: string, chain: string) => Promise<NFTCollection | null>;
 
   // Actions - UI State
@@ -87,6 +89,7 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
   isListing: false,
   isTransferring: false,
   isBurning: false,
+  isCreatingAuction: false,
 
   error: null,
 
@@ -804,6 +807,83 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
         error:
           error instanceof Error ? error.message : "Failed to burn NFT",
         isBurning: false,
+      });
+      throw error;
+    }
+  },
+
+  createAuction: async (nft: NFT, reservePrice: string, currency: string, durationInSeconds: number) => {
+    set({ isCreatingAuction: true, error: null });
+
+    try {
+      const walletStore = useWalletStore.getState();
+
+      // Helper to map NFT chain to wallet ChainType
+      const getWalletChainType = (nftChain: string): string => {
+        if (nftChain === "stargaze") return "Cosmos";
+        if (nftChain === "ethereum" || nftChain === "polygon") return "EVM";
+        if (nftChain === "solana") return "Solana";
+        return nftChain;
+      };
+
+      const walletChainType = getWalletChainType(nft.chain);
+      const ownerWallet = walletStore.wallets.find(
+        (w) => w.address.toLowerCase() === nft.owner.toLowerCase() && w.chain === walletChainType,
+      );
+
+      // Fallback: Just try to find a wallet of the correct type if owner check fails
+      const wallet = ownerWallet || walletStore.wallets.find(w => w.chain === walletChainType);
+
+      if (!wallet) {
+        throw new Error(`No connected wallet found for ${nft.chain}`);
+      }
+
+      // Convert currency to denom and amount to micro-units
+      const CURRENCY_TO_DENOM: Record<string, string> = {
+        'STARS': 'ustars',
+        'OSMO': 'ibc/ED07A3391A112B175915CD8FAF43A2DA8E4790EDE12566649D0C2F97716B8518',
+        'ATOM': 'ibc/9DF365E2C0EF4EA02FA771F638E6F566B96D7437704258E298F5670B8F804368'
+      };
+
+      const denom = CURRENCY_TO_DENOM[currency] || 'ustars';
+
+      // Convert price to micro-units (multiply by 1,000,000)
+      const priceInMicroUnits = (parseFloat(reservePrice) * 1_000_000).toString();
+
+      console.log(`[NFT Store] Creating auction for NFT ${nft.tokenId} on ${nft.chain}`);
+      console.log(`Reserve price: ${priceInMicroUnits} ${denom}, Duration: ${durationInSeconds}s`);
+
+      let txHash: string;
+
+      switch (nft.chain) {
+        case "stargaze":
+          txHash = await stargazeNFTService.createAuction(
+            nft,
+            priceInMicroUnits,
+            denom,
+            durationInSeconds,
+            wallet.address
+          );
+          break;
+        // Future: Add EVM and Solana support
+        default:
+          throw new Error(`Auction not supported for ${nft.chain} yet`);
+      }
+
+      console.log(`[NFT Store] Auction created successfully: ${txHash}`);
+
+      // Refresh NFTs after auction creation
+      get().refreshNFTs();
+
+      set({ isCreatingAuction: false, selectedNFT: null }); // Close modal
+
+      return txHash;
+    } catch (error) {
+      console.error("Error creating auction:", error);
+      set({
+        error:
+          error instanceof Error ? error.message : "Failed to create auction",
+        isCreatingAuction: false,
       });
       throw error;
     }
