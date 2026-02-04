@@ -34,6 +34,7 @@ interface NFTStore {
   isLoadingMarketplace: boolean;
   isBuying: boolean;
   isListing: boolean;
+  isTransferring: boolean;
 
   // Error States
   error: string | null;
@@ -52,6 +53,7 @@ interface NFTStore {
   buyNFT: (listing: MarketplaceListing) => Promise<void>;
   listNFT: (nft: NFT, price: string, currency: string, durationInSeconds?: number) => Promise<void>;
   cancelListing: (nft: NFT) => Promise<void>;
+  transferNFT: (nft: NFT, recipientAddress: string) => Promise<string>;
   fetchCollectionStats: (contractAddress: string, chain: string) => Promise<NFTCollection | null>;
 
   // Actions - UI State
@@ -81,6 +83,7 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
   isLoadingMarketplace: false,
   isBuying: false,
   isListing: false,
+  isTransferring: false,
 
   error: null,
 
@@ -656,6 +659,77 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
         error:
           error instanceof Error ? error.message : "Failed to cancel listing",
         isListing: false,
+      });
+      throw error;
+    }
+  },
+
+  transferNFT: async (nft: NFT, recipientAddress: string) => {
+    set({ isTransferring: true, error: null });
+
+    try {
+      const walletStore = useWalletStore.getState();
+
+      // Helper to map NFT chain to wallet ChainType
+      const getWalletChainType = (nftChain: string): string => {
+        if (nftChain === "stargaze") return "Cosmos";
+        if (nftChain === "ethereum" || nftChain === "polygon") return "EVM";
+        if (nftChain === "solana") return "Solana";
+        return nftChain;
+      };
+
+      const walletChainType = getWalletChainType(nft.chain);
+      const ownerWallet = walletStore.wallets.find(
+        (w) => w.address.toLowerCase() === nft.owner.toLowerCase() && w.chain === walletChainType,
+      );
+
+      // Fallback: Just try to find a wallet of the correct type if owner check fails
+      const wallet = ownerWallet || walletStore.wallets.find(w => w.chain === walletChainType);
+
+      if (!wallet) {
+        throw new Error(`No connected wallet found for ${nft.chain}`);
+      }
+
+      console.log(`[NFT Store] Transferring NFT ${nft.tokenId} on ${nft.chain} to ${recipientAddress}`);
+
+      let txHash: string;
+
+      switch (nft.chain) {
+        case "stargaze":
+          txHash = await stargazeNFTService.transferNFT(nft, recipientAddress, wallet.address);
+          break;
+        // Future: Add EVM and Solana support
+        // case "ethereum":
+        // case "polygon":
+        //   txHash = await openSeaNFTService.transferNFT(nft, recipientAddress, wallet.address);
+        //   break;
+        // case "solana":
+        //   txHash = await magicEdenNFTService.transferNFT(nft, recipientAddress, wallet.address);
+        //   break;
+        default:
+          throw new Error(`Transfer not supported for ${nft.chain} yet`);
+      }
+
+      console.log(`[NFT Store] Transfer successful: ${txHash}`);
+
+      // OPTIMISTIC UPDATE: Remove NFT from owned list immediately
+      const currentOwned = get().ownedNFTs;
+      set({
+        ownedNFTs: currentOwned.filter(item => item.id !== nft.id)
+      });
+
+      set({ isTransferring: false, selectedNFT: null }); // Close modal immediately
+
+      // Refresh NFTs after transfer in background (eventual consistency)
+      get().refreshNFTs();
+
+      return txHash;
+    } catch (error) {
+      console.error("Error transferring NFT:", error);
+      set({
+        error:
+          error instanceof Error ? error.message : "Failed to transfer NFT",
+        isTransferring: false,
       });
       throw error;
     }

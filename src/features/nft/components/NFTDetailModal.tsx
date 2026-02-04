@@ -17,13 +17,16 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
     const [currencyCode, setCurrencyCode] = useState<string>('') // Display symbol (e.g. STARS, ATOM)
     const [activeAction, setActiveAction] = useState<'sell' | 'transfer' | 'burn' | 'auction' | null>(null)
     const [duration, setDuration] = useState<number>(30) // Default 30 days
+    const [recipientAddress, setRecipientAddress] = useState<string>('')
 
     const {
         isListing,
         isBuying,
+        isTransferring,
         listNFT,
         buyNFT,
         cancelListing,
+        transferNFT,
         marketplaceNFTs,
         fetchCollectionStats
     } = useNFTStore()
@@ -145,6 +148,17 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
             onClose()
         } catch (error) {
             console.error('Cancel failed:', error)
+        }
+    }
+
+    const handleTransfer = async () => {
+        if (!recipientAddress) return
+
+        try {
+            await transferNFT(nft, recipientAddress)
+            onClose()
+        } catch (error) {
+            console.error('Transfer failed:', error)
         }
     }
 
@@ -400,8 +414,55 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
                                         </div>
                                     )}
 
+                                    {/* Transfer View */}
+                                    {activeAction === 'transfer' && (
+                                        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                                            <button
+                                                onClick={() => setActiveAction(null)}
+                                                className="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white font-medium transition-colors flex items-center justify-center gap-2"
+                                            >
+                                                <ChevronLeft className="w-4 h-4" />
+                                                Back
+                                            </button>
+
+                                            <div className="space-y-2">
+                                                <label className="text-sm font-medium text-gray-300 px-1">
+                                                    Recipient Address
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    placeholder={nft.chain === 'stargaze' ? 'stars1...' : 'Enter recipient address'}
+                                                    value={recipientAddress}
+                                                    onChange={(e) => setRecipientAddress(e.target.value)}
+                                                    className="w-full px-4 py-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:border-purple-500 focus:outline-none font-mono text-sm"
+                                                />
+                                                <p className="text-xs text-gray-500 px-1">
+                                                    ⚠️ Make sure the address is correct - transfers cannot be reversed!
+                                                </p>
+                                            </div>
+
+                                            <button
+                                                onClick={handleTransfer}
+                                                disabled={!recipientAddress || isTransferring}
+                                                className="w-full py-4 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white font-bold transition-colors flex items-center justify-center gap-2 shadow-lg shadow-purple-500/20"
+                                            >
+                                                {isTransferring ? (
+                                                    <>
+                                                        <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                                        Sending...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Send className="w-4 h-4" />
+                                                        Send NFT
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+                                    )}
+
                                     {/* Placeholders for other actions */}
-                                    {['transfer', 'burn', 'auction'].includes(activeAction || '') && (
+                                    {['burn', 'auction'].includes(activeAction || '') && (
                                         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
                                             <button
                                                 onClick={() => setActiveAction(null)}
