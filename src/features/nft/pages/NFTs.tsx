@@ -31,16 +31,11 @@ export function NFTs() {
         clearError,
     } = useNFTStore()
 
-    // Load NFTs on mount and when view/ecosystem changes, OR when wallets update
+    // Load NFTs on mount and when ecosystem/wallets change
+    // ownedNFTs includes both listed and unlisted NFTs
     useEffect(() => {
-        if (activeView === 'owned') {
-            fetchOwnedNFTs()
-        } else {
-            // When switching to marketplace, fetch listings
-            // We pass activeEcosystem to ensure we filter correctly from the start
-            useNFTStore.getState().fetchMarketplaceNFTs(activeEcosystem)
-        }
-    }, [activeView, activeEcosystem, wallets])
+        fetchOwnedNFTs()
+    }, [activeEcosystem, wallets])
 
     // Filter NFTs based on ecosystem and search query
     const filteredNFTs = useMemo(() => {
@@ -49,16 +44,10 @@ export function NFTs() {
         if (activeEcosystem === 'solana' && !wallets.some(w => w.chain === 'Solana')) return []
         if (activeEcosystem === 'stargaze' && !wallets.some(w => (w.chain === 'Cosmos' || w.chain === 'Gno') && w.address.startsWith('stars'))) return []
 
+        // Filter ownedNFTs based on view: unlisted for 'owned', listed for 'marketplace'
         let nfts = activeView === 'owned'
-            ? ownedNFTs.filter(n => !marketplaceNFTs.some(l => l.nft.id === n.id || (l.nft.tokenId === n.tokenId && l.nft.contractAddress === n.contractAddress)))
-            : marketplaceNFTs.map(listing => ({
-                ...listing.nft,
-                isListed: true,
-                listingPrice: listing.price,
-                listingCurrency: listing.currency,
-                listingId: listing.listingId,
-                marketplace: listing.marketplace
-            }))
+            ? ownedNFTs.filter(n => !n.isListed)  // Show only UNLISTED NFTs
+            : ownedNFTs.filter(n => n.isListed)   // Show only LISTED NFTs
 
         // Filter by ecosystem
         if (activeEcosystem !== 'all') {
@@ -88,7 +77,7 @@ export function NFTs() {
     const nftCounts = useMemo(() => {
         const nfts = activeView === 'owned'
             ? ownedNFTs.filter(n => !n.isListed)
-            : marketplaceNFTs.map(l => l.nft)
+            : ownedNFTs.filter(n => n.isListed)
 
         return {
             all: nfts.length,
@@ -96,7 +85,7 @@ export function NFTs() {
             evm: nfts.filter(n => ['ethereum', 'polygon', 'base', 'bsc', 'gnosis', 'arbitrum', 'optimism'].includes(n.chain)).length,
             solana: nfts.filter(n => n.chain === 'solana').length,
         }
-    }, [activeView, ownedNFTs, marketplaceNFTs])
+    }, [activeView, ownedNFTs])
 
     const isLoading = activeView === 'owned' ? isLoadingOwned : isLoadingMarketplace
 
