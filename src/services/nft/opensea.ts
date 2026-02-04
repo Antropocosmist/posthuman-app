@@ -185,9 +185,29 @@ export class OpenSeaNFTService implements NFTServiceInterface {
                 try {
                     formattedPrice = formatUnits(rawPrice, 18)
                 } catch (e) {
-                    formattedPrice = rawPrice // Fallback if format fails
-                    console.error('[OpenSea] Price format error:', e)
+                    console.error('[OpenSea] Price format error (ethers), using fallback:', e)
+                    // Manual fallback for 18 decimals
+                    try {
+                        const val = rawPrice.padStart(19, '0')
+                        const integer = val.slice(0, val.length - 18)
+                        const decimal = val.slice(val.length - 18).replace(/0+$/, '')
+                        formattedPrice = decimal ? `${integer}.${decimal}` : integer
+                    } catch (fallbackError) {
+                        formattedPrice = '0'
+                    }
                 }
+
+                // Double check for "0.0" or "0" result from ethers if rawPrice was NOT 0
+                if ((formattedPrice === '0' || formattedPrice === '0.0') && rawPrice !== '0') {
+                    // Try manual fallback again if ethers returned 0 unexpectedly
+                    const val = rawPrice.padStart(19, '0')
+                    const integer = val.slice(0, val.length - 18)
+                    const decimal = val.slice(val.length - 18).replace(/0+$/, '')
+                    formattedPrice = decimal ? `${integer}.${decimal}` : integer
+                    console.log('[OpenSea] Ethers returned 0, used manual fallback:', formattedPrice)
+                }
+
+                console.log('[OpenSea] Final Formatted Price:', formattedPrice)
 
                 // Determine currency
                 let currency = 'ETH'
