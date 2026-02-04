@@ -147,17 +147,67 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
         if (get().currentRequestId !== currentInternalId) return;
         const evmWallets = wallets.filter((w) => w.chain === "EVM");
         const uniqueAddresses = [...new Set(evmWallets.map((w) => w.address.toLowerCase()))];
-        const evmChains = ["ethereum", "polygon", "base", "bsc", "arbitrum"] as const;
+        // Focus on Ethereum, Polygon, and Base for now (as per user request)
+        const evmChains = ["ethereum", "polygon", "base"] as const;
 
         for (const address of uniqueAddresses) {
           console.log(`[NFT Store] Fetching EVM for ${address}(ID: ${currentInternalId})`);
-          const promises = evmChains.map(async (chain) => {
+
+          // Fetch owned NFTs
+          const ownedPromises = evmChains.map(async (chain) => {
             try {
               return await openSeaNFTService.fetchUserNFTs(address, chain);
             } catch (e) { return []; }
           });
-          const results = await Promise.all(promises);
-          fetchedNFTs = [...fetchedNFTs, ...results.flat()];
+
+          // Fetch active listings
+          const listingPromises = evmChains.map(async (chain) => {
+            try {
+              return await openSeaNFTService.fetchUserListings(address, chain);
+            } catch (e) { return []; }
+          });
+
+          const [ownedResults, listingResults] = await Promise.all([
+            Promise.all(ownedPromises),
+            Promise.all(listingPromises)
+          ]);
+
+          const ownedNFTs = ownedResults.flat();
+          const listedNFTs = listingResults.flat();
+
+          console.log(`[NFT Store] EVM ${address}: ${ownedNFTs.length} owned, ${listedNFTs.length} listed`);
+
+          // Merge: Update owned NFTs with listing info
+          const mergedNFTs = ownedNFTs.map(nft => {
+            const listing = listedNFTs.find(l =>
+              l.contractAddress.toLowerCase() === nft.contractAddress.toLowerCase() &&
+              l.tokenId === nft.tokenId
+            );
+
+            if (listing) {
+              return {
+                ...nft,
+                isListed: true,
+                listingPrice: listing.listingPrice,
+                listingCurrency: listing.listingCurrency,
+                listingId: listing.listingId
+              };
+            }
+
+            return nft;
+          });
+
+          // Add any listed NFTs that aren't in owned (edge case: escrowed NFTs)
+          const ownedIds = new Set(ownedNFTs.map(n => `${n.contractAddress}-${n.tokenId}`.toLowerCase()));
+          const escrowedListings = listedNFTs.filter(l =>
+            !ownedIds.has(`${l.contractAddress}-${l.tokenId}`.toLowerCase())
+          );
+
+          if (escrowedListings.length > 0) {
+            console.log(`[NFT Store] Found ${escrowedListings.length} escrowed listings for ${address}`);
+          }
+
+          fetchedNFTs = [...fetchedNFTs, ...mergedNFTs, ...escrowedListings];
         }
       }
 

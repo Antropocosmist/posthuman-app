@@ -94,6 +94,65 @@ export class OpenSeaNFTService implements NFTServiceInterface {
     }
 
     /**
+     * Fetch all active listings for a specific seller address
+     * This is needed because the /account/{address}/nfts endpoint doesn't include sell_orders
+     */
+    async fetchUserListings(
+        address: string,
+        chain: 'ethereum' | 'polygon' | 'base' | 'bsc' | 'gnosis' | 'arbitrum' = 'ethereum'
+    ): Promise<NFT[]> {
+        try {
+            // Use OpenSea orders API to fetch seller's listings
+            const response = await fetch(
+                `https://api.opensea.io/api/v2/orders/${chain}/seaport/listings?maker=${address}`,
+                {
+                    headers: OPENSEA_API_KEY ? { 'X-API-KEY': OPENSEA_API_KEY } : {},
+                }
+            )
+
+            if (!response.ok) {
+                console.warn(`OpenSea listings API error for ${chain}: ${response.statusText}`)
+                return []
+            }
+
+            const data = await response.json()
+            const orders = data.orders || []
+
+            console.log(`[OpenSea] Found ${orders.length} active listings for ${address} on ${chain}`)
+
+            // Convert orders to NFTs with isListed = true
+            return orders.map((order: any) => {
+                const nftData = order.maker_asset_bundle?.assets?.[0]
+                    || order.protocol_data?.parameters?.offer?.[0]
+                    || {}
+
+                const nft = convertOpenSeaNFT(nftData, chain, address)
+
+                // Get price from order
+                const rawPrice = order.current_price || '0'
+                let formattedPrice = '0'
+                try {
+                    formattedPrice = formatUnits(rawPrice, 18)
+                } catch (e) {
+                    console.error('[OpenSea] Price format error:', e)
+                }
+
+                // Override isListed and listing info
+                return {
+                    ...nft,
+                    isListed: true,
+                    listingPrice: formattedPrice,
+                    listingCurrency: chain === 'polygon' ? 'WETH' : 'ETH',
+                    listingId: order.order_hash
+                }
+            })
+        } catch (error) {
+            console.error('Error fetching user listings from OpenSea:', error)
+            return []
+        }
+    }
+
+    /**
      * Fetch marketplace listings with optional filters
      */
     async fetchMarketplaceListings(filters?: NFTFilters): Promise<MarketplaceListing[]> {
