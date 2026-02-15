@@ -5,6 +5,31 @@ import type { NFT, MarketplaceListing, NFTCollection, NFTFilters, NFTServiceInte
 // OpenSea API configuration
 const OPENSEA_API_KEY = import.meta.env.VITE_OPENSEA_API_KEY || ''
 
+/**
+ * Get the correct EVM provider based on connected wallet
+ * Rabby wallet uses window.rabby, others use window.ethereum
+ */
+function getEVMProvider(): any {
+    // Check if we're dealing with Rabby wallet
+    // Rabby injects both window.rabby and window.ethereum, but we should use window.rabby for Rabby
+    if ((window as any).rabby) {
+        // Check if Rabby is the active provider by checking if it has accounts
+        try {
+            // If window.rabby exists and is functional, use it
+            return (window as any).rabby;
+        } catch (e) {
+            console.warn('[OpenSea] Rabby provider check failed, falling back to ethereum:', e);
+        }
+    }
+
+    // Fallback to standard window.ethereum for MetaMask and other wallets
+    if (window.ethereum) {
+        return window.ethereum;
+    }
+
+    throw new Error('No EVM wallet provider found. Please install MetaMask, Rabby, or another EVM wallet.');
+}
+
 // Helper function to convert OpenSea NFT to our NFT type
 function convertOpenSeaNFT(openseaNFT: any, chain: 'ethereum' | 'polygon' | 'base' | 'bsc' | 'gnosis' | 'arbitrum', ownerAddress?: string): NFT {
     // OpenSea API v2 can return 'contract' as string or object
@@ -332,13 +357,11 @@ export class OpenSeaNFTService implements NFTServiceInterface {
      */
     async buyNFT(listing: MarketplaceListing, buyerAddress: string): Promise<string> {
         try {
-            // Check if MetaMask is available
-            if (!window.ethereum) {
-                throw new Error('Please install MetaMask to buy NFTs on OpenSea')
-            }
+            // Get the correct EVM provider (handles Rabby vs MetaMask)
+            const evmProvider = getEVMProvider();
 
             // Create ethers provider and signer
-            const provider = new ethers.BrowserProvider(window.ethereum)
+            const provider = new ethers.BrowserProvider(evmProvider)
             const signer = await provider.getSigner()
 
             // Verify the buyer address matches the signer
@@ -442,17 +465,15 @@ export class OpenSeaNFTService implements NFTServiceInterface {
      */
     async listNFT(nft: NFT, price: string, _currency: string, sellerAddress: string, durationInSeconds: number = 2592000): Promise<string> {
         try {
-            // Check if MetaMask is available
-            if (!window.ethereum) {
-                throw new Error('Please install MetaMask to list NFTs on OpenSea')
-            }
+            // Get the correct EVM provider (handles Rabby vs MetaMask)
+            const evmProvider = getEVMProvider();
 
             // Determine chain based on NFT data
             const nftChain = nft.chain === 'polygon' ? 'polygon' : 'ethereum'
             await this.switchChain(nftChain)
 
             // Create ethers provider and signer
-            const provider = new ethers.BrowserProvider(window.ethereum)
+            const provider = new ethers.BrowserProvider(evmProvider)
             const signer = await provider.getSigner()
 
             // Verify the seller address matches the signer
@@ -508,12 +529,10 @@ export class OpenSeaNFTService implements NFTServiceInterface {
      */
     async cancelListing(listingId: string, sellerAddress: string, chainName?: string): Promise<string> {
         try {
-            // Check if MetaMask is available
-            if (!window.ethereum) {
-                throw new Error('Please install MetaMask to cancel listings on OpenSea')
-            }
+            // Get the correct EVM provider (handles Rabby vs MetaMask)
+            const evmProvider = getEVMProvider();
 
-            const provider = new ethers.BrowserProvider(window.ethereum)
+            const provider = new ethers.BrowserProvider(evmProvider)
             const signer = await provider.getSigner()
 
             // Verify the seller address matches the signer
@@ -540,7 +559,7 @@ export class OpenSeaNFTService implements NFTServiceInterface {
             // 1. Ensure Wallet is Connected & Accounts are Available
             // We do this FIRST to ensure the provider is "hot" and ready for the SDK.
             console.log('[OpenSea] Requesting accounts...')
-            const providerAccounts = await window.ethereum.request({ method: 'eth_requestAccounts' }) as string[] || []
+            const providerAccounts = await evmProvider.request({ method: 'eth_requestAccounts' }) as string[] || []
             const canonicalAccount = providerAccounts.find(a => a.toLowerCase() === signerAddress.toLowerCase())
 
             if (!canonicalAccount) {
@@ -557,7 +576,7 @@ export class OpenSeaNFTService implements NFTServiceInterface {
                 // Only switch if we have a specific target rule and we aren't on it
                 if (chainName && currentChainIdHex !== targetChainId) {
                     console.log(`[OpenSea] Switching network to ${chainName} (${targetChainId})...`)
-                    await window.ethereum.request({
+                    await evmProvider.request({
                         method: 'wallet_switchEthereumChain',
                         params: [{ chainId: targetChainId }],
                     });
@@ -568,9 +587,9 @@ export class OpenSeaNFTService implements NFTServiceInterface {
 
             console.log('[OpenSea] Initializing SDK for cancellation on chain:', chain)
 
-            // 3. Initialize OpenSea SDK with window.ethereum
+            // 3. Initialize OpenSea SDK with the correct provider
             // Now that we've confirmed the account and chain, the SDK should see the correct state.
-            const sdk = new OpenSeaSDK(window.ethereum as any, {
+            const sdk = new OpenSeaSDK(evmProvider, {
                 chain,
                 apiKey: OPENSEA_API_KEY,
             })
