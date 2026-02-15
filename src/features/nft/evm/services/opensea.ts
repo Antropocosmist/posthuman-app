@@ -590,26 +590,44 @@ export class OpenSeaNFTService implements NFTServiceInterface {
             console.log('[OpenSea] Provider type:', evmProvider === (window as any).rabby ? 'Rabby (window.rabby)' : 'Standard (window.ethereum)');
             console.log('[OpenSea] Canonical account:', canonicalAccount);
 
-            // 3. Initialize OpenSea SDK with the correct provider
-            // Now that we've confirmed the account and chain, the SDK should see the correct state.
-            const sdk = new OpenSeaSDK(evmProvider, {
-                chain,
-                apiKey: OPENSEA_API_KEY,
-            })
+            // CRITICAL FIX: OpenSea SDK internally checks window.ethereum
+            // If we're using Rabby, we need to temporarily override window.ethereum
+            const isUsingRabby = evmProvider === (window as any).rabby;
+            const originalEthereum = isUsingRabby ? window.ethereum : null;
 
-            console.log(`[OpenSea] Calling cancelOrder for: ${listingId} on account: ${canonicalAccount}`)
+            if (isUsingRabby) {
+                console.log('[OpenSea] Temporarily overriding window.ethereum with window.rabby for SDK compatibility');
+                (window as any).ethereum = (window as any).rabby;
+            }
 
-            // 4. Cancel the order
-            const result = await sdk.cancelOrder({
-                orderHash: listingId,
-                accountAddress: canonicalAccount,
-            }) as any
+            try {
+                // 3. Initialize OpenSea SDK with the correct provider
+                // Now that we've confirmed the account and chain, the SDK should see the correct state.
+                const sdk = new OpenSeaSDK(evmProvider, {
+                    chain,
+                    apiKey: OPENSEA_API_KEY,
+                })
 
-            console.log('[OpenSea] Cancel order result:', result)
+                console.log(`[OpenSea] Calling cancelOrder for: ${listingId} on account: ${canonicalAccount}`)
 
-            const txHash = result.hash || result.transactionHash || result
-            console.log('Cancel listing successful:', txHash)
-            return typeof txHash === 'string' ? txHash : 'listing-cancelled'
+                // 4. Cancel the order
+                const result = await sdk.cancelOrder({
+                    orderHash: listingId,
+                    accountAddress: canonicalAccount,
+                }) as any
+
+                console.log('[OpenSea] Cancel order result:', result)
+
+                const txHash = result.hash || result.transactionHash || result
+                console.log('Cancel listing successful:', txHash)
+                return typeof txHash === 'string' ? txHash : 'listing-cancelled'
+            } finally {
+                // Restore original window.ethereum if we overrode it
+                if (isUsingRabby && originalEthereum) {
+                    console.log('[OpenSea] Restoring original window.ethereum');
+                    (window as any).ethereum = originalEthereum;
+                }
+            }
 
         } catch (error) {
             console.error('Error canceling listing on OpenSea:', error)
