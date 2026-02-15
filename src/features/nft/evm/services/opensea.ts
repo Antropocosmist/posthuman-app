@@ -607,34 +607,26 @@ export class OpenSeaNFTService implements NFTServiceInterface {
                 });
             }
 
-            try {
-                // 3. Initialize OpenSea SDK with the correct provider
-                // Now that we've confirmed the account and chain, the SDK should see the correct state.
-                const sdk = new OpenSeaSDK(evmProvider, {
-                    chain,
-                    apiKey: OPENSEA_API_KEY,
-                })
+            // 3. Initialize OpenSea SDK with the correct provider
+            // Now that we've confirmed the account and chain, the SDK should see the correct state.
+            const sdk = new OpenSeaSDK(evmProvider, {
+                chain,
+                apiKey: OPENSEA_API_KEY,
+            })
 
-                console.log(`[OpenSea] Calling cancelOrder for: ${listingId} on account: ${canonicalAccount}`)
+            console.log(`[OpenSea] Calling cancelOrder for: ${listingId} on account: ${canonicalAccount}`)
 
-                // 4. Cancel the order
-                const result = await sdk.cancelOrder({
-                    orderHash: listingId,
-                    accountAddress: canonicalAccount,
-                }) as any
+            // 4. Cancel the order
+            const result = await sdk.cancelOrder({
+                orderHash: listingId,
+                accountAddress: canonicalAccount,
+            }) as any
 
-                console.log('[OpenSea] Cancel order result:', result)
+            console.log('[OpenSea] Cancel order result:', result)
 
-                const txHash = result.hash || result.transactionHash || result
-                console.log('Cancel listing successful:', txHash)
-                return typeof txHash === 'string' ? txHash : 'listing-cancelled'
-            } finally {
-                // Restore original window.ethereum if we overrode it
-                if (isUsingRabby && originalDescriptor) {
-                    console.log('[OpenSea] Restoring original window.ethereum');
-                    Object.defineProperty(window, 'ethereum', originalDescriptor);
-                }
-            }
+            const txHash = result.hash || result.transactionHash || result
+            console.log('Cancel listing successful:', txHash)
+            return typeof txHash === 'string' ? txHash : 'listing-cancelled'
 
         } catch (error) {
             console.error('Error canceling listing on OpenSea:', error)
