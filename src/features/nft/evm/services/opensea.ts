@@ -586,7 +586,9 @@ export class OpenSeaNFTService implements NFTServiceInterface {
                 console.warn('[OpenSea] Failed to switch network automatically:', switchError)
             }
 
-            console.log('[OpenSea] Initializing SDK for cancellation on chain:', chain)
+            console.log('[OpenSea] Initializing SDK for cancellation on chain:', chain);
+            console.log('[OpenSea] Provider type:', evmProvider === (window as any).rabby ? 'Rabby (window.rabby)' : 'Standard (window.ethereum)');
+            console.log('[OpenSea] Canonical account:', canonicalAccount);
 
             // 3. Initialize OpenSea SDK with the correct provider
             // Now that we've confirmed the account and chain, the SDK should see the correct state.
