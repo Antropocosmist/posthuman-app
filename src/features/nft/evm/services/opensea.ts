@@ -593,11 +593,18 @@ export class OpenSeaNFTService implements NFTServiceInterface {
             // CRITICAL FIX: OpenSea SDK internally checks window.ethereum
             // If we're using Rabby, we need to temporarily override window.ethereum
             const isUsingRabby = evmProvider === (window as any).rabby;
-            const originalEthereum = isUsingRabby ? window.ethereum : null;
+            let originalDescriptor: PropertyDescriptor | undefined;
 
             if (isUsingRabby) {
                 console.log('[OpenSea] Temporarily overriding window.ethereum with window.rabby for SDK compatibility');
-                (window as any).ethereum = (window as any).rabby;
+                // Save the original descriptor
+                originalDescriptor = Object.getOwnPropertyDescriptor(window, 'ethereum');
+                // Override with Rabby provider using defineProperty (handles read-only getters)
+                Object.defineProperty(window, 'ethereum', {
+                    value: (window as any).rabby,
+                    writable: true,
+                    configurable: true
+                });
             }
 
             try {
@@ -623,9 +630,9 @@ export class OpenSeaNFTService implements NFTServiceInterface {
                 return typeof txHash === 'string' ? txHash : 'listing-cancelled'
             } finally {
                 // Restore original window.ethereum if we overrode it
-                if (isUsingRabby && originalEthereum) {
+                if (isUsingRabby && originalDescriptor) {
                     console.log('[OpenSea] Restoring original window.ethereum');
-                    (window as any).ethereum = originalEthereum;
+                    Object.defineProperty(window, 'ethereum', originalDescriptor);
                 }
             }
 
