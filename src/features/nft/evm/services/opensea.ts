@@ -4,6 +4,7 @@ import type { NFT, MarketplaceListing, NFTCollection, NFTFilters, NFTServiceInte
 
 // OpenSea API configuration
 const OPENSEA_API_KEY = import.meta.env.VITE_OPENSEA_API_KEY || ''
+// Build: 2026-02-16 00:30 - Rabby wallet fix
 
 /**
  * Get the correct EVM provider based on connected wallet
