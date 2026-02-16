@@ -596,6 +596,23 @@ export class OpenSeaNFTService implements NFTServiceInterface {
                 console.log('[OpenSea] Using Rabby wallet provider');
             }
 
+            // Create a Proxy around the provider to ensure eth_accounts returns the canonical account
+            // This bypasses the SDK's internal validation that fails for Rabby in some cases
+            const providerProxy = new Proxy(evmProvider, {
+                get: (target, prop, receiver) => {
+                    if (prop === 'request') {
+                        return async (args: any) => {
+                            // Intercept account requests and return the canonical account we already verified
+                            if (args.method === 'eth_accounts' || args.method === 'eth_requestAccounts') {
+                                return [canonicalAccount];
+                            }
+                            return target.request(args);
+                        };
+                    }
+                    return Reflect.get(target, prop, receiver);
+                }
+            });
+
             // 3. Initialize OpenSea SDK with the correct provider (wrapped in proxy)
             // Now that we've confirmed the account and chain, the SDK should see the correct state.
             const sdk = new OpenSeaSDK(providerProxy, {
