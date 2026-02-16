@@ -600,15 +600,40 @@ export class OpenSeaNFTService implements NFTServiceInterface {
             // This bypasses the SDK's internal validation that fails for Rabby in some cases
             const providerProxy = new Proxy(evmProvider, {
                 get: (target, prop, receiver) => {
+                    // Debug logging to see what the SDK is looking for
+                    if (typeof prop === 'string' && !['constructor', 'then', 'toJSON'].includes(prop)) {
+                        console.log(`[OpenSea Proxy] Accessing: ${prop}`);
+                    }
+
+                    // Mock selectedAddress (legacy property often checked)
+                    if (prop === 'selectedAddress') {
+                        return canonicalAccount;
+                    }
+
                     if (prop === 'request') {
                         return async (args: any) => {
+                            console.log(`[OpenSea Proxy] Request:`, args);
                             // Intercept account requests and return the canonical account we already verified
                             if (args.method === 'eth_accounts' || args.method === 'eth_requestAccounts') {
+                                console.log('[OpenSea Proxy] Intercepting account request, returning:', [canonicalAccount]);
                                 return [canonicalAccount];
                             }
                             return target.request(args);
                         };
                     }
+
+                    // Specific fix for sendAsync if it exists (legacy)
+                    if (prop === 'sendAsync') {
+                        return (payload: any, callback: any) => {
+                            console.log('[OpenSea Proxy] sendAsync:', payload);
+                            if (payload.method === 'eth_accounts') {
+                                callback(null, { result: [canonicalAccount] });
+                            } else {
+                                target.sendAsync(payload, callback);
+                            }
+                        };
+                    }
+
                     return Reflect.get(target, prop, receiver);
                 }
             });
