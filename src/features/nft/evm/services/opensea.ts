@@ -596,9 +596,9 @@ export class OpenSeaNFTService implements NFTServiceInterface {
                 console.log('[OpenSea] Using Rabby wallet provider');
             }
 
-            // 3. Initialize OpenSea SDK with the correct provider
+            // 3. Initialize OpenSea SDK with the correct provider (wrapped in proxy)
             // Now that we've confirmed the account and chain, the SDK should see the correct state.
-            const sdk = new OpenSeaSDK(evmProvider, {
+            const sdk = new OpenSeaSDK(providerProxy, {
                 chain,
                 apiKey: OPENSEA_API_KEY,
             })
