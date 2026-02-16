@@ -638,9 +638,12 @@ export class OpenSeaNFTService implements NFTServiceInterface {
                 }
             });
 
-            // 3. Initialize OpenSea SDK with the correct provider (wrapped in proxy)
-            // Now that we've confirmed the account and chain, the SDK should see the correct state.
-            const sdk = new OpenSeaSDK(providerProxy, {
+            // 3. Initialize OpenSea SDK with the correct provider
+            // IMPORTANT: Wrap in ethers.BrowserProvider as SDK expects a high-level provider
+            // This matches the working listNFT implementation
+            const ethersProvider = new ethers.BrowserProvider(providerProxy);
+
+            const sdk = new OpenSeaSDK(ethersProvider as any, {
                 chain,
                 apiKey: OPENSEA_API_KEY,
             })
