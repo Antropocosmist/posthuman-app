@@ -590,21 +590,10 @@ export class OpenSeaNFTService implements NFTServiceInterface {
             console.log('[OpenSea] Provider type:', evmProvider === (window as any).rabby ? 'Rabby (window.rabby)' : 'Standard (window.ethereum)');
             console.log('[OpenSea] Canonical account:', canonicalAccount);
 
-            // CRITICAL FIX: OpenSea SDK internally checks window.ethereum
-            // If we're using Rabby, we need to temporarily override window.ethereum
-            const isUsingRabby = evmProvider === (window as any).rabby;
-            let originalDescriptor: PropertyDescriptor | undefined;
-
-            if (isUsingRabby) {
-                console.log('[OpenSea] Temporarily overriding window.ethereum with window.rabby for SDK compatibility');
-                // Save the original descriptor
-                originalDescriptor = Object.getOwnPropertyDescriptor(window, 'ethereum');
-                // Override with Rabby provider using defineProperty (handles read-only getters)
-                Object.defineProperty(window, 'ethereum', {
-                    value: (window as any).rabby,
-                    writable: true,
-                    configurable: true
-                });
+            // Note: We use the detected provider directly.
+            // window.ethereum cannot be overridden reliably due to browser security.
+            if (evmProvider === (window as any).rabby) {
+                console.log('[OpenSea] Using Rabby wallet provider');
             }
 
             // 3. Initialize OpenSea SDK with the correct provider
