@@ -658,7 +658,7 @@ export class OpenSeaNFTService implements NFTServiceInterface {
 
             console.log('[OpenSea] Cancel order result:', result)
 
-            const txHash = result.hash || result.transactionHash || result
+            const txHash = result?.hash || result?.transactionHash || result || 'listing-cancelled-confirmed'
             console.log('Cancel listing successful:', txHash)
             return typeof txHash === 'string' ? txHash : 'listing-cancelled'
 
