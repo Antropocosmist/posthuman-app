@@ -705,8 +705,6 @@ export class OpenSeaNFTService implements NFTServiceInterface {
                 apiKey: OPENSEA_API_KEY,
             })
 
-            console.log(`[OpenSea] Calling cancelOrder for: ${listingId} on account: ${canonicalAccount}`)
-
             // 4. Cancel the order
             const result = await sdk.cancelOrder({
                 orderHash: listingId,
@@ -728,10 +726,11 @@ export class OpenSeaNFTService implements NFTServiceInterface {
     /**
      * Transfer an NFT to another address
      */
-    async transferNFT(nft: NFT, recipientAddress: string, senderAddress: string): Promise<string> {
+    async transferNFT(nft: NFT, recipientAddress: string, senderAddress: string, walletProvider?: string): Promise<string> {
         try {
             // Get the correct EVM provider
-            const evmProvider = getEVMProvider();
+            console.log(`[OpenSea] Transfer requested with provider: ${walletProvider}`);
+            const evmProvider = getEVMProvider(walletProvider);
 
             const provider = new ethers.BrowserProvider(evmProvider)
             const signer = await provider.getSigner()
@@ -748,14 +747,7 @@ export class OpenSeaNFTService implements NFTServiceInterface {
 
             console.log(`[OpenSea] Transferring NFT ${nft.tokenId} on ${nftChain} to ${recipientAddress}`)
 
-            // Determine contract standard (ERC721 vs ERC1155)
-            // This information isn't explicitly in our NFT type, but we can try to infer or try safeTransferFrom
-            // The console log "contract_standard: 'erc1155'" suggests we might have this info in raw data if we fetched it.
-            // However, a safer bet without storing it is to try to detect or use a dual-interface ABI.
-
             // Minimal ABI for both ERC721 and ERC1155 safeTransferFrom
-            // ERC721: safeTransferFrom(from, to, tokenId)
-            // ERC1155: safeTransferFrom(from, to, id, amount, data)
             const abi = [
                 "function safeTransferFrom(address from, address to, uint256 tokenId)", // ERC721
                 "function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes data)" // ERC1155
@@ -767,14 +759,9 @@ export class OpenSeaNFTService implements NFTServiceInterface {
             try {
                 // Try ERC721 first (most common)
                 console.log('[OpenSea] Attempting ERC721 transfer...')
-                // Estimate gas to check if it's likely to succeed/is the right method
-                // Note: ethers.js will pick the function based on arguments passed
                 tx = await contract.safeTransferFrom(senderAddress, recipientAddress, nft.tokenId)
             } catch (erc721Error: any) {
-                // If it fails, or if method signature issues, try ERC1155
-                // Check if error might indicate incorrect arguments or execution revert
                 console.warn('[OpenSea] ERC721 transfer failed, attempting ERC1155...', erc721Error)
-
                 try {
                     // ERC1155 requires amount (1 for NFT) and data (0x)
                     tx = await contract.safeTransferFrom(senderAddress, recipientAddress, nft.tokenId, 1, "0x")
@@ -802,7 +789,6 @@ export class OpenSeaNFTService implements NFTServiceInterface {
     async getCollectionStats(contractAddress: string): Promise<NFTCollection> {
         try {
             // Try Ethereum first, then Polygon (matic/polygon)
-            // OpenSea API sometimes uses 'matic', sometimes 'polygon'. We try both.
             const chains = ['ethereum', 'matic', 'polygon']
             let collectionStats: any = null
             let slug = ''
@@ -814,28 +800,18 @@ export class OpenSeaNFTService implements NFTServiceInterface {
             for (const c of chains) {
                 try {
                     const url = `https://api.opensea.io/api/v2/chain/${c}/contract/${contractAddress}`
-                    console.log(`[OpenSea] Fetching contract info from: ${url}`)
-
-                    const response = await fetch(
-                        url,
-                        {
-                            headers: OPENSEA_API_KEY ? { 'X-API-KEY': OPENSEA_API_KEY, 'accept': 'application/json' } : { 'accept': 'application/json' },
-                        }
-                    )
+                    const response = await fetch(url, {
+                        headers: OPENSEA_API_KEY ? { 'X-API-KEY': OPENSEA_API_KEY, 'accept': 'application/json' } : { 'accept': 'application/json' },
+                    })
 
                     if (response.ok) {
                         const data = await response.json()
-                        // data is { address, chain, collection: "slug" }
-                        console.log(`[OpenSea] Found collection data for ${c}:`, data)
                         if (data.collection) {
                             slug = data.collection;
                             break;
                         }
-                    } else {
-                        console.warn(`[OpenSea] Failed to fetch contract for ${c}: ${response.status} ${response.statusText}`)
                     }
                 } catch (e) {
-                    console.error(`[OpenSea] Exception fetching contract for ${c}:`, e)
                     continue
                 }
             }
@@ -846,62 +822,8 @@ export class OpenSeaNFTService implements NFTServiceInterface {
                     name: 'Unknown Collection',
                 }
             }
-
-            // 2. Fetch Collection Details
-            const collectionResponse = await fetch(
-                `https://api.opensea.io/api/v2/collections/${slug}`,
-                {
-                    headers: OPENSEA_API_KEY ? { 'X-API-KEY': OPENSEA_API_KEY } : {},
-                }
-            )
-
-            if (collectionResponse.ok) {
-                const data = await collectionResponse.json()
-                name = data.name || name
-                description = data.description || description
-                image = data.image_url || image
-
-                // OpenSea V2 Collection Object often has stats
-                // Need to check specific API response structure. 
-                // However, safe fallback is to request stats endpoint if needed.
-            }
-
-            // 3. Fetch Stats
-            const statsResponse = await fetch(
-                `https://api.opensea.io/api/v2/collections/${slug}/stats`,
-                {
-                    headers: OPENSEA_API_KEY ? { 'X-API-KEY': OPENSEA_API_KEY } : {},
-                }
-            )
-
-            if (statsResponse.ok) {
-                const sData = await statsResponse.json()
-                // { total: { floor_price: ... } } structure usually for v2 stats
-                const floor = sData.total?.floor_price || sData.floor_price
-                if (floor) {
-                    collectionStats = { floor_price: floor, total_supply: sData.total?.total_supply }
-                }
-            }
-
-            return {
-                id: contractAddress,
-                name: name,
-                description: description,
-                image: image,
-                floorPrice: collectionStats?.floor_price ? String(collectionStats.floor_price) : undefined,
-                floorPriceCurrency: 'ETH', // OpenSea stats usually in ETH
-                totalSupply: collectionStats?.total_supply
-            }
-
-        } catch (error) {
-            console.error('Error fetching OpenSea collection stats:', error)
-            return {
-                id: contractAddress,
-                name: 'Unknown Collection',
-            }
         }
-    }
-}
+            }
 
-// Export singleton instance
-export const openSeaNFTService = new OpenSeaNFTService()
+    // Export singleton instance
+    export const openSeaNFTService = new OpenSeaNFTService()

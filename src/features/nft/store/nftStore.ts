@@ -758,7 +758,7 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
         case "polygon":
         case "base":
         case "arbitrum":
-          txHash = await openSeaNFTService.transferNFT(nft, recipientAddress, wallet.address);
+          txHash = await openSeaNFTService.transferNFT(nft, recipientAddress, wallet.address, wallet.walletProvider);
           break;
         case "solana":
         //   txHash = await magicEdenNFTService.transferNFT(nft, recipientAddress, wallet.address);
