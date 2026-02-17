@@ -1453,37 +1453,92 @@ export const useWalletStore = create<WalletState>()(
                                 // Note: Only works for Console Wallet, not Nightly Wallet
                                 if (w.walletProvider === 'Console Wallet') {
                                     try {
-                                        console.log(`[Canton] Fetching balance for Console Wallet: ${w.address}`)
+                                        console.log(`[Canton] Starting balance fetch for: ${w.address}`)
 
-                                        // Get active network
-                                        const activeNetwork = await consoleWallet.getActiveNetwork()
-                                        console.log(`[Canton] Active network:`, activeNetwork)
+                                        // Step 1: Check if SDK is available
+                                        const isAvailable = await consoleWallet.checkExtensionAvailability()
+                                        if (!isAvailable) {
+                                            console.warn(`[Canton] Console Wallet extension not available`)
+                                            return
+                                        }
+                                        console.log(`[Canton] SDK available ✓`)
 
-                                        const networkId = activeNetwork?.id || 'CANTON_NETWORK'
+                                        // Step 2: Verify wallet is connected
+                                        const account = await consoleWallet.getPrimaryAccount()
+                                        if (!account) {
+                                            console.warn(`[Canton] No primary account found`)
+                                            return
+                                        }
+                                        if (account.partyId !== w.address) {
+                                            console.warn(`[Canton] Address mismatch. Expected: ${w.address}, Got: ${account.partyId}`)
+                                            return
+                                        }
+                                        console.log(`[Canton] Wallet connected ✓`)
 
-                                        // Get coins balance
-                                        const balanceResponse = await consoleWallet.getCoinsBalance({
-                                            party: w.address,
-                                            network: networkId as any
-                                        })
+                                        // Step 3: Get balance - try with default network first
+                                        let balanceResponse
+                                        try {
+                                            // Try with default mainnet
+                                            balanceResponse = await consoleWallet.getCoinsBalance({
+                                                party: w.address,
+                                                network: 'CANTON_NETWORK' as any
+                                            })
+                                        } catch (networkErr) {
+                                            console.log(`[Canton] Trying to get active network...`)
+                                            // Fallback: try with active network
+                                            const activeNetwork = await consoleWallet.getActiveNetwork()
+                                            const networkId = activeNetwork?.id || 'CANTON_NETWORK'
+                                            balanceResponse = await consoleWallet.getCoinsBalance({
+                                                party: w.address,
+                                                network: networkId as any
+                                            })
+                                        }
 
-                                        console.log(`[Canton] Balance response:`, balanceResponse)
+                                        // Step 4: Log raw response for debugging
+                                        console.log(`[Canton] Raw balance response:`, JSON.stringify(balanceResponse, null, 2))
 
-                                        // Find CC token
-                                        const tokenData = balanceResponse.tokens?.find((t: any) => t.symbol === 'CC')
-                                        if (tokenData) {
-                                            nativeBal = parseFloat(tokenData.balance || '0')
-                                            console.log(`[Canton] CC balance found: ${nativeBal}`)
+                                        // Step 5: Validate response structure
+                                        if (!balanceResponse) {
+                                            console.error(`[Canton] Null response from getCoinsBalance`)
+                                            return
+                                        }
+
+                                        if (!balanceResponse.tokens) {
+                                            console.error(`[Canton] Response missing 'tokens' field:`, balanceResponse)
+                                            return
+                                        }
+
+                                        console.log(`[Canton] Available tokens:`, balanceResponse.tokens.map((t: any) => ({
+                                            symbol: t.symbol,
+                                            coin: t.coin,
+                                            name: t.name,
+                                            balance: t.balance
+                                        })))
+
+                                        // Step 6: Find CC token (try multiple formats)
+                                        const ccToken = balanceResponse.tokens.find((t: any) =>
+                                            t.symbol === 'CC' ||
+                                            t.coin === 'CC' ||
+                                            t.name === 'Canton Coin' ||
+                                            t.symbol === 'CANTON'
+                                        )
+
+                                        if (ccToken) {
+                                            // Use balance field from TokenData
+                                            nativeBal = parseFloat(ccToken.balance || '0')
+                                            console.log(`[Canton] ✓ CC balance found: ${nativeBal} CC`)
                                         } else {
-                                            console.log(`[Canton] No CC token found. Available tokens:`, balanceResponse.tokens?.map((t: any) => t.symbol))
+                                            console.warn(`[Canton] No CC token found in response`)
                                         }
                                     } catch (e: any) {
-                                        console.error(`[Canton] Failed to fetch Console Wallet balance:`, e)
-                                        console.error(`[Canton] Error details:`, e.message, e.stack)
+                                        console.error(`[Canton] Balance fetch failed:`, e)
+                                        console.error(`[Canton] Error type:`, e.constructor.name)
+                                        console.error(`[Canton] Error message:`, e.message)
+                                        console.error(`[Canton] Error stack:`, e.stack)
                                     }
                                 } else {
                                     // Nightly Wallet - no balance API available
-                                    console.log(`[Canton] Nightly Wallet balance fetching not available - wallet SDK doesn't provide balance API`)
+                                    console.log(`[Canton] Nightly Wallet: Balance API not available via wallet SDK`)
                                 }
                             }
 
