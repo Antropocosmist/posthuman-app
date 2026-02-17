@@ -86,7 +86,7 @@ interface WalletState {
     connectWallet: (name: string, chain: ChainType) => Promise<void>
     disconnectWallet: (id: string) => void
     getTotalBalance: () => string
-    sendTransaction: (walletId: string, recipient: string, amount: string, memo?: string) => Promise<string>
+    sendTransaction: (walletId: string, recipient: string, amount: string, memo?: string, expirationDate?: string) => Promise<string>
     executeSkipMessages: (messages: any[]) => Promise<string[]>
     refreshBalances: () => Promise<void>
     getChainForWallet: (wallet: ConnectedWallet) => any
@@ -861,7 +861,7 @@ export const useWalletStore = create<WalletState>()(
                 return total.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
             },
 
-            sendTransaction: async (walletId, recipient, amount, memo, expirationDate?) => {
+            sendTransaction: async (walletId, recipient, amount, memo, expirationDate?: string) => {
                 set({ isLoading: true })
                 try {
                     const wallet = get().wallets.find(w => w.id === walletId)
@@ -1060,44 +1060,44 @@ export const useWalletStore = create<WalletState>()(
                         return signature
                     }
 
+                    // ---------------------------------------------------------
+                    // Canton Network (Console Wallet)
+                    // ---------------------------------------------------------
+                    if (wallet.chain === 'Canton') {
+                        // Calculate expiration date from current time + offset in milliseconds
+                        const expirationMs = expirationDate ? parseInt(expirationDate) : 604800000 // Default: 1 week
+                        const expireDateISO = new Date(Date.now() + expirationMs).toISOString()
+
+                        // Map wallet symbol to CoinEnum
+                        let token: CoinEnum = 'CC' as CoinEnum
+                        if (wallet.symbol === 'CBTC') token = 'CBTC' as CoinEnum
+                        else if (wallet.symbol === 'USDCx') token = 'USDCx' as CoinEnum
+
+                        const transferRequest = {
+                            from: wallet.address, // partyId
+                            to: recipient, // recipient partyId
+                            token: token,
+                            amount: amount,
+                            expireDate: expireDateISO,
+                            memo: memo || ''
+                        }
+
+                        const response = await consoleWallet.submitCommands(transferRequest)
+
+                        if (response && response.status) {
+                            return response.signature || 'Canton transfer submitted'
+                        } else {
+                            throw new Error('Canton transfer failed')
+                        }
+                    }
+
                     throw new Error(`Unsupported chain for sending: ${wallet.chain}`)
                 }
 
-                // ---------------------------------------------------------
-                // Canton Network (Console Wallet)
-                // ---------------------------------------------------------
-                if (wallet.chain === 'Canton') {
-                    // Calculate expiration date from current time + offset in milliseconds
-                    const expirationMs = expirationDate ? parseInt(expirationDate) : 604800000 // Default: 1 week
-                    const expireDateISO = new Date(Date.now() + expirationMs).toISOString()
-
-                    // Map wallet symbol to CoinEnum
-                    let token: CoinEnum = 'CC' as CoinEnum
-                    if (wallet.symbol === 'CBTC') token = 'CBTC' as CoinEnum
-                    else if (wallet.symbol === 'USDCx') token = 'USDCx' as CoinEnum
-
-                    const transferRequest = {
-                        from: wallet.address, // partyId
-                        to: recipient, // recipient partyId
-                        token: token,
-                        amount: amount,
-                        expireDate: expireDateISO,
-                        memo: memo || ''
-                    }
-
-                    const response = await consoleWallet.submitCommands(transferRequest)
-
-                    if (response && response.status) {
-                        return response.signature || 'Canton transfer submitted'
-                    } else {
-                        throw new Error('Canton transfer failed')
-                    }
+                finally {
+                    set({ isLoading: false })
                 }
-
-            } finally {
-                set({ isLoading: false })
-            }
-        },
+            },
 
             // Helper to convert snake_case to camelCase for CosmJS compatibility
             _toCamelCase: (str: string) => {
@@ -1108,323 +1108,323 @@ export const useWalletStore = create<WalletState>()(
                 );
             },
 
-        _convertKeysToCamelCase: (obj: any): any => {
-            const { _convertKeysToCamelCase, _toCamelCase } = get()
-            if (Array.isArray(obj)) {
-                return obj.map(v => _convertKeysToCamelCase(v));
-            } else if (obj !== null && typeof obj === 'object') {
-                return Object.keys(obj).reduce(
-                    (result, key) => ({
-                        ...result,
-                        [_toCamelCase(key)]: _convertKeysToCamelCase((obj as any)[key]),
-                    }),
-                    {},
-                );
-            }
-            return obj;
-        },
+            _convertKeysToCamelCase: (obj: any): any => {
+                const { _convertKeysToCamelCase, _toCamelCase } = get()
+                if (Array.isArray(obj)) {
+                    return obj.map(v => _convertKeysToCamelCase(v));
+                } else if (obj !== null && typeof obj === 'object') {
+                    return Object.keys(obj).reduce(
+                        (result, key) => ({
+                            ...result,
+                            [_toCamelCase(key)]: _convertKeysToCamelCase((obj as any)[key]),
+                        }),
+                        {},
+                    );
+                }
+                return obj;
+            },
 
-        executeSkipMessages: async (messages: any[]) => {
-            set({ isLoading: true })
-            try {
-                console.log("🚀 Starting executeSkipMessages", { count: messages.length, messages })
-                const results: string[] = []
-                const { wallets, getChainForWallet } = get()
+            executeSkipMessages: async (messages: any[]) => {
+                set({ isLoading: true })
+                try {
+                    console.log("🚀 Starting executeSkipMessages", { count: messages.length, messages })
+                    const results: string[] = []
+                    const { wallets, getChainForWallet } = get()
 
-                for (let i = 0; i < messages.length; i++) {
-                    const m = messages[i]
+                    for (let i = 0; i < messages.length; i++) {
+                        const m = messages[i]
 
-                    // RESOLVE CHAIN ID AND MESSAGE CONTENT
-                    let chainId = m.chain_id
-                    let cosmosMsgWrapper = m.cosmos_msg
+                        // RESOLVE CHAIN ID AND MESSAGE CONTENT
+                        let chainId = m.chain_id
+                        let cosmosMsgWrapper = m.cosmos_msg
 
-                    if (m.multi_chain_msg) {
-                        console.log(`📦 Detected 'multi_chain_msg' wrapper`)
-                        chainId = m.multi_chain_msg.chain_id
-                        cosmosMsgWrapper = {
-                            msg: m.multi_chain_msg.msg,
-                            msg_type_url: m.multi_chain_msg.msg_type_url
-                        }
-                    } else if (m.cosmos_msg) {
-                        if (m.cosmos_msg.chain_id) chainId = m.cosmos_msg.chain_id
-                    }
-
-                    console.log(`\n📦 Processing message ${i + 1}/${messages.length} for chain: ${chainId}`, m)
-
-                    if (!chainId) {
-                        console.error(`❌ Chain ID missing for message ${i}`, m)
-                        throw new Error(`Chain ID missing for message ${i}`)
-                    }
-
-                    const wallet = wallets.find(w => getChainForWallet(w)?.chain_id === chainId)
-
-                    if (!wallet) {
-                        console.error(`❌ Wallet not connected for chain ${chainId}`)
-                        throw new Error(`Wallet not connected for chain ${chainId}`)
-                    }
-
-                    console.log(`✅ Found wallet for ${chainId}:`, { address: wallet.address, name: wallet.name })
-
-                    // ---------------------------------------------------------
-                    // Cosmos Message Execution
-                    // ---------------------------------------------------------
-                    if (cosmosMsgWrapper) {
-                        console.log(`🔷 Processing Cosmos message for ${chainId}`)
-
-                        if (!window.keplr) {
-                            console.error("❌ Keplr not found")
-                            throw new Error("Keplr not found")
+                        if (m.multi_chain_msg) {
+                            console.log(`📦 Detected 'multi_chain_msg' wrapper`)
+                            chainId = m.multi_chain_msg.chain_id
+                            cosmosMsgWrapper = {
+                                msg: m.multi_chain_msg.msg,
+                                msg_type_url: m.multi_chain_msg.msg_type_url
+                            }
+                        } else if (m.cosmos_msg) {
+                            if (m.cosmos_msg.chain_id) chainId = m.cosmos_msg.chain_id
                         }
 
-                        console.log(`🔓 Enabling Keplr for ${chainId}...`)
-                        try {
-                            await window.keplr.enable(chainId)
-                            console.log(`✅ Keplr enabled for ${chainId}`)
-                        } catch (err) {
-                            console.error(`❌ Failed to enable Keplr for ${chainId}:`, err)
-                            throw err
+                        console.log(`\n📦 Processing message ${i + 1}/${messages.length} for chain: ${chainId}`, m)
+
+                        if (!chainId) {
+                            console.error(`❌ Chain ID missing for message ${i}`, m)
+                            throw new Error(`Chain ID missing for message ${i}`)
                         }
 
-                        const offlineSigner = window.keplr.getOfflineSigner(chainId)
-                        console.log(`✅ Got offline signer for ${chainId}`)
+                        const wallet = wallets.find(w => getChainForWallet(w)?.chain_id === chainId)
 
-                        const { SigningStargateClient } = await import('@cosmjs/stargate')
-                        const { SigningCosmWasmClient } = await import('@cosmjs/cosmwasm-stargate')
-
-                        // Determine RPC via Chain ID mapping
-                        const chainIdToRpcKey: Record<string, keyof typeof RPC_URLS> = {
-                            'cosmoshub-4': 'COSMOS_HUB',
-                            'juno-1': 'JUNO',
-                            'neutron-1': 'NEUTRON',
-                            'osmosis-1': 'OSMOSIS',
-                            'atomone-1': 'ATOM_ONE'
+                        if (!wallet) {
+                            console.error(`❌ Wallet not connected for chain ${chainId}`)
+                            throw new Error(`Wallet not connected for chain ${chainId}`)
                         }
-                        const rpcKey = chainIdToRpcKey[chainId]
-                        const rpc = rpcKey ? (RPC_URLS as any)[rpcKey] : `https://${chainId.split('-')[0]}-rpc.publicnode.com`
-                        console.log(`🌐 Using RPC: ${rpc}`)
 
-                        console.log(`📝 Raw message data:`, cosmosMsgWrapper.msg)
-                        console.log(`📝 Message type:`, typeof cosmosMsgWrapper.msg)
-                        console.log(`📝 Message type URL:`, cosmosMsgWrapper.msg_type_url)
+                        console.log(`✅ Found wallet for ${chainId}:`, { address: wallet.address, name: wallet.name })
 
-                        // Handle both string and object formats from Skip Protocol
-                        let msgObj: any
-                        if (typeof cosmosMsgWrapper.msg === 'string') {
-                            console.log(`🔄 Parsing message from JSON string...`)
+                        // ---------------------------------------------------------
+                        // Cosmos Message Execution
+                        // ---------------------------------------------------------
+                        if (cosmosMsgWrapper) {
+                            console.log(`🔷 Processing Cosmos message for ${chainId}`)
+
+                            if (!window.keplr) {
+                                console.error("❌ Keplr not found")
+                                throw new Error("Keplr not found")
+                            }
+
+                            console.log(`🔓 Enabling Keplr for ${chainId}...`)
                             try {
-                                msgObj = JSON.parse(cosmosMsgWrapper.msg)
-                            } catch (parseErr) {
-                                console.error(`❌ Failed to parse message JSON:`, parseErr)
-                                throw new Error(`Invalid message format from Skip Protocol: ${parseErr}`)
+                                await window.keplr.enable(chainId)
+                                console.log(`✅ Keplr enabled for ${chainId}`)
+                            } catch (err) {
+                                console.error(`❌ Failed to enable Keplr for ${chainId}:`, err)
+                                throw err
                             }
-                        } else {
-                            console.log(`✅ Message already parsed as object`)
-                            msgObj = cosmosMsgWrapper.msg
-                        }
-                        // FIX: Convert snake_case keys to camelCase for CosmJS compatibility
-                        // BUT preserve the 'msg' field content (Contract Payload) from corruption!
-                        const msgContent = msgObj.msg; // Save original
 
-                        console.log(`🔄 Converting keys to camelCase (skipping internal 'msg' conversion)...`)
-                        const camelMsgObj = (get() as any)._convertKeysToCamelCase(msgObj)
+                            const offlineSigner = window.keplr.getOfflineSigner(chainId)
+                            console.log(`✅ Got offline signer for ${chainId}`)
 
-                        // Restore original msg content if it was an object (to prevent recursive camelCase)
-                        if (msgContent && typeof msgContent === 'object') {
-                            camelMsgObj.msg = msgContent
-                        }
+                            const { SigningStargateClient } = await import('@cosmjs/stargate')
+                            const { SigningCosmWasmClient } = await import('@cosmjs/cosmwasm-stargate')
 
-                        // FIX: Handle specific type requirements (e.g. Wasm msg as Uint8Array)
-                        if (cosmosMsgWrapper.msg_type_url?.includes('wasm') || cosmosMsgWrapper.msg_type_url?.includes('MsgExecuteContract')) {
-                            console.log(`⚙️ Handling Wasm message conversion (msg -> Uint8Array)...`)
-                            // For MsgExecuteContract, the 'msg' field is a JSON object in Skip response
-                            // but must be encoded as Uint8Array for CosmJS
-                            if (camelMsgObj.msg) {
-                                const { toUtf8 } = await import('@cosmjs/encoding')
-                                // Use the RESTORED (snake_case) msgContent for stringify
-                                const msgString = typeof camelMsgObj.msg === 'string' ? camelMsgObj.msg : JSON.stringify(camelMsgObj.msg)
-                                camelMsgObj.msg = toUtf8(msgString)
-                                console.log(`✅ Converted 'msg' field to Uint8Array`)
+                            // Determine RPC via Chain ID mapping
+                            const chainIdToRpcKey: Record<string, keyof typeof RPC_URLS> = {
+                                'cosmoshub-4': 'COSMOS_HUB',
+                                'juno-1': 'JUNO',
+                                'neutron-1': 'NEUTRON',
+                                'osmosis-1': 'OSMOSIS',
+                                'atomone-1': 'ATOM_ONE'
                             }
-                        }
+                            const rpcKey = chainIdToRpcKey[chainId]
+                            const rpc = rpcKey ? (RPC_URLS as any)[rpcKey] : `https://${chainId.split('-')[0]}-rpc.publicnode.com`
+                            console.log(`🌐 Using RPC: ${rpc}`)
 
-                        console.log(`✅ Final message object (camelCase):`, JSON.stringify(camelMsgObj, null, 2))
+                            console.log(`📝 Raw message data:`, cosmosMsgWrapper.msg)
+                            console.log(`📝 Message type:`, typeof cosmosMsgWrapper.msg)
+                            console.log(`📝 Message type URL:`, cosmosMsgWrapper.msg_type_url)
 
-                        // Create the encoded message for CosmJS
-                        const encodeMsg = {
-                            typeUrl: cosmosMsgWrapper.msg_type_url,
-                            value: camelMsgObj
-                        }
-                        console.log(`📨 Encoded message for signing:`, JSON.stringify(encodeMsg, null, 2))
-
-                        // If it's a wasm execute, use CosmWasm client
-                        let txHash = ''
-                        try {
-                            // Create explicit fee instead of 'auto' to avoid gas estimation issues
-                            const fee = {
-                                amount: [{ denom: chainId === 'osmosis-1' ? 'uosmo' : chainId === 'juno-1' ? 'ujuno' : chainId === 'neutron-1' ? 'untrn' : 'uatom', amount: '50000' }],
-                                gas: '500000'
-                            }
-                            console.log(`💰 Using fee:`, fee)
-
-                            let result;
-                            if (cosmosMsgWrapper.msg_type_url?.includes('cosmwasm')) {
-                                console.log(`🔧 Using CosmWasm client for wasm message`)
-                                const client = await SigningCosmWasmClient.connectWithSigner(rpc, offlineSigner)
-                                console.log(`✅ Connected CosmWasm client`)
-                                console.log(`✍️ Calling signAndBroadcast with explicit fee... (Keplr should prompt now)`)
-                                result = await client.signAndBroadcast(wallet.address, [encodeMsg], fee)
+                            // Handle both string and object formats from Skip Protocol
+                            let msgObj: any
+                            if (typeof cosmosMsgWrapper.msg === 'string') {
+                                console.log(`🔄 Parsing message from JSON string...`)
+                                try {
+                                    msgObj = JSON.parse(cosmosMsgWrapper.msg)
+                                } catch (parseErr) {
+                                    console.error(`❌ Failed to parse message JSON:`, parseErr)
+                                    throw new Error(`Invalid message format from Skip Protocol: ${parseErr}`)
+                                }
                             } else {
-                                console.log(`🔧 Using Stargate client for standard message`)
-                                const client = await SigningStargateClient.connectWithSigner(rpc, offlineSigner)
-                                console.log(`✅ Connected Stargate client`)
-                                console.log(`✍️ Calling signAndBroadcast with explicit fee... (Keplr should prompt now)`)
-                                result = await client.signAndBroadcast(wallet.address, [encodeMsg], fee)
+                                console.log(`✅ Message already parsed as object`)
+                                msgObj = cosmosMsgWrapper.msg
+                            }
+                            // FIX: Convert snake_case keys to camelCase for CosmJS compatibility
+                            // BUT preserve the 'msg' field content (Contract Payload) from corruption!
+                            const msgContent = msgObj.msg; // Save original
+
+                            console.log(`🔄 Converting keys to camelCase (skipping internal 'msg' conversion)...`)
+                            const camelMsgObj = (get() as any)._convertKeysToCamelCase(msgObj)
+
+                            // Restore original msg content if it was an object (to prevent recursive camelCase)
+                            if (msgContent && typeof msgContent === 'object') {
+                                camelMsgObj.msg = msgContent
                             }
 
-                            if (result.code !== 0) {
-                                throw new Error(`Transaction failed with code ${result.code}: ${result.rawLog}`)
+                            // FIX: Handle specific type requirements (e.g. Wasm msg as Uint8Array)
+                            if (cosmosMsgWrapper.msg_type_url?.includes('wasm') || cosmosMsgWrapper.msg_type_url?.includes('MsgExecuteContract')) {
+                                console.log(`⚙️ Handling Wasm message conversion (msg -> Uint8Array)...`)
+                                // For MsgExecuteContract, the 'msg' field is a JSON object in Skip response
+                                // but must be encoded as Uint8Array for CosmJS
+                                if (camelMsgObj.msg) {
+                                    const { toUtf8 } = await import('@cosmjs/encoding')
+                                    // Use the RESTORED (snake_case) msgContent for stringify
+                                    const msgString = typeof camelMsgObj.msg === 'string' ? camelMsgObj.msg : JSON.stringify(camelMsgObj.msg)
+                                    camelMsgObj.msg = toUtf8(msgString)
+                                    console.log(`✅ Converted 'msg' field to Uint8Array`)
+                                }
                             }
 
-                            txHash = result.transactionHash
-                            console.log(`✅ Transaction broadcast success! Hash: ${txHash}`)
+                            console.log(`✅ Final message object (camelCase):`, JSON.stringify(camelMsgObj, null, 2))
 
-                            results.push(txHash)
-                        } catch (err: any) {
-                            console.error(`❌ Error during signAndBroadcast:`, err)
-                            console.error(`❌ Error details:`, {
-                                message: err.message,
-                                code: err.code,
-                                stack: err.stack
+                            // Create the encoded message for CosmJS
+                            const encodeMsg = {
+                                typeUrl: cosmosMsgWrapper.msg_type_url,
+                                value: camelMsgObj
+                            }
+                            console.log(`📨 Encoded message for signing:`, JSON.stringify(encodeMsg, null, 2))
+
+                            // If it's a wasm execute, use CosmWasm client
+                            let txHash = ''
+                            try {
+                                // Create explicit fee instead of 'auto' to avoid gas estimation issues
+                                const fee = {
+                                    amount: [{ denom: chainId === 'osmosis-1' ? 'uosmo' : chainId === 'juno-1' ? 'ujuno' : chainId === 'neutron-1' ? 'untrn' : 'uatom', amount: '50000' }],
+                                    gas: '500000'
+                                }
+                                console.log(`💰 Using fee:`, fee)
+
+                                let result;
+                                if (cosmosMsgWrapper.msg_type_url?.includes('cosmwasm')) {
+                                    console.log(`🔧 Using CosmWasm client for wasm message`)
+                                    const client = await SigningCosmWasmClient.connectWithSigner(rpc, offlineSigner)
+                                    console.log(`✅ Connected CosmWasm client`)
+                                    console.log(`✍️ Calling signAndBroadcast with explicit fee... (Keplr should prompt now)`)
+                                    result = await client.signAndBroadcast(wallet.address, [encodeMsg], fee)
+                                } else {
+                                    console.log(`🔧 Using Stargate client for standard message`)
+                                    const client = await SigningStargateClient.connectWithSigner(rpc, offlineSigner)
+                                    console.log(`✅ Connected Stargate client`)
+                                    console.log(`✍️ Calling signAndBroadcast with explicit fee... (Keplr should prompt now)`)
+                                    result = await client.signAndBroadcast(wallet.address, [encodeMsg], fee)
+                                }
+
+                                if (result.code !== 0) {
+                                    throw new Error(`Transaction failed with code ${result.code}: ${result.rawLog}`)
+                                }
+
+                                txHash = result.transactionHash
+                                console.log(`✅ Transaction broadcast success! Hash: ${txHash}`)
+
+                                results.push(txHash)
+                            } catch (err: any) {
+                                console.error(`❌ Error during signAndBroadcast:`, err)
+                                console.error(`❌ Error details:`, {
+                                    message: err.message,
+                                    code: err.code,
+                                    stack: err.stack
+                                })
+                                throw err
+                            }
+                        }
+
+                        // ---------------------------------------------------------
+                        // EVM Message Execution
+                        // ---------------------------------------------------------
+                        else if (m.evm_msg) {
+                            console.log(`🔶 Processing EVM message`)
+                            const { ethers } = await import('ethers')
+                            let web3Provider = (window as any).ethereum
+                            if (wallet.name.toLowerCase().includes('rabby')) web3Provider = (window as any).rabby || web3Provider
+
+                            const provider = new ethers.BrowserProvider(web3Provider)
+                            const signer = await provider.getSigner()
+
+                            console.log(`✍️ Sending EVM transaction...`)
+                            const tx = await signer.sendTransaction({
+                                to: m.evm_msg.to,
+                                data: m.evm_msg.data,
+                                value: m.evm_msg.value
                             })
-                            throw err
+
+                            console.log(`⏳ Waiting for confirmation...`)
+                            const receipt = await tx.wait()
+                            if (receipt) {
+                                console.log(`✅ EVM transaction confirmed! Hash: ${receipt.hash}`)
+                                results.push(receipt.hash)
+                            }
                         }
                     }
 
-                    // ---------------------------------------------------------
-                    // EVM Message Execution
-                    // ---------------------------------------------------------
-                    else if (m.evm_msg) {
-                        console.log(`🔶 Processing EVM message`)
-                        const { ethers } = await import('ethers')
-                        let web3Provider = (window as any).ethereum
-                        if (wallet.name.toLowerCase().includes('rabby')) web3Provider = (window as any).rabby || web3Provider
+                    console.log(`🎉 All messages executed successfully!`, results)
+                    return results
+                } finally {
+                    set({ isLoading: false })
+                }
+            },
 
-                        const provider = new ethers.BrowserProvider(web3Provider)
-                        const signer = await provider.getSigner()
-
-                        console.log(`✍️ Sending EVM transaction...`)
-                        const tx = await signer.sendTransaction({
-                            to: m.evm_msg.to,
-                            data: m.evm_msg.data,
-                            value: m.evm_msg.value
-                        })
-
-                        console.log(`⏳ Waiting for confirmation...`)
-                        const receipt = await tx.wait()
-                        if (receipt) {
-                            console.log(`✅ EVM transaction confirmed! Hash: ${receipt.hash}`)
-                            results.push(receipt.hash)
-                        }
-                    }
+            refreshBalances: async () => {
+                set({ isLoading: true })
+                const { wallets } = get()
+                if (wallets.length === 0) {
+                    set({ isLoading: false })
+                    return
                 }
 
-                console.log(`🎉 All messages executed successfully!`, results)
-                return results
-            } finally {
-                set({ isLoading: false })
-            }
-        },
+                try {
+                    const prices = await PriceService.getPrices()
+                    const updatedWallets = [...wallets]
 
-        refreshBalances: async () => {
-            set({ isLoading: true })
-            const { wallets } = get()
-            if (wallets.length === 0) {
-                set({ isLoading: false })
-                return
-            }
+                    for (let i = 0; i < updatedWallets.length; i++) {
+                        const w = updatedWallets[i]
+                        let nativeBal = 0
 
-            try {
-                const prices = await PriceService.getPrices()
-                const updatedWallets = [...wallets]
-
-                for (let i = 0; i < updatedWallets.length; i++) {
-                    const w = updatedWallets[i]
-                    let nativeBal = 0
-
-                    try {
-                        if (w.chain === 'EVM') {
-                            const chainCfg = EVM_CHAINS.find(c => c.id === w.chainId)
-                            if (chainCfg) {
-                                if (w.symbol === 'USDC' || w.symbol === 'USDT') {
-                                    const token = ERC20_TOKENS.find(t => t.symbol === w.symbol)
-                                    const contract = (token?.contracts as any)[w.chainId!]
-                                    if (contract) {
-                                        nativeBal = await RpcService.getErc20Balance(chainCfg.rpc, contract, w.address)
+                        try {
+                            if (w.chain === 'EVM') {
+                                const chainCfg = EVM_CHAINS.find(c => c.id === w.chainId)
+                                if (chainCfg) {
+                                    if (w.symbol === 'USDC' || w.symbol === 'USDT') {
+                                        const token = ERC20_TOKENS.find(t => t.symbol === w.symbol)
+                                        const contract = (token?.contracts as any)[w.chainId!]
+                                        if (contract) {
+                                            nativeBal = await RpcService.getErc20Balance(chainCfg.rpc, contract, w.address)
+                                        }
+                                    } else {
+                                        nativeBal = await RpcService.getBalance(chainCfg.rpc, w.address)
+                                    }
+                                }
+                            } else if (w.chain === 'Solana') {
+                                nativeBal = await RpcService.getBalance('SOLANA', w.address)
+                            } else if (w.chain === 'Cosmos') {
+                                // Check if it's PHMN
+                                if (w.symbol === 'PHMN') {
+                                    if (w.name.includes('Juno')) {
+                                        const PHMN_CONTRACT = 'juno1rws84uz7969aaa7pej303udhlkt3j9ca0l3egpcae98jwak9quzq8szn2l'
+                                        nativeBal = await RpcService.getCw20Balance('JUNO', PHMN_CONTRACT, w.address)
+                                    } else if (w.name.includes('Neutron')) {
+                                        const PHMN_IBC = 'ibc/4698B7C533CB50F4120691368F71A0E7161DA26F58376262ADF3F44AAAA6EF9E'
+                                        nativeBal = await RpcService.getCosmosBalance('NEUTRON', w.address, PHMN_IBC)
+                                    } else if (w.name.includes('Osmosis')) {
+                                        const PHMN_IBC = 'ibc/D3B574938631B0A1BA704879020C696E514CFADAA7643CDE4BD5EB010BDE327B'
+                                        nativeBal = await RpcService.getCosmosBalance('OSMOSIS', w.address, PHMN_IBC)
+                                    }
+                                } else if (w.symbol === 'PHOTON') {
+                                    if (w.name.includes('Atom One')) {
+                                        nativeBal = await RpcService.getCosmosBalance('ATOM_ONE', w.address, 'uphoton')
                                     }
                                 } else {
-                                    nativeBal = await RpcService.getBalance(chainCfg.rpc, w.address)
+                                    // Native Cosmos
+                                    const chain = (w.name.includes('Hub') ? 'COSMOS_HUB' :
+                                        w.name.includes('Juno') ? 'JUNO' :
+                                            w.name.includes('Neutron') ? 'NEUTRON' :
+                                                w.name.includes('Osmosis') ? 'OSMOSIS' :
+                                                    w.name.includes('Atom One') ? 'ATOM_ONE' : null) as any
+                                    if (chain) {
+                                        nativeBal = await RpcService.getBalance(chain, w.address)
+                                    }
                                 }
                             }
-                        } else if (w.chain === 'Solana') {
-                            nativeBal = await RpcService.getBalance('SOLANA', w.address)
-                        } else if (w.chain === 'Cosmos') {
-                            // Check if it's PHMN
-                            if (w.symbol === 'PHMN') {
-                                if (w.name.includes('Juno')) {
-                                    const PHMN_CONTRACT = 'juno1rws84uz7969aaa7pej303udhlkt3j9ca0l3egpcae98jwak9quzq8szn2l'
-                                    nativeBal = await RpcService.getCw20Balance('JUNO', PHMN_CONTRACT, w.address)
-                                } else if (w.name.includes('Neutron')) {
-                                    const PHMN_IBC = 'ibc/4698B7C533CB50F4120691368F71A0E7161DA26F58376262ADF3F44AAAA6EF9E'
-                                    nativeBal = await RpcService.getCosmosBalance('NEUTRON', w.address, PHMN_IBC)
-                                } else if (w.name.includes('Osmosis')) {
-                                    const PHMN_IBC = 'ibc/D3B574938631B0A1BA704879020C696E514CFADAA7643CDE4BD5EB010BDE327B'
-                                    nativeBal = await RpcService.getCosmosBalance('OSMOSIS', w.address, PHMN_IBC)
-                                }
-                            } else if (w.symbol === 'PHOTON') {
-                                if (w.name.includes('Atom One')) {
-                                    nativeBal = await RpcService.getCosmosBalance('ATOM_ONE', w.address, 'uphoton')
-                                }
-                            } else {
-                                // Native Cosmos
-                                const chain = (w.name.includes('Hub') ? 'COSMOS_HUB' :
-                                    w.name.includes('Juno') ? 'JUNO' :
-                                        w.name.includes('Neutron') ? 'NEUTRON' :
-                                            w.name.includes('Osmosis') ? 'OSMOSIS' :
-                                                w.name.includes('Atom One') ? 'ATOM_ONE' : null) as any
-                                if (chain) {
-                                    nativeBal = await RpcService.getBalance(chain, w.address)
-                                }
-                            }
-                        }
 
-                        const price = prices[w.symbol] || 0
-                        updatedWallets[i] = {
-                            ...w,
-                            nativeBalance: nativeBal,
-                            balance: nativeBal * price
+                            const price = prices[w.symbol] || 0
+                            updatedWallets[i] = {
+                                ...w,
+                                nativeBalance: nativeBal,
+                                balance: nativeBal * price
+                            }
+                        } catch (e) {
+                            console.error(`Failed to refresh balance for ${w.symbol}:`, e)
                         }
-                    } catch (e) {
-                        console.error(`Failed to refresh balance for ${w.symbol}:`, e)
                     }
-                }
 
-                set({ wallets: updatedWallets })
-            } catch (err) {
-                console.error("Failed to refresh balances:", err)
-            } finally {
-                set({ isLoading: false })
+                    set({ wallets: updatedWallets })
+                } catch (err) {
+                    console.error("Failed to refresh balances:", err)
+                } finally {
+                    set({ isLoading: false })
+                }
             }
-        }
         }),
-{
-    name: 'wallet-storage',
-        partialize: (state) => ({ wallets: state.wallets, trades: state.trades }),
+        {
+            name: 'wallet-storage',
+            partialize: (state) => ({ wallets: state.wallets, trades: state.trades }),
             onRehydrateStorage: () => (state) => {
                 if (state) {
                     state.setHasHydrated(true)
                     state._initAuthListener?.()
                 }
             }
-}
+        }
     )
 )
