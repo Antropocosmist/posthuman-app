@@ -56,6 +56,10 @@ export class MagicEdenNFTService implements NFTServiceInterface {
         }
     }
 
+    async transferNFT(_nft: NFT, _recipientAddress: string, _senderAddress: string, _walletProvider?: string): Promise<string> {
+        throw new Error('Transfer not supported for Solana yet')
+    }
+
     /**
      * Fetch all NFTs owned by a specific address using direct Solana RPC
      * This method uses getParsedTokenAccountsByOwner which works with any public RPC

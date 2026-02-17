@@ -10,10 +10,21 @@ const OPENSEA_API_KEY = import.meta.env.VITE_OPENSEA_API_KEY || ''
  * Get the correct EVM provider based on connected wallet
  * Rabby wallet uses window.rabby, others use window.ethereum
  */
-function getEVMProvider(): any {
-    // Check if we're dealing with Rabby wallet
-    // Rabby injects both window.rabby and window.ethereum, but we should use window.rabby for Rabby
-    if ((window as any).rabby) {
+/**
+ * Get the correct EVM provider based on connected wallet
+ * Rabby wallet uses window.rabby, others use window.ethereum
+ */
+function getEVMProvider(preferredProvider?: string): any {
+    // 1. Explicitly requested Keplr
+    if (preferredProvider === 'Keplr') {
+        // If window.ethereum is Keplr, use it
+        if ((window as any).ethereum?.isKeplr) {
+            return (window as any).ethereum;
+        }
+    }
+
+    // 2. Explicitly requested Rabby
+    if ((preferredProvider === 'Rabby' || (window as any).rabby) && !preferredProvider) {
         // Check if Rabby is the active provider by checking if it has accounts
         try {
             // If window.rabby exists and is functional, use it
@@ -23,6 +34,7 @@ function getEVMProvider(): any {
         }
     }
 
+    // 3. Fallback / Default
     // Fallback to standard window.ethereum for MetaMask and other wallets
     if (window.ethereum) {
         return window.ethereum;
@@ -786,6 +798,9 @@ export class OpenSeaNFTService implements NFTServiceInterface {
     /**
      * Get collection stats
      */
+    /**
+     * Get collection stats
+     */
     async getCollectionStats(contractAddress: string): Promise<NFTCollection> {
         try {
             // Try Ethereum first, then Polygon (matic/polygon)
@@ -822,8 +837,51 @@ export class OpenSeaNFTService implements NFTServiceInterface {
                     name: 'Unknown Collection',
                 }
             }
-        }
+
+            // 2. Fetch Collection Details
+            const collectionResponse = await fetch(`https://api.opensea.io/api/v2/collections/${slug}`, {
+                headers: OPENSEA_API_KEY ? { 'X-API-KEY': OPENSEA_API_KEY } : {},
+            })
+
+            if (collectionResponse.ok) {
+                const data = await collectionResponse.json()
+                name = data.name || name
+                description = data.description || description
+                image = data.image_url || image
             }
 
-    // Export singleton instance
-    export const openSeaNFTService = new OpenSeaNFTService()
+            // 3. Fetch Stats
+            const statsResponse = await fetch(`https://api.opensea.io/api/v2/collections/${slug}/stats`, {
+                headers: OPENSEA_API_KEY ? { 'X-API-KEY': OPENSEA_API_KEY } : {},
+            })
+
+            if (statsResponse.ok) {
+                const sData = await statsResponse.json()
+                const floor = sData.total?.floor_price || sData.floor_price
+                if (floor) {
+                    collectionStats = { floor_price: floor, total_supply: sData.total?.total_supply }
+                }
+            }
+
+            return {
+                id: slug,
+                name: name,
+                description: description,
+                image: image,
+                floorPrice: collectionStats?.floor_price ? String(collectionStats.floor_price) : undefined,
+                floorPriceCurrency: 'ETH',
+                totalSupply: collectionStats?.total_supply
+            }
+
+        } catch (error) {
+            console.error('Error fetching OpenSea collection stats:', error)
+            return {
+                id: contractAddress,
+                name: 'Unknown Collection',
+            }
+        }
+    }
+}
+
+// Export singleton instance
+export const openSeaNFTService = new OpenSeaNFTService()
