@@ -136,7 +136,7 @@ if (typeof window !== 'undefined') {
 }
 
 import { consoleWallet } from '@console-wallet/dapp-sdk'
-import type { CoinEnum } from '@console-wallet/dapp-sdk'
+import type { CoinEnum, CANTON_NETWORK_VARIANTS } from '@console-wallet/dapp-sdk'
 
 export const useWalletStore = create<WalletState>()(
     persist(
@@ -1394,6 +1394,25 @@ export const useWalletStore = create<WalletState>()(
                                     if (chain) {
                                         nativeBal = await RpcService.getBalance(chain, w.address)
                                     }
+                                }
+                            } else if (w.chain === 'Canton') {
+                                // Fetch balance using Console Wallet SDK
+                                try {
+                                    // Get the active network from the wallet
+                                    const activeNetwork = await consoleWallet.getActiveNetwork()
+
+                                    const balanceResponse = await consoleWallet.getBalance({
+                                        party: w.address, // partyId
+                                        network: activeNetwork.id as CANTON_NETWORK_VARIANTS
+                                    })
+
+                                    // Find the token matching the wallet symbol
+                                    const tokenData = balanceResponse.tokens.find(t => t.symbol === w.symbol)
+                                    if (tokenData) {
+                                        nativeBal = parseFloat(tokenData.balance)
+                                    }
+                                } catch (e) {
+                                    console.error(`Failed to fetch Canton balance for ${w.symbol}:`, e)
                                 }
                             }
 
