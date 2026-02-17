@@ -1542,9 +1542,45 @@ export const useWalletStore = create<WalletState>()(
                                         console.error(`[Canton] Error message:`, e.message)
                                         console.error(`[Canton] Error stack:`, e.stack)
                                     }
-                                } else {
-                                    // Nightly Wallet - no balance API available
-                                    console.log(`[Canton] Nightly Wallet: Balance API not available via wallet SDK`)
+                                } else if (w.walletProvider === 'Nightly Wallet') {
+                                    // Nightly Wallet - use getHoldingUtxos() to calculate balance
+                                    try {
+                                        console.log(`[Canton] Fetching Nightly Wallet balance via UTXOs: ${w.address}`)
+
+                                        const nightly = window.nightly?.canton
+                                        if (!nightly) {
+                                            console.warn(`[Canton] Nightly Wallet extension not available`)
+                                            return
+                                        }
+
+                                        // Get holding UTXOs
+                                        const utxos = await nightly.getHoldingUtxos()
+                                        console.log(`[Canton] Nightly UTXOs response:`, utxos)
+
+                                        if (!utxos || !Array.isArray(utxos)) {
+                                            console.warn(`[Canton] No UTXOs returned from Nightly Wallet`)
+                                            return
+                                        }
+
+                                        // Calculate total balance from UTXOs
+                                        // UTXOs should have an amount field
+                                        let totalBalance = 0
+                                        for (const utxo of utxos) {
+                                            // Try different possible field names for amount
+                                            const amount = (utxo as any).amount || (utxo as any).value || (utxo as any).balance || 0
+                                            if (typeof amount === 'number') {
+                                                totalBalance += amount
+                                            } else if (typeof amount === 'string') {
+                                                totalBalance += parseFloat(amount) || 0
+                                            }
+                                        }
+
+                                        nativeBal = totalBalance
+                                        console.log(`[Canton] ✓ Nightly Wallet balance calculated from ${utxos.length} UTXOs: ${nativeBal} CC`)
+                                    } catch (e: any) {
+                                        console.error(`[Canton] Nightly Wallet balance fetch failed:`, e)
+                                        console.error(`[Canton] Error message:`, e.message)
+                                    }
                                 }
                             }
 
