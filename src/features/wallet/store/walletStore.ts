@@ -6,7 +6,7 @@ import { db, auth } from '../../../shared/config/firebase'
 import { collection, addDoc, getDocs, query, where, orderBy } from 'firebase/firestore'
 import { onAuthStateChanged } from 'firebase/auth'
 
-export type ChainType = 'EVM' | 'Cosmos' | 'Solana' | 'Gno'
+export type ChainType = 'EVM' | 'Cosmos' | 'Solana' | 'Gno' | 'Canton'
 
 export interface Trade {
     id: string
@@ -135,6 +135,8 @@ if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event('eip6963:requestProvider'));
 }
 
+import { consoleWallet } from '@console-wallet/dapp-sdk'
+
 export const useWalletStore = create<WalletState>()(
     persist(
         (set, get) => ({
@@ -185,6 +187,9 @@ export const useWalletStore = create<WalletState>()(
                     if (wallet.address.startsWith('osmo')) return { chain_id: 'osmosis-1', chain_name: 'osmosis', chain_type: 'cosmos' }
                     if (wallet.address.startsWith('atone')) return { chain_id: 'atomone-1', chain_name: 'atomone', chain_type: 'cosmos' }
                     if (wallet.address.startsWith('stars')) return { chain_id: 'stargaze-1', chain_name: 'stargaze', chain_type: 'cosmos' }
+                }
+                if (wallet.chain === 'Canton') {
+                    return { chain_id: 'canton', chain_name: 'Canton Network', chain_type: 'canton' }
                 }
                 return null
             },
@@ -798,6 +803,43 @@ export const useWalletStore = create<WalletState>()(
                             } else {
                                 alert("Adena Wallet not detected! Redirecting to install page...")
                                 window.open("https://adena.app/", "_blank")
+                            }
+                        }
+
+                        // ---------------------------------------------------------
+                        // Canton Network (Console Wallet)
+                        // ---------------------------------------------------------
+                        else if (chain === 'Canton') {
+                            try {
+                                const isAvailable = await consoleWallet.checkExtensionAvailability()
+                                if (!isAvailable) {
+                                    alert('Console Wallet extension not detected! Please install it.')
+                                    return
+                                }
+
+                                await consoleWallet.connect({ name: 'POSTHUMAN App' })
+                                const account = await consoleWallet.getPrimaryAccount()
+
+                                if (account) {
+                                    const newWallet: ConnectedWallet = {
+                                        id: `console-${account.partyId.substr(-4)}`,
+                                        name: 'Console Wallet',
+                                        chain: 'Canton',
+                                        address: account.partyId,
+                                        icon: `${BASE_URL}icons/console.png`,
+                                        balance: 0, // Balance fetching for Canton can be added later
+                                        nativeBalance: 0,
+                                        symbol: 'CANTON',
+                                        walletProvider: 'Console Wallet'
+                                    }
+
+                                    // Remove existing Console wallets to prevent dups
+                                    const cleanWallets = get().wallets.filter(w => w.walletProvider !== 'Console Wallet')
+                                    set({ wallets: [...cleanWallets, newWallet], isModalOpen: false })
+                                }
+                            } catch (e: any) {
+                                console.error("Console Wallet connection exception:", e)
+                                alert(`Console Wallet error: ${e.message || e}`)
                             }
                         }
                     }
