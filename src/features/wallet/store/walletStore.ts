@@ -1449,13 +1449,41 @@ export const useWalletStore = create<WalletState>()(
                                     }
                                 }
                             } else if (w.chain === 'Canton') {
-                                // Use Canton RPC for wallet-agnostic balance fetching
-                                try {
-                                    const { CantonRpcService } = await import('../../../shared/services/cantonRpc')
-                                    nativeBal = await CantonRpcService.getBalance(w.address, 'mainnet')
-                                    console.log(`Canton balance for ${w.address} (${w.walletProvider}):`, nativeBal)
-                                } catch (e) {
-                                    console.error(`Failed to fetch Canton balance for ${w.address}:`, e)
+                                // Canton balance fetching using Console Wallet SDK
+                                // Note: Only works for Console Wallet, not Nightly Wallet
+                                if (w.walletProvider === 'Console Wallet') {
+                                    try {
+                                        console.log(`[Canton] Fetching balance for Console Wallet: ${w.address}`)
+
+                                        // Get active network
+                                        const activeNetwork = await consoleWallet.getActiveNetwork()
+                                        console.log(`[Canton] Active network:`, activeNetwork)
+
+                                        const networkId = activeNetwork?.id || 'CANTON_NETWORK'
+
+                                        // Get coins balance
+                                        const balanceResponse = await consoleWallet.getCoinsBalance({
+                                            party: w.address,
+                                            network: networkId as any
+                                        })
+
+                                        console.log(`[Canton] Balance response:`, balanceResponse)
+
+                                        // Find CC token
+                                        const tokenData = balanceResponse.tokens?.find((t: any) => t.symbol === 'CC')
+                                        if (tokenData) {
+                                            nativeBal = parseFloat(tokenData.balance || '0')
+                                            console.log(`[Canton] CC balance found: ${nativeBal}`)
+                                        } else {
+                                            console.log(`[Canton] No CC token found. Available tokens:`, balanceResponse.tokens?.map((t: any) => t.symbol))
+                                        }
+                                    } catch (e: any) {
+                                        console.error(`[Canton] Failed to fetch Console Wallet balance:`, e)
+                                        console.error(`[Canton] Error details:`, e.message, e.stack)
+                                    }
+                                } else {
+                                    // Nightly Wallet - no balance API available
+                                    console.log(`[Canton] Nightly Wallet balance fetching not available - wallet SDK doesn't provide balance API`)
                                 }
                             }
 
