@@ -1,4 +1,4 @@
-import { X, ShoppingBag, Send, Flame, Gavel, ChevronLeft, Tag } from 'lucide-react'
+import { X, ShoppingBag, Send, Flame, ChevronLeft, Tag } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import type { NFT } from '../types/types'
 import { useNFTStore } from '../store/nftStore'
@@ -16,28 +16,22 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
     const [floorPriceDisplay, setFloorPriceDisplay] = useState<string | null>(null)
     const [listingCurrency, setListingCurrency] = useState<string>('')
     const [currencyCode, setCurrencyCode] = useState<string>('') // Display symbol (e.g. STARS, ATOM)
-    const [activeAction, setActiveAction] = useState<'sell' | 'transfer' | 'burn' | 'auction' | null>(null)
+    const [activeAction, setActiveAction] = useState<'sell' | 'transfer' | 'burn' | null>(null)
     const [duration, setDuration] = useState<number>(30) // Default 30 days
     const [recipientAddress, setRecipientAddress] = useState<string>('')
     const [addressError, setAddressError] = useState<string>('')
 
-    // Auction state
-    const [auctionPrice, setAuctionPrice] = useState('')
-    const [auctionCurrency, setAuctionCurrency] = useState('STARS')
-    const [auctionDuration, setAuctionDuration] = useState(21600) // 6 hours default
 
     const {
         isListing,
         isBuying,
         isTransferring,
         isBurning,
-        isCreatingAuction,
         listNFT,
         buyNFT,
         cancelListing,
         transferNFT,
         burnNFT,
-        createAuction,
         marketplaceNFTs,
         fetchCollectionStats
     } = useNFTStore()
@@ -206,14 +200,6 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
         }
     }
 
-    const handleCreateAuction = async () => {
-        try {
-            await createAuction(nft, auctionPrice, auctionCurrency, auctionDuration)
-            onClose()
-        } catch (error) {
-            console.error('Create auction failed:', error)
-        }
-    }
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
@@ -354,16 +340,6 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
                                                 Sell
                                             </button>
 
-                                            {/* Stargaze Specific: Auction */}
-                                            {nft.chain === 'stargaze' && (
-                                                <button
-                                                    onClick={() => setActiveAction('auction')}
-                                                    className="col-span-1 py-3 px-4 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold transition-colors flex items-center justify-center gap-2 shadow-lg shadow-purple-500/20"
-                                                >
-                                                    <Gavel className="w-4 h-4" />
-                                                    Auction
-                                                </button>
-                                            )}
 
                                             {/* Transfer Button - Available on all chains */}
                                             <button
@@ -582,107 +558,7 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
                                         </div>
                                     )}
 
-                                    {/* Auction View */}
-                                    {activeAction === 'auction' && (
-                                        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                                            <button
-                                                onClick={() => setActiveAction(null)}
-                                                className="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white font-medium transition-colors flex items-center justify-center gap-2"
-                                            >
-                                                <ChevronLeft className="w-4 h-4" />
-                                                Back
-                                            </button>
 
-                                            {/* Reserve Price Input */}
-                                            <div className="space-y-2">
-                                                <label className="text-sm font-medium text-gray-300 px-1">
-                                                    Reserve Price
-                                                </label>
-                                                <div className="flex gap-2">
-                                                    <input
-                                                        type="number"
-                                                        placeholder="0.00"
-                                                        value={auctionPrice}
-                                                        onChange={(e) => setAuctionPrice(e.target.value)}
-                                                        className="flex-1 px-4 py-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:border-purple-500 focus:outline-none text-lg font-mono"
-                                                        step="0.01"
-                                                        min="0"
-                                                    />
-                                                    <select
-                                                        value={auctionCurrency}
-                                                        onChange={(e) => setAuctionCurrency(e.target.value)}
-                                                        className="px-4 py-4 rounded-xl bg-white/5 border border-white/10 text-white focus:border-purple-500 focus:outline-none font-medium cursor-pointer"
-                                                    >
-                                                        <option value="STARS">STARS</option>
-                                                        <option value="OSMO">OSMO</option>
-                                                        <option value="ATOM">ATOM</option>
-                                                    </select>
-                                                </div>
-                                                <p className="text-xs text-gray-500 px-1">
-                                                    Minimum bid amount for the auction
-                                                </p>
-                                            </div>
-
-                                            {/* Duration Selector */}
-                                            <div className="space-y-2">
-                                                <label className="text-sm font-medium text-gray-300 px-1">
-                                                    Duration
-                                                </label>
-                                                <select
-                                                    value={auctionDuration}
-                                                    onChange={(e) => setAuctionDuration(Number(e.target.value))}
-                                                    className="w-full px-4 py-4 rounded-xl bg-white/5 border border-white/10 text-white focus:border-purple-500 focus:outline-none font-medium cursor-pointer"
-                                                >
-                                                    <option value={21600}>6 hours</option>
-                                                    <option value={43200}>12 hours</option>
-                                                    <option value={86400}>1 day</option>
-                                                    <option value={172800}>2 days</option>
-                                                    <option value={432000}>5 days</option>
-                                                </select>
-                                                <p className="text-xs text-gray-500 px-1">
-                                                    How long the auction will run
-                                                </p>
-                                            </div>
-
-                                            {/* Fees Display */}
-                                            <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-                                                <h4 className="text-sm font-bold text-white mb-3">Fees</h4>
-                                                <div className="space-y-2 text-sm">
-                                                    <div className="flex justify-between">
-                                                        <span className="text-gray-400">Listing Fee</span>
-                                                        <span className="text-white font-medium">5 STARS</span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span className="text-gray-400">Creator Royalties</span>
-                                                        <span className="text-white font-medium">6.7%</span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span className="text-gray-400">Fair Burn</span>
-                                                        <span className="text-white font-medium">2%</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Create Auction Button */}
-                                            <button
-                                                onClick={handleCreateAuction}
-                                                disabled={!auctionPrice || isCreatingAuction}
-                                                className="w-full py-4 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white font-bold transition-colors flex items-center justify-center gap-2 shadow-lg shadow-purple-500/20"
-                                            >
-                                                {isCreatingAuction ? (
-                                                    <>
-                                                        <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                                                        Creating Auction...
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Gavel className="w-4 h-4" />
-                                                        Create Auction
-                                                    </>
-                                                )}
-                                            </button>
-                                        </div>
-                                    )}
                                 </div>
                             )}
 
