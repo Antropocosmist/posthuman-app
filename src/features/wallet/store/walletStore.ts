@@ -855,6 +855,9 @@ export const useWalletStore = create<WalletState>()(
                                     // Remove existing Console wallets to prevent dups
                                     const cleanWallets = get().wallets.filter(w => w.walletProvider !== 'Console Wallet')
                                     set({ wallets: [...cleanWallets, newWallet], isModalOpen: false })
+
+                                    // Fetch balance immediately after connection
+                                    setTimeout(() => get().refreshBalances(), 500)
                                 }
                             } catch (e: any) {
                                 console.error("Console Wallet connection exception:", e)
@@ -890,6 +893,9 @@ export const useWalletStore = create<WalletState>()(
                                     // Remove existing Nightly wallets to prevent dups
                                     const cleanWallets = get().wallets.filter(w => w.walletProvider !== 'Nightly Wallet')
                                     set({ wallets: [...cleanWallets, newWallet], isModalOpen: false })
+
+                                    // Fetch balance immediately after connection
+                                    setTimeout(() => get().refreshBalances(), 500)
                                 }
                             } catch (e: any) {
                                 console.error("Nightly Wallet connection exception:", e)
