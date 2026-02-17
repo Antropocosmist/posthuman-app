@@ -469,7 +469,8 @@ export const useWalletStore = create<WalletState>()(
                                         try {
                                             // 1. Native Balance
                                             const nativeBal = await RpcService.getBalance(chainCfg.rpc, evmAddress)
-                                            if (nativeBal > 0) {
+                                            // Always add Ethereum Mainnet wallet so NFT fetching works even with 0 balance
+                                            if (nativeBal > 0 || chainCfg.id === '0x1') {
                                                 const price = prices[chainCfg.symbol] || 0
                                                 const newWallet: ConnectedWallet = {
                                                     id: `keplr-${chainCfg.id}-${evmAddress.substr(-4)}`,
