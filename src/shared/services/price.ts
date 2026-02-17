@@ -7,7 +7,8 @@ const COIN_IDS = {
     NTRN: 'neutron-3', // Verifying if 'neutron' works, typical id
     OSMO: 'osmosis',
     PHMN: 'posthuman',
-    USDC: 'usd-coin'
+    USDC: 'usd-coin',
+    CC: 'canton' // Canton Network token
 }
 
 export const PriceService = {
@@ -39,6 +40,7 @@ export const PriceService = {
                 NTRN: data[COIN_IDS.NTRN]?.usd || 0,
                 OSMO: data[COIN_IDS.OSMO]?.usd || 0,
                 PHMN: data[COIN_IDS.PHMN]?.usd || 0,
+                CC: data[COIN_IDS.CC]?.usd || 0,
             }
 
             PriceService._cache = prices
