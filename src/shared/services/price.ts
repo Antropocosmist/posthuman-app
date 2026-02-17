@@ -8,7 +8,7 @@ const COIN_IDS = {
     OSMO: 'osmosis',
     PHMN: 'posthuman',
     USDC: 'usd-coin',
-    CC: 'canton' // Canton Network token
+    CC: 'canton-network' // Canton Network token
 }
 
 export const PriceService = {
