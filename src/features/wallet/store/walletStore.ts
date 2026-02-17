@@ -688,70 +688,75 @@ export const useWalletStore = create<WalletState>()(
                         }
 
                         // Solana Handlers (Add to Store)
-                        // Solana Handlers (Add to Store)
                         if (chain === 'Solana' && address) {
-                            let realBalance = 0
-                            let price = 0
-
                             try {
-                                realBalance = await RpcService.getBalance('SOLANA', address)
-                                price = prices['SOL'] || 0
-                            } catch (error) {
-                                console.error("Failed to fetch Solana details, defaulting to 0:", error)
-                            }
+                                let realBalance = 0
+                                let price = 0
 
-                            const newWallet: ConnectedWallet = {
-                                id: Math.random().toString(36).substr(2, 9),
-                                name,
-                                chain: 'Solana',
-                                address,
-                                icon: name === 'Phantom' ? `${BASE_URL}icons/phantom.png` : `${BASE_URL}icons/solflare.png`,
-                                balance: realBalance * price,
-                                nativeBalance: realBalance,
-                                symbol: 'SOL',
-                                walletProvider: name
-                            }
-
-                            // Replace logic: Remove ANY existing wallet with this address and chain
-                            // This ensures no legacy state (like missing walletProvider) persists.
-                            const cleanWallets = get().wallets.filter(w => !(w.address === address && w.chain === 'Solana'))
-
-                            const newWalletsToAdd = [newWallet]
-
-                            // --------------------------------------------------------
-                            // Solana Token Discovery (USDC, USDT)
-                            // --------------------------------------------------------
-                            const SOLANA_TOKENS = [
-                                { symbol: 'USDC', name: 'USD Coin', mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' },
-                                { symbol: 'USDT', name: 'Tether USD', mint: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB' }
-                            ]
-
-                            for (const token of SOLANA_TOKENS) {
                                 try {
-                                    const tokenBal = await RpcService.getSplBalance(address, token.mint)
-                                    if (tokenBal > 0) {
-                                        const tokenPrice = prices[token.symbol] || 1
-                                        newWalletsToAdd.push({
-                                            id: `${token.symbol}-SOL-${address.substr(-4)}`,
-                                            name: `${token.symbol} (Solana)`,
-                                            chain: 'Solana',
-                                            address,
-                                            icon: name === 'Phantom' ? `${BASE_URL}icons/phantom.png` : `${BASE_URL}icons/solflare.png`,
-                                            balance: tokenBal * tokenPrice,
-                                            nativeBalance: tokenBal,
-                                            symbol: token.symbol,
-                                            walletProvider: name
-                                        })
-                                    }
-                                } catch (e) {
-                                    console.error(`Failed to fetch ${token.symbol} on Solana:`, e)
+                                    realBalance = await RpcService.getBalance('SOLANA', address)
+                                    price = prices['SOL'] || 0
+                                } catch (error) {
+                                    console.error("Failed to fetch Solana details, defaulting to 0:", error)
                                 }
-                            }
 
-                            set(() => ({
-                                wallets: [...cleanWallets, ...newWalletsToAdd],
-                                isModalOpen: false
-                            }))
+                                const newWallet: ConnectedWallet = {
+                                    id: Math.random().toString(36).substr(2, 9),
+                                    name,
+                                    chain: 'Solana',
+                                    address,
+                                    icon: name === 'Phantom' ? `${BASE_URL}icons/phantom.png` : `${BASE_URL}icons/solflare.png`,
+                                    balance: realBalance * price,
+                                    nativeBalance: realBalance,
+                                    symbol: 'SOL',
+                                    walletProvider: name
+                                }
+
+                                // Replace logic: Remove ANY existing wallet with this address and chain
+                                // This ensures no legacy state (like missing walletProvider) persists.
+                                const cleanWallets = get().wallets.filter(w => !(w.address === address && w.chain === 'Solana'))
+
+                                const newWalletsToAdd = [newWallet]
+
+                                // --------------------------------------------------------
+                                // Solana Token Discovery (USDC, USDT)
+                                // --------------------------------------------------------
+                                const SOLANA_TOKENS = [
+                                    { symbol: 'USDC', name: 'USD Coin', mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' },
+                                    { symbol: 'USDT', name: 'Tether USD', mint: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB' }
+                                ]
+
+                                for (const token of SOLANA_TOKENS) {
+                                    try {
+                                        const tokenBal = await RpcService.getSplBalance(address, token.mint)
+                                        if (tokenBal > 0) {
+                                            const tokenPrice = prices[token.symbol] || 1
+                                            newWalletsToAdd.push({
+                                                id: `${token.symbol}-SOL-${address.substr(-4)}`,
+                                                name: `${token.symbol} (Solana)`,
+                                                chain: 'Solana',
+                                                address,
+                                                icon: name === 'Phantom' ? `${BASE_URL}icons/phantom.png` : `${BASE_URL}icons/solflare.png`,
+                                                balance: tokenBal * tokenPrice,
+                                                nativeBalance: tokenBal,
+                                                symbol: token.symbol,
+                                                walletProvider: name
+                                            })
+                                        }
+                                    } catch (e) {
+                                        console.error(`Failed to fetch ${token.symbol} on Solana:`, e)
+                                    }
+                                }
+
+                                set(() => ({
+                                    wallets: [...cleanWallets, ...newWalletsToAdd],
+                                    isModalOpen: false
+                                }))
+                            } catch (error) {
+                                console.error("Solana wallet setup failed:", error)
+                                // Even if everything fails, close the modal
+                                set({ isModalOpen: false })
+                            }
                         } else if (chain === 'Solana' && !address) {
                             console.warn("Solana connection attempted but no address found.")
                         }
