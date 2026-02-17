@@ -14,13 +14,34 @@ const OPENSEA_API_KEY = import.meta.env.VITE_OPENSEA_API_KEY || ''
  * Get the correct EVM provider based on connected wallet
  * Rabby wallet uses window.rabby, others use window.ethereum
  */
-function getEVMProvider(preferredProvider?: string): any {
+import { waitForProvider } from '../../../wallet/utils/eip6963'
+
+/**
+ * Get the correct EVM provider based on connected wallet
+ * Rabby wallet uses window.rabby, others use window.ethereum
+ */
+async function getEVMProvider(preferredProvider?: string): Promise<any> {
     // 1. Explicitly requested Keplr
     if (preferredProvider === 'Keplr') {
+        // Try EIP-6963 first (most reliable for multiple wallets)
+        // Wait up to 2 seconds for Keplr to announce
+        try {
+            const eipProvider = await waitForProvider('keplr', 2000);
+            if (eipProvider) {
+                console.log('[OpenSea] Found Keplr via EIP-6963');
+                return eipProvider;
+            }
+        } catch (e) {
+            console.warn('[OpenSea] EIP-6963 Keplr discovery timed out', e);
+        }
+
         // If window.ethereum is Keplr, use it
         if ((window as any).ethereum?.isKeplr) {
+            console.log('[OpenSea] Found Keplr via window.ethereum.isKeplr');
             return (window as any).ethereum;
         }
+
+        console.warn('[OpenSea] Keplr requested but not found via EIP-6963 or window.ethereum');
     }
 
     // 2. Explicitly requested Rabby
@@ -428,7 +449,7 @@ export class OpenSeaNFTService implements NFTServiceInterface {
     async buyNFT(listing: MarketplaceListing, buyerAddress: string): Promise<string> {
         try {
             // Get the correct EVM provider (handles Rabby vs MetaMask)
-            const evmProvider = getEVMProvider();
+            const evmProvider = await getEVMProvider();
 
             // Create ethers provider and signer
             const provider = new ethers.BrowserProvider(evmProvider)
@@ -536,7 +557,7 @@ export class OpenSeaNFTService implements NFTServiceInterface {
     async listNFT(nft: NFT, price: string, _currency: string, sellerAddress: string, durationInSeconds: number = 2592000): Promise<string> {
         try {
             // Get the correct EVM provider (handles Rabby vs MetaMask)
-            const evmProvider = getEVMProvider();
+            const evmProvider = await getEVMProvider();
 
             // Determine chain based on NFT data
             const nftChain = nft.chain === 'polygon' ? 'polygon' : 'ethereum'
@@ -600,7 +621,7 @@ export class OpenSeaNFTService implements NFTServiceInterface {
     async cancelListing(listingId: string, sellerAddress: string, chainName?: string): Promise<string> {
         try {
             // Get the correct EVM provider (handles Rabby vs MetaMask)
-            const evmProvider = getEVMProvider();
+            const evmProvider = await getEVMProvider();
 
             const provider = new ethers.BrowserProvider(evmProvider)
             const signer = await provider.getSigner()
@@ -742,7 +763,7 @@ export class OpenSeaNFTService implements NFTServiceInterface {
         try {
             // Get the correct EVM provider
             console.log(`[OpenSea] Transfer requested with provider: ${walletProvider}`);
-            const evmProvider = getEVMProvider(walletProvider);
+            const evmProvider = await getEVMProvider(walletProvider);
 
             const provider = new ethers.BrowserProvider(evmProvider)
             const signer = await provider.getSigner()
