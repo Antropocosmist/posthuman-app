@@ -6,8 +6,7 @@ import { NFTGrid } from '../components/NFTGrid'
 import { EcosystemFilter } from '../components/EcosystemFilter'
 import { NFTDetailModal } from '../components/NFTDetailModal'
 
-// Helper to safely count array length
-const itemCount = (arr: any[]) => Array.isArray(arr) ? arr.length : 0
+
 
 export function NFTs() {
     const { wallets } = useWalletStore()
@@ -112,9 +111,9 @@ export function NFTs() {
                     `}
                 >
                     My NFTs
-                    {ownedNFTs.length > 0 && (
+                    {ownedNFTs.filter(n => !n.isListed).length > 0 && (
                         <span className="ml-2 px-2 py-0.5 rounded-full bg-black/10 text-xs">
-                            {ownedNFTs.length}
+                            {ownedNFTs.filter(n => !n.isListed).length}
                         </span>
                     )}
                 </button>
@@ -129,9 +128,9 @@ export function NFTs() {
                     `}
                 >
                     Listed NFTs
-                    {itemCount(marketplaceNFTs) > 0 && (
+                    {ownedNFTs.filter(n => n.isListed).length > 0 && (
                         <span className="ml-2 px-2 py-0.5 rounded-full bg-black/10 text-xs">
-                            {itemCount(marketplaceNFTs)}
+                            {ownedNFTs.filter(n => n.isListed).length}
                         </span>
                     )}
                 </button>
