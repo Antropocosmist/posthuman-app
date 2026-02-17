@@ -1564,16 +1564,25 @@ export const useWalletStore = create<WalletState>()(
                                         }
 
                                         // Calculate total balance from UTXOs
-                                        // UTXOs should have an amount field
                                         let totalBalance = 0
                                         for (const utxo of utxos) {
                                             // Try different possible field names for amount
-                                            const amount = (utxo as any).amount || (utxo as any).value || (utxo as any).balance || 0
-                                            if (typeof amount === 'number') {
-                                                totalBalance += amount
-                                            } else if (typeof amount === 'string') {
-                                                totalBalance += parseFloat(amount) || 0
+                                            const rawAmount = (utxo as any).amount || (utxo as any).value || (utxo as any).balance || 0
+                                            let amount = 0
+
+                                            if (typeof rawAmount === 'number') {
+                                                amount = rawAmount
+                                            } else if (typeof rawAmount === 'string') {
+                                                // Check if it's a hex string (Canton stores balance as hex)
+                                                if (rawAmount.match(/^[0-9a-fA-F]+$/)) {
+                                                    amount = parseInt(rawAmount, 16)
+                                                    console.log(`[Canton] Parsed hex balance: ${rawAmount} = ${amount}`)
+                                                } else {
+                                                    amount = parseFloat(rawAmount) || 0
+                                                }
                                             }
+
+                                            totalBalance += amount
                                         }
 
                                         // Canton CC token uses 10 decimals (based on Daml standard)
