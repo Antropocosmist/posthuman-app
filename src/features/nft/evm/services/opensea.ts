@@ -506,13 +506,13 @@ export class OpenSeaNFTService implements NFTServiceInterface {
     /**
      * Helper to switch chain
      */
-    private async switchChain(chain: 'ethereum' | 'polygon') {
-        if (!window.ethereum) return
+    private async switchChain(chain: 'ethereum' | 'polygon', provider: any) {
+        if (!provider) return
 
         const chainId = chain === 'ethereum' ? '0x1' : '0x89'
 
         try {
-            await window.ethereum.request({
+            await provider.request({
                 method: 'wallet_switchEthereumChain',
                 params: [{ chainId }],
             })
@@ -536,7 +536,7 @@ export class OpenSeaNFTService implements NFTServiceInterface {
                     }
 
                 try {
-                    await window.ethereum.request({
+                    await provider.request({
                         method: 'wallet_addEthereumChain',
                         params: [chainParams],
                     })
@@ -561,7 +561,7 @@ export class OpenSeaNFTService implements NFTServiceInterface {
 
             // Determine chain based on NFT data
             const nftChain = nft.chain === 'polygon' ? 'polygon' : 'ethereum'
-            await this.switchChain(nftChain)
+            await this.switchChain(nftChain, evmProvider)
 
             // Create ethers provider and signer
             const provider = new ethers.BrowserProvider(evmProvider)
@@ -776,7 +776,7 @@ export class OpenSeaNFTService implements NFTServiceInterface {
 
             // Determine chain and switch if needed
             const nftChain = nft.chain === 'polygon' ? 'polygon' : 'ethereum'
-            await this.switchChain(nftChain)
+            await this.switchChain(nftChain, evmProvider)
 
             console.log(`[OpenSea] Transferring NFT ${nft.tokenId} on ${nftChain} to ${recipientAddress}`)
 
@@ -828,6 +828,7 @@ export class OpenSeaNFTService implements NFTServiceInterface {
             const chains = ['ethereum', 'matic', 'polygon']
             let collectionStats: any = null
             let slug = ''
+            let foundChain = 'ethereum'
             let name = 'Unknown Collection'
             let description = ''
             let image = ''
@@ -844,6 +845,7 @@ export class OpenSeaNFTService implements NFTServiceInterface {
                         const data = await response.json()
                         if (data.collection) {
                             slug = data.collection;
+                            foundChain = c;
                             break;
                         }
                     }
@@ -884,13 +886,18 @@ export class OpenSeaNFTService implements NFTServiceInterface {
                 }
             }
 
+            // Determine currency symbol based on chain
+            // Polygon listings usually use WETH
+            const isPolygon = foundChain === 'matic' || foundChain === 'polygon';
+            const currency = isPolygon ? 'WETH' : 'ETH';
+
             return {
                 id: slug,
                 name: name,
                 description: description,
                 image: image,
                 floorPrice: collectionStats?.floor_price ? String(collectionStats.floor_price) : undefined,
-                floorPriceCurrency: 'ETH',
+                floorPriceCurrency: currency,
                 totalSupply: collectionStats?.total_supply
             }
 
@@ -902,6 +909,7 @@ export class OpenSeaNFTService implements NFTServiceInterface {
             }
         }
     }
+
 }
 
 // Export singleton instance
