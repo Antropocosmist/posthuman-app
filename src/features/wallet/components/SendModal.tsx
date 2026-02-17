@@ -26,7 +26,8 @@ export function SendModal({ isOpen, onClose }: SendModalProps) {
     const [recipient, setRecipient] = useState('')
     const [amount, setAmount] = useState('')
     const [memo, setMemo] = useState('')
-    const [expirationDate, setExpirationDate] = useState('604800000') // 1 week in ms (default)
+    const [expirationAmount, setExpirationAmount] = useState('1') // Amount for expiration
+    const [expirationUnit, setExpirationUnit] = useState('week') // Unit: hour, day, week, month
     const [isSelectingToken, setIsSelectingToken] = useState(false)
     const [searchTerm, setSearchTerm] = useState('')
 
@@ -89,7 +90,18 @@ export function SendModal({ isOpen, onClose }: SendModalProps) {
         setStatus('loading')
         setErrorMsg('')
         try {
-            const hash = await sendTransaction(selectedToken.id, recipient, amount, memo, expirationDate)
+            // Calculate expiration in milliseconds based on amount and unit
+            let expirationMs = 604800000 // Default: 1 week
+            if (selectedToken.chain === 'Canton') {
+                const unitMultipliers: Record<string, number> = {
+                    'hour': 3600000,
+                    'day': 86400000,
+                    'week': 604800000,
+                    'month': 2592000000
+                }
+                expirationMs = parseFloat(expirationAmount) * unitMultipliers[expirationUnit]
+            }
+            const hash = await sendTransaction(selectedToken.id, recipient, amount, memo, expirationMs.toString())
             setTxHash(hash)
             setStatus('success')
 
@@ -101,7 +113,8 @@ export function SendModal({ isOpen, onClose }: SendModalProps) {
                 setAmount('')
                 setRecipient('')
                 setMemo('')
-                setExpirationDate('604800000')
+                setExpirationAmount('1')
+                setExpirationUnit('week')
                 setTxHash('')
             }, 5000)
         } catch (err: any) {
@@ -213,16 +226,26 @@ export function SendModal({ isOpen, onClose }: SendModalProps) {
                             {/* Expiration Date */}
                             <div>
                                 <label className="text-[10px] uppercase tracking-widest text-gray-500 mb-2 block">Expiration Date</label>
-                                <select
-                                    className="w-full p-4 rounded-2xl bg-white/5 border border-white/10 text-white outline-none focus:border-purple-500/50 transition-all text-sm"
-                                    value={expirationDate}
-                                    onChange={(e) => setExpirationDate(e.target.value)}
-                                >
-                                    <option value="604800000">1 week</option>
-                                    <option value="2592000000">1 month</option>
-                                    <option value="7776000000">3 months</option>
-                                    <option value="31536000000">1 year</option>
-                                </select>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        placeholder="1"
+                                        className="flex-1 p-4 rounded-2xl bg-white/5 border border-white/10 text-white outline-none focus:border-purple-500/50 transition-all text-sm font-mono"
+                                        value={expirationAmount}
+                                        onChange={(e) => setExpirationAmount(e.target.value)}
+                                    />
+                                    <select
+                                        className="p-4 rounded-2xl bg-white/5 border border-white/10 text-white outline-none focus:border-purple-500/50 transition-all text-sm min-w-[120px]"
+                                        value={expirationUnit}
+                                        onChange={(e) => setExpirationUnit(e.target.value)}
+                                    >
+                                        <option value="hour">Hour</option>
+                                        <option value="day">Day</option>
+                                        <option value="week">Week</option>
+                                        <option value="month">Month</option>
+                                    </select>
+                                </div>
                             </div>
 
                             {/* Memo */}
