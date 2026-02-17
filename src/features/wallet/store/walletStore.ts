@@ -136,7 +136,7 @@ if (typeof window !== 'undefined') {
 }
 
 import { consoleWallet } from '@console-wallet/dapp-sdk'
-import type { CoinEnum, CANTON_NETWORK_VARIANTS } from '@console-wallet/dapp-sdk'
+import type { CoinEnum } from '@console-wallet/dapp-sdk'
 
 export const useWalletStore = create<WalletState>()(
     persist(
@@ -828,9 +828,9 @@ export const useWalletStore = create<WalletState>()(
                                         chain: 'Canton',
                                         address: account.partyId,
                                         icon: `${BASE_URL}icons/console.png`,
-                                        balance: 0, // Balance fetching for Canton can be added later
+                                        balance: 0,
                                         nativeBalance: 0,
-                                        symbol: 'CANTON',
+                                        symbol: 'CC', // Canton Coin
                                         walletProvider: 'Console Wallet'
                                     }
 
@@ -1398,18 +1398,29 @@ export const useWalletStore = create<WalletState>()(
                             } else if (w.chain === 'Canton') {
                                 // Fetch balance using Console Wallet SDK
                                 try {
-                                    // Get the active network from the wallet
-                                    const activeNetwork = await consoleWallet.getActiveNetwork()
+                                    // Try to get active network, fallback to mainnet
+                                    let networkId = 'CANTON_NETWORK' // Default to mainnet
+                                    try {
+                                        const activeNetwork = await consoleWallet.getActiveNetwork()
+                                        if (activeNetwork && activeNetwork.id) {
+                                            networkId = activeNetwork.id
+                                        }
+                                    } catch (netErr) {
+                                        console.log('Using default network (mainnet) for balance fetch')
+                                    }
 
-                                    const balanceResponse = await consoleWallet.getBalance({
+                                    const balanceResponse = await consoleWallet.getCoinsBalance({
                                         party: w.address, // partyId
-                                        network: activeNetwork.id as CANTON_NETWORK_VARIANTS
+                                        network: networkId as any
                                     })
 
                                     // Find the token matching the wallet symbol
                                     const tokenData = balanceResponse.tokens.find(t => t.symbol === w.symbol)
                                     if (tokenData) {
                                         nativeBal = parseFloat(tokenData.balance)
+                                        console.log(`Canton balance for ${w.symbol}:`, nativeBal)
+                                    } else {
+                                        console.log(`No token data found for ${w.symbol}, available tokens:`, balanceResponse.tokens.map(t => t.symbol))
                                     }
                                 } catch (e) {
                                     console.error(`Failed to fetch Canton balance for ${w.symbol}:`, e)
