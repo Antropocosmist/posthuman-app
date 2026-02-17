@@ -8,7 +8,8 @@ const DonutChart = ({ wallets }: { wallets: any[] }) => {
 
     // Aggregate assets by symbol
     const assetMap = wallets.reduce((acc: any, w: any) => {
-        const value = w.balance
+        // Use USD balance if available, otherwise use native balance
+        const value = w.balance > 0 ? w.balance : w.nativeBalance
         if (value <= 0) return acc
 
         // Handle special cases or normalization if needed
