@@ -754,12 +754,13 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
         case "stargaze":
           txHash = await stargazeNFTService.transferNFT(nft, recipientAddress, wallet.address);
           break;
-        // Future: Add EVM and Solana support
-        // case "ethereum":
-        // case "polygon":
-        //   txHash = await openSeaNFTService.transferNFT(nft, recipientAddress, wallet.address);
-        //   break;
-        // case "solana":
+        case "ethereum":
+        case "polygon":
+        case "base":
+        case "arbitrum":
+          txHash = await openSeaNFTService.transferNFT(nft, recipientAddress, wallet.address);
+          break;
+        case "solana":
         //   txHash = await magicEdenNFTService.transferNFT(nft, recipientAddress, wallet.address);
         //   break;
         default:

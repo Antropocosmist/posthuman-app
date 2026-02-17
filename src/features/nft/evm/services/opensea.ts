@@ -726,6 +726,77 @@ export class OpenSeaNFTService implements NFTServiceInterface {
     }
 
     /**
+     * Transfer an NFT to another address
+     */
+    async transferNFT(nft: NFT, recipientAddress: string, senderAddress: string): Promise<string> {
+        try {
+            // Get the correct EVM provider
+            const evmProvider = getEVMProvider();
+
+            const provider = new ethers.BrowserProvider(evmProvider)
+            const signer = await provider.getSigner()
+
+            // Verify the sender address matches the signer
+            const signerAddress = await signer.getAddress()
+            if (signerAddress.toLowerCase() !== senderAddress.toLowerCase()) {
+                throw new Error(`Connected wallet (${signerAddress}) does not match sender (${senderAddress})`)
+            }
+
+            // Determine chain and switch if needed
+            const nftChain = nft.chain === 'polygon' ? 'polygon' : 'ethereum'
+            await this.switchChain(nftChain)
+
+            console.log(`[OpenSea] Transferring NFT ${nft.tokenId} on ${nftChain} to ${recipientAddress}`)
+
+            // Determine contract standard (ERC721 vs ERC1155)
+            // This information isn't explicitly in our NFT type, but we can try to infer or try safeTransferFrom
+            // The console log "contract_standard: 'erc1155'" suggests we might have this info in raw data if we fetched it.
+            // However, a safer bet without storing it is to try to detect or use a dual-interface ABI.
+
+            // Minimal ABI for both ERC721 and ERC1155 safeTransferFrom
+            // ERC721: safeTransferFrom(from, to, tokenId)
+            // ERC1155: safeTransferFrom(from, to, id, amount, data)
+            const abi = [
+                "function safeTransferFrom(address from, address to, uint256 tokenId)", // ERC721
+                "function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes data)" // ERC1155
+            ]
+
+            const contract = new ethers.Contract(nft.contractAddress, abi, signer)
+
+            let tx;
+            try {
+                // Try ERC721 first (most common)
+                console.log('[OpenSea] Attempting ERC721 transfer...')
+                // Estimate gas to check if it's likely to succeed/is the right method
+                // Note: ethers.js will pick the function based on arguments passed
+                tx = await contract.safeTransferFrom(senderAddress, recipientAddress, nft.tokenId)
+            } catch (erc721Error: any) {
+                // If it fails, or if method signature issues, try ERC1155
+                // Check if error might indicate incorrect arguments or execution revert
+                console.warn('[OpenSea] ERC721 transfer failed, attempting ERC1155...', erc721Error)
+
+                try {
+                    // ERC1155 requires amount (1 for NFT) and data (0x)
+                    tx = await contract.safeTransferFrom(senderAddress, recipientAddress, nft.tokenId, 1, "0x")
+                } catch (erc1155Error: any) {
+                    console.error('[OpenSea] ERC1155 transfer failed:', erc1155Error)
+                    throw new Error('Transfer failed. The contract might not support transfer or you may not be the owner.')
+                }
+            }
+
+            console.log('[OpenSea] Transfer transaction sent:', tx.hash)
+            await tx.wait()
+            console.log('[OpenSea] Transfer confirmed')
+
+            return tx.hash
+
+        } catch (error) {
+            console.error('Error transferring NFT on EVM:', error)
+            throw error
+        }
+    }
+
+    /**
      * Get collection stats
      */
     async getCollectionStats(contractAddress: string): Promise<NFTCollection> {
