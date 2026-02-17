@@ -92,6 +92,7 @@ export function ConnectWalletModal() {
                                         { name: 'Keplr', chain: 'Cosmos' as ChainType, icon: `${import.meta.env.BASE_URL}icons/keplr.png`, color: 'bg-blue-500/10 border-blue-500/20 hover:border-blue-500 hover:shadow-[0_0_20px_rgba(59,130,246,0.1)]' },
                                         { name: 'Adena', chain: 'Gno' as ChainType, icon: `${import.meta.env.BASE_URL}icons/adena.png`, color: 'bg-green-500/10 border-green-500/20 hover:border-green-500 hover:shadow-[0_0_20px_rgba(34,197,94,0.1)]' },
                                         { name: 'Console Wallet', chain: 'Canton' as ChainType, icon: `${import.meta.env.BASE_URL}icons/console.png`, color: 'bg-yellow-500/10 border-yellow-500/20 hover:border-yellow-500 hover:shadow-[0_0_20px_rgba(234,179,8,0.1)]' },
+                                        { name: 'Nightly Wallet', chain: 'Canton-Nightly' as any, icon: `${import.meta.env.BASE_URL}icons/nightly.png`, color: 'bg-purple-500/10 border-purple-500/20 hover:border-purple-500 hover:shadow-[0_0_20px_rgba(168,85,247,0.1)]' },
                                     ]
                                         .filter(option => !wallets.some(w => w.walletProvider === option.name)) // FILTER: Hide if already connected
                                         .map(option => (

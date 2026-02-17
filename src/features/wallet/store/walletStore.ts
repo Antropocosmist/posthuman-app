@@ -138,6 +138,24 @@ if (typeof window !== 'undefined') {
 import { consoleWallet } from '@console-wallet/dapp-sdk'
 import type { CoinEnum } from '@console-wallet/dapp-sdk'
 
+// Nightly Wallet TypeScript Declarations
+declare global {
+    interface Window {
+        nightly?: {
+            canton?: {
+                connect: () => Promise<{
+                    partyId: string
+                    publicKey: string
+                } | null>
+                disconnect: () => Promise<void>
+                signMessage: (message: string, onResponse: (response: any) => void) => void
+                getPendingTransactions: () => Promise<unknown[] | null>
+                getHoldingUtxos: () => Promise<unknown[] | null>
+            }
+        }
+    }
+}
+
 export const useWalletStore = create<WalletState>()(
     persist(
         (set, get) => ({
@@ -841,6 +859,41 @@ export const useWalletStore = create<WalletState>()(
                             } catch (e: any) {
                                 console.error("Console Wallet connection exception:", e)
                                 alert(`Console Wallet error: ${e.message || e}`)
+                            }
+                        }
+
+                        // ---------------------------------------------------------
+                        // Canton Network (Nightly Wallet)
+                        // ---------------------------------------------------------
+                        else if ((chain as string) === 'Canton-Nightly') {
+                            try {
+                                const nightly = window.nightly?.canton
+                                if (!nightly) {
+                                    alert('Nightly Wallet extension not detected! Please install it from https://nightly.app')
+                                    return
+                                }
+
+                                const account = await nightly.connect()
+                                if (account) {
+                                    const newWallet: ConnectedWallet = {
+                                        id: `nightly-${account.partyId.substring(account.partyId.length - 4)}`,
+                                        name: 'Nightly Wallet',
+                                        chain: 'Canton',
+                                        address: account.partyId,
+                                        icon: `${BASE_URL}icons/nightly.png`,
+                                        balance: 0,
+                                        nativeBalance: 0,
+                                        symbol: 'CC', // Canton Coin
+                                        walletProvider: 'Nightly Wallet'
+                                    }
+
+                                    // Remove existing Nightly wallets to prevent dups
+                                    const cleanWallets = get().wallets.filter(w => w.walletProvider !== 'Nightly Wallet')
+                                    set({ wallets: [...cleanWallets, newWallet], isModalOpen: false })
+                                }
+                            } catch (e: any) {
+                                console.error("Nightly Wallet connection exception:", e)
+                                alert(`Nightly Wallet error: ${e.message || e}`)
                             }
                         }
                     }
