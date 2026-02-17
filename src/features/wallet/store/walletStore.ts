@@ -1555,7 +1555,8 @@ export const useWalletStore = create<WalletState>()(
 
                                         // Get holding UTXOs
                                         const utxos = await nightly.getHoldingUtxos()
-                                        console.log(`[Canton] Nightly UTXOs response:`, utxos)
+                                        console.log(`[Canton] Nightly UTXOs count:`, utxos?.length)
+                                        console.log(`[Canton] Nightly UTXOs full response:`, JSON.stringify(utxos, null, 2))
 
                                         if (!utxos || !Array.isArray(utxos)) {
                                             console.warn(`[Canton] No UTXOs returned from Nightly Wallet`)
@@ -1575,7 +1576,12 @@ export const useWalletStore = create<WalletState>()(
                                             }
                                         }
 
-                                        nativeBal = totalBalance
+                                        // Canton CC token uses 10 decimals (based on Daml standard)
+                                        const balanceWithDecimals = totalBalance / Math.pow(10, 10)
+                                        console.log(`[Canton] Total raw: ${totalBalance}, with decimals: ${balanceWithDecimals}`)
+
+                                        // Use the decimal-adjusted balance
+                                        nativeBal = balanceWithDecimals
                                         console.log(`[Canton] ✓ Nightly Wallet balance calculated from ${utxos.length} UTXOs: ${nativeBal} CC`)
                                     } catch (e: any) {
                                         console.error(`[Canton] Nightly Wallet balance fetch failed:`, e)
