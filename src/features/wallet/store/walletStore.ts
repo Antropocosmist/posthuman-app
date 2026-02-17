@@ -1141,12 +1141,37 @@ export const useWalletStore = create<WalletState>()(
                             memo: memo || ''
                         }
 
-                        const response = await consoleWallet.submitCommands(transferRequest)
+                        // Route to correct wallet provider
+                        if (wallet.walletProvider === 'Console Wallet') {
+                            // Use Console Wallet SDK
+                            const response = await consoleWallet.submitCommands(transferRequest)
 
-                        if (response && response.status) {
-                            return response.signature || 'Canton transfer submitted'
+                            if (response && response.status) {
+                                return response.signature || 'Canton transfer submitted'
+                            } else {
+                                throw new Error('Canton transfer failed')
+                            }
+                        } else if (wallet.walletProvider === 'Nightly Wallet') {
+                            // Use Nightly Wallet
+                            const nightly = window.nightly?.canton
+                            if (!nightly) throw new Error('Nightly Wallet not found')
+
+                            // Create transaction message for Nightly Wallet to sign
+                            const txMessage = JSON.stringify(transferRequest)
+
+                            return new Promise((resolve, reject) => {
+                                nightly.signMessage(txMessage, (response: any) => {
+                                    if (response && response.signature) {
+                                        resolve(response.signature)
+                                    } else if (response && response.error) {
+                                        reject(new Error(response.error))
+                                    } else {
+                                        reject(new Error('Transaction signing failed'))
+                                    }
+                                })
+                            })
                         } else {
-                            throw new Error('Canton transfer failed')
+                            throw new Error(`Unsupported Canton wallet provider: ${wallet.walletProvider}`)
                         }
                     }
 
