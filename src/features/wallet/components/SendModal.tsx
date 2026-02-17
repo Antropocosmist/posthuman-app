@@ -26,6 +26,7 @@ export function SendModal({ isOpen, onClose }: SendModalProps) {
     const [recipient, setRecipient] = useState('')
     const [amount, setAmount] = useState('')
     const [memo, setMemo] = useState('')
+    const [expirationDate, setExpirationDate] = useState('604800000') // 1 week in ms (default)
     const [isSelectingToken, setIsSelectingToken] = useState(false)
     const [searchTerm, setSearchTerm] = useState('')
 
@@ -52,6 +53,10 @@ export function SendModal({ isOpen, onClose }: SendModalProps) {
             if (name.includes('neutron')) return /^neutron1[a-z0-9]{38}$/.test(addr)
             if (name.includes('hub')) return /^cosmos1[a-z0-9]{38}$/.test(addr)
             return /^[a-z]{2,10}1[a-z0-9]{38}$/.test(addr)
+        }
+        if (chain === 'Canton') {
+            // Canton Party IDs are typically in format: party::namespace::identifier
+            return addr.length > 5 // Basic validation, adjust as needed
         }
         return true
     }
@@ -84,7 +89,7 @@ export function SendModal({ isOpen, onClose }: SendModalProps) {
         setStatus('loading')
         setErrorMsg('')
         try {
-            const hash = await sendTransaction(selectedToken.id, recipient, amount, memo)
+            const hash = await sendTransaction(selectedToken.id, recipient, amount, memo, expirationDate)
             setTxHash(hash)
             setStatus('success')
 
@@ -96,6 +101,7 @@ export function SendModal({ isOpen, onClose }: SendModalProps) {
                 setAmount('')
                 setRecipient('')
                 setMemo('')
+                setExpirationDate('604800000')
                 setTxHash('')
             }, 5000)
         } catch (err: any) {
@@ -201,7 +207,39 @@ export function SendModal({ isOpen, onClose }: SendModalProps) {
                         )}
                     </div>
 
-                    {/* Memo */}
+                    {/* Canton-specific fields */}
+                    {selectedToken?.chain === 'Canton' && (
+                        <>
+                            {/* Expiration Date */}
+                            <div>
+                                <label className="text-[10px] uppercase tracking-widest text-gray-500 mb-2 block">Expiration Date</label>
+                                <select
+                                    className="w-full p-4 rounded-2xl bg-white/5 border border-white/10 text-white outline-none focus:border-purple-500/50 transition-all text-sm"
+                                    value={expirationDate}
+                                    onChange={(e) => setExpirationDate(e.target.value)}
+                                >
+                                    <option value="604800000">1 week</option>
+                                    <option value="2592000000">1 month</option>
+                                    <option value="7776000000">3 months</option>
+                                    <option value="31536000000">1 year</option>
+                                </select>
+                            </div>
+
+                            {/* Memo */}
+                            <div>
+                                <label className="text-[10px] uppercase tracking-widest text-gray-500 mb-2 block">Memo (Optional)</label>
+                                <textarea
+                                    placeholder="Add a reference..."
+                                    className="w-full p-4 rounded-2xl bg-white/5 border border-white/10 text-white outline-none focus:border-purple-500/50 transition-all text-sm resize-none"
+                                    rows={3}
+                                    value={memo}
+                                    onChange={(e) => setMemo(e.target.value)}
+                                />
+                            </div>
+                        </>
+                    )}
+
+                    {/* Cosmos Memo */}
                     {selectedToken?.chain === 'Cosmos' && (
                         <div>
                             <label className="text-[10px] uppercase tracking-widest text-gray-500 mb-2 block">Memo (Optional)</label>
