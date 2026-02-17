@@ -93,6 +93,51 @@ export class OpenSeaNFTService implements NFTServiceInterface {
     // The SDK has initialization issues and is not needed for basic NFT fetching
 
     /**
+     * Batch fetch floor prices for a list of collection slugs
+     */
+    private async fetchFloorPrices(slugs: string[]): Promise<Record<string, string>> {
+        const results: Record<string, string> = {}
+        const chunks = []
+        // Process in chunks of 5 to avoid rate limits
+        for (let i = 0; i < slugs.length; i += 5) {
+            chunks.push(slugs.slice(i, i + 5))
+        }
+
+        for (const chunk of chunks) {
+            await Promise.all(chunk.map(async (slug) => {
+                if (!slug) return
+
+                try {
+                    const response = await fetch(
+                        `https://api.opensea.io/api/v2/collections/${slug}/stats`,
+                        {
+                            headers: OPENSEA_API_KEY ? { 'X-API-KEY': OPENSEA_API_KEY } : {},
+                        }
+                    )
+
+                    if (response.ok) {
+                        const data = await response.json()
+                        // V2 stats structure: usually { total: { floor_price: ... } }
+                        const floor = data.total?.floor_price || data.floor_price
+                        if (floor) {
+                            results[slug] = String(floor)
+                        }
+                    }
+                } catch (e) {
+                    // Silent fail to not spam console
+                }
+            }))
+
+            // Small delay between chunks
+            if (chunks.length > 1) {
+                await new Promise(resolve => setTimeout(resolve, 200))
+            }
+        }
+
+        return results
+    }
+
+    /**
      * Fetch all NFTs owned by a specific address
      */
     async fetchUserNFTs(address: string, chain: 'ethereum' | 'polygon' | 'base' | 'bsc' | 'gnosis' | 'arbitrum' = 'ethereum'): Promise<NFT[]> {
@@ -116,17 +161,29 @@ export class OpenSeaNFTService implements NFTServiceInterface {
 
             console.log(`[OpenSea] Fetched ${nfts.length} NFTs for ${address} on ${chain}`)
 
-            // Debug: Log first NFT to see traits structure
-            if (nfts.length > 0) {
-                console.log('[OpenSea] Sample NFT data:', {
-                    name: nfts[0].name,
-                    hasTraits: !!nfts[0].traits,
-                    hasAttributes: !!nfts[0].attributes,
-                    traitsCount: (nfts[0].traits || nfts[0].attributes || []).length
+            // Convert raw data to NFT objects first
+            const convertedNFTs = nfts.map((nft: any) => convertOpenSeaNFT(nft, chain, address))
+
+            // Extract unique collection slugs to fetch floor prices
+            // We only care about collections that have a slug (id)
+            const uniqueSlugs = [...new Set(convertedNFTs.map((n: NFT) => n.collection.id).filter((id: string) => id && !id.startsWith('0x')))] as string[]
+
+            if (uniqueSlugs.length > 0) {
+                console.log(`[OpenSea] Fetching floor prices for ${uniqueSlugs.length} collections...`)
+                const floorPrices = await this.fetchFloorPrices(uniqueSlugs)
+
+                // Update NFTs with floor prices
+                convertedNFTs.forEach((nft: any) => {
+                    if (floorPrices[nft.collection.id]) {
+                        nft.collection.floorPrice = floorPrices[nft.collection.id]
+                        // OpenSea stats are typically in ETH
+                        nft.collection.floorPriceDenom = 'ETH'
+                        nft.collection.floorPriceCurrency = 'ETH'
+                    }
                 })
             }
 
-            return nfts.map((nft: any) => convertOpenSeaNFT(nft, chain, address))
+            return convertedNFTs
         } catch (error) {
             console.error('Error fetching user NFTs from OpenSea:', error)
             // Return empty array instead of throwing to allow graceful degradation
