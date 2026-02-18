@@ -169,7 +169,18 @@ export const useWalletStore = create<WalletState>()(
                         const wallets = await RabbyService.connect()
                         mergeWallets(wallets)
                     } else if (name === 'Phantom') {
-                        const wallets = await PhantomService.connect()
+                        const wallets = await PhantomService.connect((updatedWallets) => {
+                            // Background callback: replace the 0-balance placeholder with real balances
+                            if (updatedWallets.length > 0) {
+                                const address = updatedWallets[0].address
+                                set((state) => ({
+                                    wallets: [
+                                        ...state.wallets.filter(w => !(w.address === address && w.chain === 'Solana')),
+                                        ...updatedWallets
+                                    ]
+                                }))
+                            }
+                        })
                         // Replace any existing Solana wallets for this address
                         if (wallets.length > 0) {
                             const address = wallets[0].address

@@ -4,6 +4,7 @@
  *
  * Handles:
  *   - connect(): Solana connection via window.phantom.solana
+ *     Returns wallet immediately with 0 balance; fetches balances in background.
  *   - sendTransaction(): SOL native transfer
  */
 
@@ -22,8 +23,10 @@ export const PhantomService = {
 
     // ----------------------------------------------------------------
     // connect() — Solana via window.phantom.solana
+    // Returns the wallet immediately (balance = 0), then fetches
+    // balances in the background and calls onBalanceUpdate when ready.
     // ----------------------------------------------------------------
-    async connect(): Promise<ConnectedWallet[]> {
+    async connect(onBalanceUpdate?: (wallets: ConnectedWallet[]) => void): Promise<ConnectedWallet[]> {
         const phantomProvider = (window as any).phantom?.solana
         if (!phantomProvider) {
             alert('Phantom not detected! Check window.phantom.solana')
@@ -39,50 +42,68 @@ export const PhantomService = {
             return []
         }
 
-        const prices = await PriceService.getPrices()
-        const wallets: ConnectedWallet[] = []
-
-        let realBalance = 0
-        try {
-            realBalance = await RpcService.getBalance('SOLANA', address)
-        } catch (error) {
-            console.error('[Phantom] Failed to fetch SOL balance:', error)
-        }
-
-        wallets.push({
+        // Return the wallet immediately with 0 balance so the UI is not blocked
+        const solWallet: ConnectedWallet = {
             id: Math.random().toString(36).substr(2, 9),
             name: 'Phantom',
             chain: 'Solana',
             address,
             icon: `${BASE_URL}icons/phantom.png`,
-            balance: realBalance * (prices['SOL'] || 0),
-            nativeBalance: realBalance,
+            balance: 0,
+            nativeBalance: 0,
             symbol: 'SOL',
             walletProvider: 'Phantom'
-        })
-
-        for (const token of SOLANA_TOKENS) {
-            try {
-                const tokenBal = await RpcService.getSplBalance(address, token.mint)
-                if (tokenBal > 0) {
-                    wallets.push({
-                        id: `${token.symbol}-SOL-${address.substr(-4)}`,
-                        name: `${token.symbol} (Solana)`,
-                        chain: 'Solana',
-                        address,
-                        icon: `${BASE_URL}icons/phantom.png`,
-                        balance: tokenBal * (prices[token.symbol] || 1),
-                        nativeBalance: tokenBal,
-                        symbol: token.symbol,
-                        walletProvider: 'Phantom'
-                    })
-                }
-            } catch (e) {
-                console.error(`[Phantom] Failed to fetch ${token.symbol}:`, e)
-            }
         }
 
-        return wallets
+        // Fetch balances in the background and notify via callback when done
+        if (onBalanceUpdate) {
+            ; (async () => {
+                try {
+                    const prices = await PriceService.getPrices()
+                    const updatedWallets: ConnectedWallet[] = []
+
+                    let realBalance = 0
+                    try {
+                        realBalance = await RpcService.getBalance('SOLANA', address)
+                    } catch (error) {
+                        console.error('[Phantom] Failed to fetch SOL balance:', error)
+                    }
+
+                    updatedWallets.push({
+                        ...solWallet,
+                        balance: realBalance * (prices['SOL'] || 0),
+                        nativeBalance: realBalance
+                    })
+
+                    for (const token of SOLANA_TOKENS) {
+                        try {
+                            const tokenBal = await RpcService.getSplBalance(address, token.mint)
+                            if (tokenBal > 0) {
+                                updatedWallets.push({
+                                    id: `${token.symbol}-SOL-${address.substr(-4)}`,
+                                    name: `${token.symbol} (Solana)`,
+                                    chain: 'Solana',
+                                    address,
+                                    icon: `${BASE_URL}icons/phantom.png`,
+                                    balance: tokenBal * (prices[token.symbol] || 1),
+                                    nativeBalance: tokenBal,
+                                    symbol: token.symbol,
+                                    walletProvider: 'Phantom'
+                                })
+                            }
+                        } catch (e) {
+                            console.error(`[Phantom] Failed to fetch ${token.symbol}:`, e)
+                        }
+                    }
+
+                    onBalanceUpdate(updatedWallets)
+                } catch (e) {
+                    console.error('[Phantom] Background balance fetch failed:', e)
+                }
+            })()
+        }
+
+        return [solWallet]
     },
 
     // ----------------------------------------------------------------
