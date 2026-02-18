@@ -4,11 +4,11 @@ import type { NFT, NFTCollection, MarketplaceListing, NFTFilters, NFTServiceInte
 // Magic Eden API configuration
 const MAGICEDEN_API_KEY = import.meta.env.VITE_MAGICEDEN_API_KEY || ''
 const MAGICEDEN_API_URL = 'https://api-mainnet.magiceden.dev/v2'
-// Use Helius RPC with provided API key to bypass CORS/403 errors
-// Direct fallback to user's key if env var is not set specifically
+// Solana RPC: use env var if set, otherwise fall back to public node (no API key required)
 const SOLANA_RPC_URL = import.meta.env.VITE_SOLANA_RPC_URL ||
-    (import.meta.env.VITE_HELIUS_API_KEY ? `https://mainnet.helius-rpc.com/?api-key=${import.meta.env.VITE_HELIUS_API_KEY}` :
-        'https://mainnet.helius-rpc.com/?api-key=1496cd5c-a09d-4767-a78f-59eaa9e3df86')
+    (import.meta.env.VITE_HELIUS_API_KEY
+        ? `https://mainnet.helius-rpc.com/?api-key=${import.meta.env.VITE_HELIUS_API_KEY}`
+        : 'https://solana-rpc.publicnode.com')
 
 // Helper function to convert Magic Eden NFT to our NFT type
 function convertMagicEdenNFT(meNFT: any): NFT {
