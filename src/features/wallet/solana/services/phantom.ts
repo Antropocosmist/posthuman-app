@@ -4,6 +4,8 @@
  *
  * Handles:
  *   - connect(): Solana connection via window.phantom.solana
+ *     If already connected, reads publicKey directly (no popup).
+ *     connect() races against a 10s timeout to prevent infinite hang.
  *     Returns wallet immediately with 0 balance; fetches balances in background.
  *   - sendTransaction(): SOL native transfer
  */
@@ -19,12 +21,18 @@ const SOLANA_TOKENS = [
     { symbol: 'USDT', mint: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB' }
 ]
 
+/** Race a promise against a timeout. Rejects with 'timeout' if time runs out. */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+    return Promise.race([
+        promise,
+        new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms))
+    ])
+}
+
 export const PhantomService = {
 
     // ----------------------------------------------------------------
     // connect() — Solana via window.phantom.solana
-    // Returns the wallet immediately (balance = 0), then fetches
-    // balances in the background and calls onBalanceUpdate when ready.
     // ----------------------------------------------------------------
     async connect(onBalanceUpdate?: (wallets: ConnectedWallet[]) => void): Promise<ConnectedWallet[]> {
         const phantomProvider = (window as any).phantom?.solana
@@ -35,10 +43,23 @@ export const PhantomService = {
 
         let address = ''
         try {
-            const resp = await phantomProvider.connect()
-            address = resp.publicKey.toString()
-        } catch (e) {
-            console.error('[Phantom] Connect Error:', e)
+            // If Phantom is already connected, publicKey is available immediately — no popup needed
+            if (phantomProvider.isConnected && phantomProvider.publicKey) {
+                console.log('[Phantom] Already connected, reading publicKey directly')
+                address = phantomProvider.publicKey.toString()
+            } else {
+                // Race connect() against a 10s timeout so it never hangs forever
+                console.log('[Phantom] Calling connect()...')
+                const resp = await withTimeout(phantomProvider.connect(), 10000)
+                address = resp.publicKey.toString()
+            }
+            console.log('[Phantom] Got address:', address)
+        } catch (e: any) {
+            if (e?.message?.includes('Timeout')) {
+                console.error('[Phantom] connect() timed out after 10s — user may have dismissed the popup')
+            } else {
+                console.error('[Phantom] Connect Error:', e)
+            }
             return []
         }
 
