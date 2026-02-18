@@ -94,6 +94,41 @@ export function Settings() {
                 </select>
             </div>
 
+            {/* API Keys Section */}
+            <div className="mb-8 p-6 rounded-3xl bg-[#14141b] border border-white/5">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
+                        <Globe className="w-5 h-5 text-purple-400" />
+                    </div>
+                    <h2 className="text-xl font-bold text-white">API Keys</h2>
+                </div>
+
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-2">
+                            Magic Eden API Key (Solana)
+                        </label>
+                        <input
+                            type="password"
+                            placeholder="Enter your Magic Eden API Key"
+                            value={localStorage.getItem('posthuman_magiceden_api_key') || ''}
+                            onChange={(e) => {
+                                localStorage.setItem('posthuman_magiceden_api_key', e.target.value)
+                                // Force re-render (simple way)
+                                setCurrency(c => c)
+                            }}
+                            className="w-full p-4 rounded-2xl bg-white/5 border border-white/10 text-white focus:border-purple-500 focus:outline-none transition-colors font-mono text-sm"
+                        />
+                        <p className="text-xs text-gray-500 mt-2">
+                            Required for listing, buying, and cancelling Solana NFTs.
+                            <a href="https://dev.magiceden.io/" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300 ml-1">
+                                Get a key here
+                            </a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+
             {/* Info */}
             <div className="text-center text-gray-500 text-sm">
                 <p>Settings are saved automatically</p>

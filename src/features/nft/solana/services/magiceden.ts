@@ -425,6 +425,8 @@ export class MagicEdenNFTService implements NFTServiceInterface {
                 throw new Error(`Connected wallet (${walletPublicKey}) does not match buyer address (${buyerAddress})`)
             }
 
+            const apiKey = this.getApiKeyOrThrow()
+
             // Get buy instruction from Magic Eden API
             const params = new URLSearchParams({
                 buyer: buyerAddress,
@@ -438,7 +440,7 @@ export class MagicEdenNFTService implements NFTServiceInterface {
             const response = await fetch(
                 `${MAGICEDEN_API_URL}/instructions/buy?${params.toString()}`,
                 {
-                    headers: MAGICEDEN_API_KEY ? { 'Authorization': `Bearer ${MAGICEDEN_API_KEY}` } : {},
+                    headers: { 'Authorization': `Bearer ${apiKey}` },
                 }
             )
 
@@ -488,6 +490,8 @@ export class MagicEdenNFTService implements NFTServiceInterface {
                 throw new Error(`Wrong wallet! Please switch your wallet to ${sellerAddress.slice(0, 4)}...${sellerAddress.slice(-4)}`)
             }
 
+            const apiKey = this.getApiKeyOrThrow()
+
             // Get sell instruction from Magic Eden API
             const params = new URLSearchParams({
                 seller: sellerAddress,
@@ -500,7 +504,7 @@ export class MagicEdenNFTService implements NFTServiceInterface {
             const response = await fetch(
                 `${MAGICEDEN_API_URL}/instructions/sell?${params.toString()}`,
                 {
-                    headers: MAGICEDEN_API_KEY ? { 'Authorization': `Bearer ${MAGICEDEN_API_KEY}` } : {},
+                    headers: { 'Authorization': `Bearer ${apiKey}` },
                 }
             )
 
@@ -547,6 +551,8 @@ export class MagicEdenNFTService implements NFTServiceInterface {
                 throw new Error(`Wrong wallet! Please switch your wallet to ${sellerAddress.slice(0, 4)}...${sellerAddress.slice(-4)}`)
             }
 
+            const apiKey = this.getApiKeyOrThrow()
+
             // Get cancel instruction from Magic Eden API
             const params = new URLSearchParams({
                 seller: sellerAddress,
@@ -559,7 +565,7 @@ export class MagicEdenNFTService implements NFTServiceInterface {
             const response = await fetch(
                 `${MAGICEDEN_API_URL}/instructions/sell_cancel?${params.toString()}`,
                 {
-                    headers: MAGICEDEN_API_KEY ? { 'Authorization': `Bearer ${MAGICEDEN_API_KEY}` } : {},
+                    headers: { 'Authorization': `Bearer ${apiKey}` },
                 }
             )
 
