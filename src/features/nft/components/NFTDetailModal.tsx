@@ -1,10 +1,11 @@
-import { X, ShoppingBag, Send, Flame, ChevronLeft, Tag } from 'lucide-react'
+import { X, ShoppingBag, Send, Flame, ChevronLeft, Tag, Key } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import type { NFT } from '../types/types'
 import { useNFTStore } from '../store/nftStore'
 import { useWalletStore } from '../../wallet/store/walletStore'
 import { formatPrice } from '../../../shared/utils/currency'
 import { validateAddress } from '../../../shared/utils/addressValidation'
+import { hasMagicEdenApiKey } from '../solana/services/magiceden'
 
 interface NFTDetailModalProps {
     nft: NFT | null
