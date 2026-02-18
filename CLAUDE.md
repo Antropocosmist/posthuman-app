@@ -1,9 +1,72 @@
 # POSTHUMAN App - Development Context for Claude
 
-**Last Updated:** 2026-02-05  
+**Last Updated:** 2026-02-18  
 **Project:** POSTHUMAN App - Multi-chain NFT & DeFi Platform  
 **Repository:** https://github.com/Antropocosmist/posthuman-app.git  
 **Latest Commit:** `9fd2385` (2026-02-05)
+
+---
+
+## ⚠️ UNIVERSAL DEVELOPMENT & ARCHITECTURE RULES (PERMANENT — ALWAYS FOLLOW)
+
+> These rules apply to **every** development session, every module, every submodule. No exceptions.
+
+### Rule 1: Strict Isolation Architecture (Modular First)
+
+- **Module** = A core category (Wallets, Staking, Swaps, NFTs, Governance)
+- **Submodule** = An autonomous chain/provider implementation within a module (e.g., Keplr inside Wallets)
+- **Feature Variability:** Submodules must be independent — adding Governance for one chain must NOT require it for another
+- **Plug & Play:** Any module folder must be copy-pasteable into a different app and work with minimal config
+- **Zero-Dependency Interaction:** Changes/errors in one submodule (e.g., Solflare) must NEVER affect others (e.g., Keplr)
+
+### Rule 2: Multi-Chain & Feature Logic
+
+- **Unified Interfaces:** All submodules in a category must return data in a standardized format (e.g., Staking always returns `apr`, `delegatedAmount`, `unbondingPeriod`)
+- **Feature Detection:** Dynamically detect which submodules are available per chain — never hardcode feature availability in the UI
+- **Local Error Boundaries:** All submodule errors must be caught with `try/catch` locally and must NOT crash the main app
+
+```typescript
+// CORRECT pattern — always use this
+async function fetchData(chain: string) {
+  try {
+    return await chainService.fetch();
+  } catch (error) {
+    console.error(`[${chain}] fetch failed:`, error);
+    return null; // Graceful degradation
+  }
+}
+```
+
+### Rule 3: Security & Environment (CI/CD)
+
+- **NEVER hardcode** API keys, private keys, or credentials — use `.env` locally, GitHub Secrets in production
+- **Web-First Testing:** Do NOT rely on localhost — push to GitHub and test in the live web environment (CORS, RPC, logs)
+- **Validation Loop:** After every update, ask the user to test on the web and confirm results before proceeding
+
+### Rule 4: Communication & Documentation
+
+- **Clarify over Guess:** If an instruction is ambiguous or conflicts with modular architecture, ask for clarification first
+- **Dependency Manifest:** Each module/service file must include a comment listing external library dependencies (for Plug & Play)
+- **Modular Reporting:** Commit messages and reports must specify exactly which module/submodule was modified
+
+```typescript
+// Dependency manifest pattern — include at top of every service file
+/**
+ * <ServiceName> Service
+ * Dependencies: @cosmjs/stargate, @cosmjs/cosmwasm-stargate
+ * External APIs: https://rpc.stargaze-apis.com
+ */
+```
+
+### Pre-Commit Checklist
+- [ ] Change affects ONLY the intended submodule?
+- [ ] All errors caught locally with `try/catch`?
+- [ ] Standardized interface format returned?
+- [ ] No hardcoded API keys or secrets?
+- [ ] Dependency manifest comment present?
+- [ ] Commit message specifies exact module/submodule?
+- [ ] Pushed to GitHub for web testing?
+- [ ] User asked to test and confirm before proceeding?
 
 ---
 
