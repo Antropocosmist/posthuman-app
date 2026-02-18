@@ -12,7 +12,15 @@ import { isScamNFT } from '../utils/blocklist'
 import type { NFT, NFTCollection, MarketplaceListing, NFTFilters, NFTServiceInterface } from '../../types/types'
 
 // Magic Eden API configuration
-const MAGICEDEN_API_KEY = import.meta.env.VITE_MAGICEDEN_API_KEY || ''
+const getMagicEdenApiKey = () => {
+    if (typeof window !== 'undefined') {
+        const storedKey = localStorage.getItem('posthuman_magiceden_api_key')
+        if (storedKey) return storedKey
+    }
+    return import.meta.env.VITE_MAGICEDEN_API_KEY || ''
+}
+
+const MAGICEDEN_API_KEY = getMagicEdenApiKey() // Default initialization for non-critical paths
 const MAGICEDEN_API_URL = 'https://api-mainnet.magiceden.dev/v2'
 // Solana RPC: use env var if set, otherwise fall back to public node (no API key required)
 const SOLANA_RPC_URL = import.meta.env.VITE_SOLANA_RPC_URL ||
@@ -381,8 +389,16 @@ export class MagicEdenNFTService implements NFTServiceInterface {
     }
 
     /**
-     * Buy an NFT from the marketplace
+     * Get the API Key or throw if missing for restricted operations
      */
+    private getApiKeyOrThrow(): string {
+        const key = getMagicEdenApiKey()
+        if (!key) {
+            throw new Error('Magic Eden API Key is required. Please add it in Settings -> API Keys.')
+        }
+        return key
+    }
+
     /**
      * Helper to get Solana provider
      */
