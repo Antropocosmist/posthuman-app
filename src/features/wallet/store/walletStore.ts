@@ -472,6 +472,11 @@ export const useWalletStore = create<WalletState>()(
                 if (state) {
                     state.setHasHydrated(true)
                     state._initAuthListener?.()
+                    // Refresh balances for all persisted wallets on every page load
+                    // (persisted wallets have stale balances from last session)
+                    if (state.wallets.length > 0) {
+                        setTimeout(() => state.refreshBalances(), 1000)
+                    }
                 }
             }
         }
