@@ -594,8 +594,35 @@ export const useWalletStore = create<WalletState>()(
                             if (name === 'Solflare') {
                                 if (window.solflare) {
                                     try {
+                                        console.log('[Solflare] Starting connect...')
                                         await window.solflare.connect()
+                                        console.log('[Solflare] connect() resolved, isConnected:', window.solflare.isConnected, 'publicKey:', window.solflare.publicKey)
+
+                                        // publicKey may not be immediately available after connect()
+                                        // Wait up to 3 seconds for it
+                                        if (!window.solflare.publicKey) {
+                                            console.log('[Solflare] publicKey not yet available, waiting...')
+                                            await new Promise<void>((resolve, reject) => {
+                                                let attempts = 0
+                                                const interval = setInterval(() => {
+                                                    attempts++
+                                                    if (window.solflare?.publicKey) {
+                                                        clearInterval(interval)
+                                                        resolve()
+                                                    } else if (attempts >= 30) { // 3 seconds
+                                                        clearInterval(interval)
+                                                        reject(new Error('Solflare publicKey not available after 3s'))
+                                                    }
+                                                }, 100)
+                                            })
+                                        }
+
+                                        if (!window.solflare.publicKey) {
+                                            throw new Error('Solflare publicKey is null after connect')
+                                        }
+
                                         address = window.solflare.publicKey.toString()
+                                        console.log('[Solflare] Got address:', address)
                                     } catch (e) {
                                         console.error("Solflare Connect Error:", e)
                                         return
