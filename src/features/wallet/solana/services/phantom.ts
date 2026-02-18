@@ -50,7 +50,7 @@ export const PhantomService = {
             } else {
                 // Race connect() against a 10s timeout so it never hangs forever
                 console.log('[Phantom] Calling connect()...')
-                const resp = await withTimeout(phantomProvider.connect(), 10000)
+                const resp = await withTimeout(phantomProvider.connect(), 10000) as { publicKey: { toString(): string } }
                 address = resp.publicKey.toString()
             }
             console.log('[Phantom] Got address:', address)
