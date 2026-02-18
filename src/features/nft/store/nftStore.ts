@@ -544,6 +544,7 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
           txHash = await magicEdenNFTService.buyNFT(
             listing,
             buyerWallet.address,
+            buyerWallet.walletProvider
           );
           break;
         default:
@@ -628,7 +629,8 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
             price,
             currency,
             sellerWallet.address,
-            durationInSeconds
+            durationInSeconds,
+            sellerWallet.walletProvider
           );
           break;
         default:
@@ -698,7 +700,11 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
           await openSeaNFTService.cancelListing(listingId, wallet.address, nft.chain);
           break;
         case "solana":
-          await magicEdenNFTService.cancelListing(listingId, wallet.address);
+          await magicEdenNFTService.cancelListing(
+            listingId,
+            wallet.address,
+            wallet.walletProvider
+          );
           break;
         default:
           throw new Error(`Cancellation not supported for ${nft.chain} yet`);

@@ -383,21 +383,46 @@ export class MagicEdenNFTService implements NFTServiceInterface {
     /**
      * Buy an NFT from the marketplace
      */
-    async buyNFT(listing: MarketplaceListing, buyerAddress: string): Promise<string> {
+    /**
+     * Helper to get Solana provider
+     */
+    private getProvider(walletProvider?: any): any {
+        if (typeof window === 'undefined') return null;
+
+        // 1. Try to use the passed provider string to find specific provider
+        if (walletProvider === 'Phantom') {
+            if ('phantom' in window && (window as any).phantom?.solana) return (window as any).phantom.solana;
+        }
+
+        if (walletProvider === 'Solflare') {
+            if ('solflare' in window && (window as any).solflare) return (window as any).solflare;
+        }
+
+        // 2. Fallbacks
+        if ('phantom' in window && (window as any).phantom?.solana?.isPhantom) return (window as any).phantom.solana;
+        if ('solflare' in window && (window as any).solflare?.isSolflare) return (window as any).solflare;
+        if ('solana' in window) return (window as any).solana;
+
+        return null;
+    }
+
+    /**
+     * Buy an NFT from the marketplace
+     */
+    async buyNFT(listing: MarketplaceListing, buyerAddress: string, walletProvider?: any): Promise<string> {
         try {
-            // Check if Phantom wallet is available
-            if (!window.solana || !window.solana.isPhantom) {
-                throw new Error('Please install Phantom wallet to buy NFTs on Magic Eden')
+            const provider = this.getProvider(walletProvider);
+            if (!provider) {
+                throw new Error('Solana wallet not found. Please install Phantom or Solflare.')
             }
 
-            // Connect to Phantom wallet
-            const phantom = window.solana
-            await phantom.connect()
+            // Connect if needed (idempotent usually)
+            if (!provider.isConnected) await provider.connect();
 
             // Verify buyer address
-            const walletPublicKey = phantom.publicKey.toString()
+            const walletPublicKey = provider.publicKey.toString()
             if (walletPublicKey !== buyerAddress) {
-                throw new Error('Connected wallet does not match buyer address')
+                throw new Error(`Connected wallet (${walletPublicKey}) does not match buyer address (${buyerAddress})`)
             }
 
             // Get buy instruction from Magic Eden API
@@ -425,11 +450,11 @@ export class MagicEdenNFTService implements NFTServiceInterface {
 
             // Decode and send the transaction
             const connection = new Connection(SOLANA_RPC_URL, 'confirmed')
+            // @ts-ignore - VersionedTransaction might need raw buffer or specific import
             const transaction = VersionedTransaction.deserialize(Buffer.from(txSigned, 'base64'))
 
             // Sign and send transaction
-            const signedTx = await phantom.signTransaction(transaction)
-            const signature = await connection.sendRawTransaction(signedTx.serialize())
+            const { signature } = await provider.signAndSendTransaction(transaction)
 
             // Confirm transaction
             await connection.confirmTransaction(signature, 'confirmed')
@@ -445,23 +470,22 @@ export class MagicEdenNFTService implements NFTServiceInterface {
     /**
      * List an NFT for sale on the marketplace
      */
-    async listNFT(nft: NFT, price: string, _currency: string, sellerAddress: string, _durationInSeconds?: number): Promise<string> {
+    async listNFT(nft: NFT, price: string, _currency: string, sellerAddress: string, _durationInSeconds?: number, walletProvider?: any): Promise<string> {
         try {
-            // Check if Phantom wallet is available
-            if (!window.solana || !window.solana.isPhantom) {
-                throw new Error('Please install Phantom wallet to list NFTs on Magic Eden')
+            const provider = this.getProvider(walletProvider);
+            if (!provider) {
+                throw new Error('Solana wallet not found. Please install Phantom or Solflare.')
             }
 
-            // Connect to Phantom wallet
-            const phantom = window.solana
-            await phantom.connect()
+            // Connect
+            if (!provider.isConnected) await provider.connect();
 
             // Verify seller address - CASE INSENSITIVE CHECK
-            const walletPublicKey = phantom.publicKey.toString()
+            const walletPublicKey = provider.publicKey.toString()
             if (walletPublicKey.toLowerCase() !== sellerAddress.toLowerCase()) {
                 console.error(`[MagicEden] Wallet mismatch: Connected ${walletPublicKey} vs Seller ${sellerAddress}`)
                 // Helpful error message for multi-wallet users
-                throw new Error(`Wrong wallet! Please switch Phantom to ${sellerAddress.slice(0, 4)}...${sellerAddress.slice(-4)}`)
+                throw new Error(`Wrong wallet! Please switch your wallet to ${sellerAddress.slice(0, 4)}...${sellerAddress.slice(-4)}`)
             }
 
             // Get sell instruction from Magic Eden API
@@ -491,8 +515,7 @@ export class MagicEdenNFTService implements NFTServiceInterface {
             const transaction = VersionedTransaction.deserialize(Buffer.from(txSigned, 'base64'))
 
             // Sign and send transaction
-            const signedTx = await phantom.signTransaction(transaction)
-            const signature = await connection.sendRawTransaction(signedTx.serialize())
+            const { signature } = await provider.signAndSendTransaction(transaction)
 
             // Confirm transaction
             await connection.confirmTransaction(signature, 'confirmed')
@@ -508,21 +531,20 @@ export class MagicEdenNFTService implements NFTServiceInterface {
     /**
      * Cancel an existing listing
      */
-    async cancelListing(listingId: string, sellerAddress: string): Promise<string> {
+    async cancelListing(listingId: string, sellerAddress: string, walletProvider?: any): Promise<string> {
         try {
-            // Check if Phantom wallet is available
-            if (!window.solana || !window.solana.isPhantom) {
-                throw new Error('Please install Phantom wallet to cancel listings on Magic Eden')
+            const provider = this.getProvider(walletProvider);
+            if (!provider) {
+                throw new Error('Solana wallet not found. Please install Phantom or Solflare.')
             }
 
-            // Connect to Phantom wallet
-            const phantom = window.solana
-            await phantom.connect()
+            // Connect
+            if (!provider.isConnected) await provider.connect();
 
             // Verify seller address
-            const walletPublicKey = phantom.publicKey.toString()
-            if (walletPublicKey !== sellerAddress) {
-                throw new Error('Connected wallet does not match seller address')
+            const walletPublicKey = provider.publicKey.toString()
+            if (walletPublicKey.toLowerCase() !== sellerAddress.toLowerCase()) {
+                throw new Error(`Wrong wallet! Please switch your wallet to ${sellerAddress.slice(0, 4)}...${sellerAddress.slice(-4)}`)
             }
 
             // Get cancel instruction from Magic Eden API
@@ -552,8 +574,7 @@ export class MagicEdenNFTService implements NFTServiceInterface {
             const transaction = VersionedTransaction.deserialize(Buffer.from(txSigned, 'base64'))
 
             // Sign and send transaction
-            const signedTx = await phantom.signTransaction(transaction)
-            const signature = await connection.sendRawTransaction(signedTx.serialize())
+            const { signature } = await provider.signAndSendTransaction(transaction)
 
             // Confirm transaction
             await connection.confirmTransaction(signature, 'confirmed')
