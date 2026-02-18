@@ -64,9 +64,23 @@ export function NFTCard({ nft, onClick }: NFTCardProps) {
                     </div>
                 )}
 
-                {/* Listed Badge (Bottom Left) */}
+                {/* Wallet Badge (Bottom Left) */}
+                {nft.walletIcon && (
+                    <div className="absolute bottom-2 left-2 w-6 h-6 rounded-full bg-black/80 backdrop-blur-sm border border-white/10 p-0.5 flex items-center justify-center opacity-80 hover:opacity-100 transition-opacity" title={`Owned by ${nft.walletName || 'Wallet'}`}>
+                        <img
+                            src={nft.walletIcon}
+                            alt={nft.walletName}
+                            className="w-full h-full object-contain rounded-full"
+                            onError={(e) => {
+                                e.currentTarget.style.display = 'none'
+                            }}
+                        />
+                    </div>
+                )}
+
+                {/* Listed Badge (Bottom Left - Offset if wallet icon exists) */}
                 {nft.isListed && nft.listingPrice && (
-                    <div className="absolute bottom-2 left-2 px-3 py-1.5 rounded-lg bg-purple-600/90 backdrop-blur-sm">
+                    <div className={`absolute bottom-2 ${nft.walletIcon ? 'left-10' : 'left-2'} px-3 py-1.5 rounded-lg bg-purple-600/90 backdrop-blur-sm`}>
                         <span className="text-xs font-bold text-white">
                             {formatPrice(nft.listingPrice, nft.listingCurrency)}
                         </span>
@@ -85,13 +99,15 @@ export function NFTCard({ nft, onClick }: NFTCardProps) {
 
 
                 {/* Floor Price */}
-                {nft.collection.floorPrice && nft.collection.floorPriceDenom && (
-                    <div className="mt-2 pt-2 border-t border-white/5">
-                        <p className="text-xs text-gray-500">
-                            Floor: <span className="text-white font-medium">{formatPrice(nft.collection.floorPrice, nft.collection.floorPriceDenom)}</span>
-                        </p>
-                    </div>
-                )}
+                <div className="mt-2 pt-2 border-t border-white/5">
+                    <p className="text-xs text-gray-500">
+                        Floor: <span className="text-white font-medium">
+                            {nft.collection.floorPrice && nft.collection.floorPriceDenom
+                                ? formatPrice(nft.collection.floorPrice, nft.collection.floorPriceDenom)
+                                : 'N/A'}
+                        </span>
+                    </p>
+                </div>
             </div>
         </div>
     )

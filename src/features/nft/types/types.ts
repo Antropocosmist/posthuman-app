@@ -45,6 +45,10 @@ export interface NFT {
     listingCurrency?: string
     listingId?: string
 
+    // Wallet info
+    walletIcon?: string
+    walletName?: string
+
     // Attributes
     traits?: NFTTrait[]
 

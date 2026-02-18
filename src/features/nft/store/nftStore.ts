@@ -243,7 +243,14 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
       const contentMap = new Map<string, string>(); // Key: "name-tokenId", Value: fullKey
 
       filteredByType.forEach(nft => {
-        const fullKey = `${nft.chain} -${nft.contractAddress} -${nft.tokenId} `.toLowerCase();
+        // Find wallet info
+        const wallet = wallets.find(w => w.address.toLowerCase() === nft.owner.toLowerCase());
+        if (wallet) {
+          nft.walletIcon = wallet.icon;
+          nft.walletName = wallet.name;
+        }
+
+        const fullKey = `${nft.chain}-${nft.contractAddress}-${nft.tokenId}`.toLowerCase();
 
         // Special handling for Unstoppable Domains / ENS-like assets
         // If name and tokenId match, we treat them as the SAME asset to avoid cross-chain confusion.
@@ -252,7 +259,7 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
         let contentKey = "";
 
         if (isEVM) {
-          contentKey = `${nft.name} -${nft.tokenId} `.toLowerCase();
+          contentKey = `${nft.name}-${nft.tokenId}`.toLowerCase();
         }
 
         if (contentKey) {
