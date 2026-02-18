@@ -102,6 +102,7 @@ export const SolflareService = {
                     const prices = await PriceService.getPrices()
                     const updatedWallets: ConnectedWallet[] = []
 
+                    // 1. Fetch SOL Balance
                     let realBalance = 0
                     try {
                         realBalance = await RpcService.getBalance('SOLANA', address)
@@ -115,9 +116,19 @@ export const SolflareService = {
                         nativeBalance: realBalance
                     })
 
+                    // IMMEDIATE UPDATE: Send SOL balance to UI so it doesn't stay at 0 while waiting for tokens
+                    onBalanceUpdate([...updatedWallets])
+
+                    // 2. Fetch SPL Tokens (with timeouts)
                     for (const token of SOLANA_TOKENS) {
                         try {
-                            const tokenBal = await RpcService.getSplBalance(address, token.mint)
+                            // Race SPL fetch against 5s timeout so one bad RPC call doesn't freeze everything
+                            const tokenBal = await withTimeout(RpcService.getSplBalance(address, token.mint), 5000)
+                                .catch(e => {
+                                    console.warn(`[Solflare] Timeout/Error fetching ${token.symbol}:`, e)
+                                    return 0
+                                }) as number
+
                             if (tokenBal > 0) {
                                 updatedWallets.push({
                                     id: `${token.symbol}-SOL-${address.substr(-4)}`,
@@ -136,6 +147,7 @@ export const SolflareService = {
                         }
                     }
 
+                    // FINAL UPDATE: Send complete wallet list with tokens
                     onBalanceUpdate(updatedWallets)
                 } catch (e) {
                     console.error('[Solflare] Background balance fetch failed:', e)

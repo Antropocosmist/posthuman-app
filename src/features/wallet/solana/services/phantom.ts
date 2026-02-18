@@ -82,9 +82,9 @@ export const PhantomService = {
                 ; (async () => {
                     try {
                         const prices = await PriceService.getPrices()
-                        console.log('[Phantom] Got prices:', prices)
                         const updatedWallets: ConnectedWallet[] = []
 
+                        // 1. Fetch SOL Balance
                         let realBalance = 0
                         try {
                             console.log('[Phantom] Fetching SOL balance for:', address)
@@ -100,9 +100,20 @@ export const PhantomService = {
                             nativeBalance: realBalance
                         })
 
+                        // IMMEDIATE UPDATE: Send SOL balance to UI so it doesn't stay at 0 while waiting for tokens
+                        console.log('[Phantom] Sending initial SOL balance update...')
+                        onBalanceUpdate([...updatedWallets])
+
+                        // 2. Fetch SPL Tokens (with timeouts)
                         for (const token of SOLANA_TOKENS) {
                             try {
-                                const tokenBal = await RpcService.getSplBalance(address, token.mint)
+                                // Race SPL fetch against 5s timeout so one bad RPC call doesn't freeze everything
+                                const tokenBal = await withTimeout(RpcService.getSplBalance(address, token.mint), 5000)
+                                    .catch(e => {
+                                        console.warn(`[Phantom] Timeout/Error fetching ${token.symbol}:`, e)
+                                        return 0
+                                    }) as number
+
                                 if (tokenBal > 0) {
                                     console.log(`[Phantom] Found ${token.symbol} balance:`, tokenBal)
                                     updatedWallets.push({
@@ -122,8 +133,10 @@ export const PhantomService = {
                             }
                         }
 
-                        console.log('[Phantom] Calling onBalanceUpdate with:', updatedWallets)
+                        // FINAL UPDATE: Send complete wallet list with tokens
+                        console.log('[Phantom] Sending final balance update with tokens...')
                         onBalanceUpdate(updatedWallets)
+
                     } catch (e) {
                         console.error('[Phantom] Background balance fetch failed:', e)
                     }
