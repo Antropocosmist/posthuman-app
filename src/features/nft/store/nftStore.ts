@@ -451,9 +451,27 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
       // Fetch from Magic Eden marketplace
       if (targetEcosystem === "all" || targetEcosystem === "solana") {
         try {
-          const listings =
-            await magicEdenNFTService.fetchMarketplaceListings(targetFilters);
-          allListings = [...allListings, ...listings];
+          // If no specific collection/search, try to fetch user's listings
+          if (!targetFilters.collection && !targetFilters.search) {
+            const walletStore = useWalletStore.getState();
+            const solanaWallet = walletStore.wallets.find(w => w.chain === "Solana");
+
+            if (solanaWallet) {
+              console.log(`[NFT Store] Fetching Magic Eden listings for wallet: ${solanaWallet.address}`);
+              const listings = await magicEdenNFTService.fetchMarketplaceListings({
+                ...targetFilters,
+                seller: solanaWallet.address
+              });
+              allListings = [...allListings, ...listings];
+            } else {
+              // Fallback to popular if no wallet
+              const listings = await magicEdenNFTService.fetchMarketplaceListings(targetFilters);
+              allListings = [...allListings, ...listings];
+            }
+          } else {
+            const listings = await magicEdenNFTService.fetchMarketplaceListings(targetFilters);
+            allListings = [...allListings, ...listings];
+          }
         } catch (error) {
           console.error("Error fetching Magic Eden marketplace:", error);
         }

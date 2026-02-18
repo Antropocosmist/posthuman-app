@@ -313,10 +313,17 @@ export class MagicEdenNFTService implements NFTServiceInterface {
      */
     async fetchMarketplaceListings(filters?: NFTFilters): Promise<MarketplaceListing[]> {
         try {
-            // Fetch popular collections or specific collection listings
-            const endpoint = filters?.collection
-                ? `${MAGICEDEN_API_URL}/collections/${filters.collection}/listings`
-                : `${MAGICEDEN_API_URL}/marketplace/popular_collections`
+            let endpoint = `${MAGICEDEN_API_URL}/marketplace/popular_collections`
+
+            // If seller is specified, fetch listings for that wallet
+            if (filters?.seller) {
+                // Magic Eden v2 doesn't have a direct "listings by wallet" endpoint in the public API 
+                // that returns the exact same format as marketplace listings easily.
+                // However, 'tokens' endpoint with listStatus=listed is a good proxy.
+                endpoint = `${MAGICEDEN_API_URL}/wallets/${filters.seller}/tokens?listStatus=listed&limit=20`
+            } else if (filters?.collection) {
+                endpoint = `${MAGICEDEN_API_URL}/collections/${filters.collection}/listings`
+            }
 
             const response = await fetch(endpoint, {
                 headers: MAGICEDEN_API_KEY ? { 'Authorization': `Bearer ${MAGICEDEN_API_KEY}` } : {},
@@ -334,7 +341,7 @@ export class MagicEdenNFTService implements NFTServiceInterface {
                 nft: convertMagicEdenNFT(listing),
                 price: listing.price?.toString() || '0',
                 currency: 'SOL',
-                seller: listing.seller || listing.sellerAddress || '',
+                seller: listing.seller || listing.owner || listing.ownerAddress || filters?.seller || '', // Owner matches seller for listed items
                 listingId: listing.tokenMint || listing.mintAddress || '',
                 marketplace: 'magiceden' as const,
                 createdAt: new Date(listing.createdAt || listing.listedAt || Date.now()),
@@ -449,9 +456,10 @@ export class MagicEdenNFTService implements NFTServiceInterface {
             const phantom = window.solana
             await phantom.connect()
 
-            // Verify seller address
+            // Verify seller address - CASE INSENSITIVE CHECK
             const walletPublicKey = phantom.publicKey.toString()
-            if (walletPublicKey !== sellerAddress) {
+            if (walletPublicKey.toLowerCase() !== sellerAddress.toLowerCase()) {
+                console.error(`[MagicEden] Wallet mismatch: Connected ${walletPublicKey} vs Seller ${sellerAddress}`)
                 throw new Error('Connected wallet does not match seller address')
             }
 
