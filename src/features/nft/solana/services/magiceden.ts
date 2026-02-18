@@ -460,7 +460,8 @@ export class MagicEdenNFTService implements NFTServiceInterface {
             const walletPublicKey = phantom.publicKey.toString()
             if (walletPublicKey.toLowerCase() !== sellerAddress.toLowerCase()) {
                 console.error(`[MagicEden] Wallet mismatch: Connected ${walletPublicKey} vs Seller ${sellerAddress}`)
-                throw new Error('Connected wallet does not match seller address')
+                // Helpful error message for multi-wallet users
+                throw new Error(`Wrong wallet! Please switch Phantom to ${sellerAddress.slice(0, 4)}...${sellerAddress.slice(-4)}`)
             }
 
             // Get sell instruction from Magic Eden API

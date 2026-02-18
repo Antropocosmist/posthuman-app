@@ -401,28 +401,29 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
                                                 </div>
                                             </div>
 
-                                            {/* Duration Selection */}
-                                            <div className="space-y-2">
-                                                <label className="text-sm font-medium text-gray-300 px-1">Duration</label>
-                                                <div className="grid grid-cols-3 gap-2">
-                                                    {[1, 3, 7, 30, 90, 180].map((d) => (
-                                                        <button
-                                                            key={d}
-                                                            onClick={() => setDuration(d)}
-                                                            className={`py-2 px-3 rounded-lg text-xs font-medium transition-colors border ${duration === d
-                                                                ? 'bg-purple-600 border-purple-500 text-white'
-                                                                : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
-                                                                }`}
-                                                        >
-                                                            {d === 1 ? '1 Day' : d === 30 ? '1 Month' : d === 90 ? '3 Months' : d === 180 ? '6 Months' : `${d} Days`}
-                                                        </button>
-                                                    ))}
+                                            {/* Duration Selection - Hide for Solana */}
+                                            {nft.chain !== 'solana' && (
+                                                <div className="space-y-2">
+                                                    <label className="text-sm font-medium text-gray-300 px-1">Duration</label>
+                                                    <div className="grid grid-cols-3 gap-2">
+                                                        {[1, 3, 7, 30, 90, 180].map((d) => (
+                                                            <button
+                                                                key={d}
+                                                                onClick={() => setDuration(d)}
+                                                                className={`py-2 px-3 rounded-lg text-xs font-medium transition-colors border ${duration === d
+                                                                    ? 'bg-purple-600 border-purple-500 text-white'
+                                                                    : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
+                                                                    }`}
+                                                            >
+                                                                {d === 1 ? '1 Day' : d === 30 ? '1 Month' : d === 90 ? '3 Months' : d === 180 ? '6 Months' : `${d} Days`}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                    <p className="text-xs text-gray-500 px-1">
+                                                        Enter the amount you want to receive. Listing expires in {duration} days.
+                                                    </p>
                                                 </div>
-                                            </div>
-
-                                            <p className="text-xs text-gray-500 px-1">
-                                                Enter the amount you want to receive. Listing expires in {duration} days.
-                                            </p>
+                                            )}
 
                                             <button
                                                 onClick={handleList}
