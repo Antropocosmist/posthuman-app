@@ -4,8 +4,10 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { X, Upload, Loader2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useWalletStore } from '../../wallet/store/walletStore'
-import { fetchNFTs } from '../../nft/services/nftService'
-import type { NFT } from '../../nft/services/nftService'
+import type { NFT } from '../../nft/types/types'
+import { stargazeNFTService } from '../../nft/cosmos/services/stargaze'
+import { magicEdenNFTService } from '../../nft/solana/services/magiceden'
+import { openSeaNFTService } from '../../nft/evm/services/opensea'
 
 interface AvatarSelectionModalProps {
     isOpen: boolean
@@ -62,7 +64,34 @@ export function AvatarSelectionModal({ isOpen, onClose, onSelect }: AvatarSelect
 
         try {
             const currentOffset = isLoadMore ? offset : 0
-            const promises = wallets.map(w => fetchNFTs(w.address, w.chain, w.chainId, currentOffset))
+
+            // Map wallets to their respective service calls
+            const promises = wallets.map(async (w) => {
+                try {
+                    if (w.chain === 'Cosmos' && w.address.startsWith('stars')) {
+                        return await stargazeNFTService.fetchUserNFTs(w.address)
+                    }
+                    if (w.chain === 'Solana') {
+                        // Magic Eden service requires provider. If not available, might fail or return empty.
+                        // Ideally needs connected provider, but for now we might skip or try passing null if service supports it
+                        // Actually magicEdenNFTService.fetchUserNFTs takes address.
+                        return await magicEdenNFTService.fetchUserNFTs(w.address)
+                    }
+                    if (w.chain === 'EVM') {
+                        // OpenSea service needs chainId or chain name. 
+                        // Assuming simple mapping or iterating supported chains
+                        const evmChains = ['ethereum', 'polygon', 'base']
+                        const chainPromises = evmChains.map(c => openSeaNFTService.fetchUserNFTs(w.address, c as any))
+                        const results = await Promise.all(chainPromises)
+                        return results.flat()
+                    }
+                    return []
+                } catch (e) {
+                    console.error(`Failed to fetch NFTs for ${w.address}:`, e)
+                    return []
+                }
+            })
+
             const results = await Promise.all(promises)
             const newNfts = results.flat()
 
