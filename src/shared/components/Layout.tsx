@@ -1,6 +1,6 @@
 import { Link, useLocation, Outlet } from 'react-router-dom'
 import { LayoutDashboard, ArrowRightLeft, User, Settings, Image, MessageSquare, Coins, Wallet } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { ConnectWalletModal } from '../../features/wallet/components/ConnectWalletModal'
 import { SendModal } from '../../features/wallet/components/SendModal'
@@ -18,8 +18,30 @@ export function Layout() {
         isSendModalOpen,
         toggleSendModal,
         isReceiveModalOpen,
-        toggleReceiveModal
+        toggleReceiveModal,
+        isLoading,
+        setIsLoading
     } = useWalletStore()
+
+    // Safety timeout: if isLoading gets stuck (e.g. due to wallet extension errors),
+    // auto-clear it after 15 seconds so the UI doesn't freeze forever.
+    const loadingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    useEffect(() => {
+        if (isLoading) {
+            loadingTimerRef.current = setTimeout(() => {
+                console.warn('[Layout] Loading state stuck for 15s, force-clearing...')
+                setIsLoading(false)
+            }, 15000)
+        } else {
+            if (loadingTimerRef.current) {
+                clearTimeout(loadingTimerRef.current)
+                loadingTimerRef.current = null
+            }
+        }
+        return () => {
+            if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current)
+        }
+    }, [isLoading, setIsLoading])
 
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth < 768)
