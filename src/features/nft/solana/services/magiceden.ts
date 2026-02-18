@@ -79,150 +79,163 @@ export class MagicEdenNFTService implements NFTServiceInterface {
 
             // Get all token accounts owned by this address
             // Filter for NFTs: amount = 1, decimals = 0
+            // Token Program IDs
             const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
+            const TOKEN_2022_PROGRAM_ID = new PublicKey('TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb')
 
-            const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
-                ownerPubkey,
-                { programId: TOKEN_PROGRAM_ID }
-            )
+            // Fetch from both Token and Token-2022 programs
+            const [tokenAccounts, token2022Accounts] = await Promise.all([
+                connection.getParsedTokenAccountsByOwner(ownerPubkey, { programId: TOKEN_PROGRAM_ID }),
+                connection.getParsedTokenAccountsByOwner(ownerPubkey, { programId: TOKEN_2022_PROGRAM_ID })
+            ])
 
-            console.log('[Solana NFTs] Found', tokenAccounts.value.length, 'token accounts')
+            console.log('[Solana NFTs] Found', tokenAccounts.value.length, 'Token accounts and', token2022Accounts.value.length, 'Token-2022 accounts')
 
-            // Filter for NFTs (amount = 1, decimals = 0)
-            const nftAccounts = tokenAccounts.value.filter(account => {
+            // Combine and filter for NFTs (amount = 1, decimals = 0)
+            const allAccounts = [...tokenAccounts.value, ...token2022Accounts.value]
+            const nftAccounts = allAccounts.filter(account => {
                 const tokenAmount = account.account.data.parsed.info.tokenAmount
                 return tokenAmount.uiAmount === 1 && tokenAmount.decimals === 0
             })
 
-            console.log('[Solana NFTs] Found', nftAccounts.length, 'NFT accounts')
+            console.log('[Solana NFTs] Found', nftAccounts.length, 'potential NFT accounts')
 
-            // Fetch metadata for each NFT
+            // Fetch metadata for each NFT in batches into nfts array
             const nfts: NFT[] = []
 
-            for (const account of nftAccounts.slice(0, 100)) { // Limit to 100 for performance
-                try {
-                    const mintAddress = account.account.data.parsed.info.mint
+            // Chunk accounts into batches of 10 to avoid rate limits
+            const BATCH_SIZE = 10
+            for (let i = 0; i < nftAccounts.length; i += BATCH_SIZE) {
+                const batch = nftAccounts.slice(i, i + BATCH_SIZE)
 
-                    // Try to fetch metadata from Metaplex
-                    // Metadata PDA is derived from mint address
-                    const METADATA_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s')
-                    const [metadataPDA] = PublicKey.findProgramAddressSync(
-                        [
-                            new TextEncoder().encode('metadata'),
-                            METADATA_PROGRAM_ID.toBuffer(),
-                            new PublicKey(mintAddress).toBuffer(),
-                        ],
-                        METADATA_PROGRAM_ID
-                    )
+                const batchPromises = batch.map(async (account) => {
+                    try {
+                        const mintAddress = account.account.data.parsed.info.mint
 
-                    const metadataAccount = await connection.getAccountInfo(metadataPDA)
+                        // Try to fetch metadata from Metaplex
+                        const METADATA_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s')
+                        const [metadataPDA] = PublicKey.findProgramAddressSync(
+                            [
+                                new TextEncoder().encode('metadata'),
+                                METADATA_PROGRAM_ID.toBuffer(),
+                                new PublicKey(mintAddress).toBuffer(),
+                            ],
+                            METADATA_PROGRAM_ID
+                        )
 
-                    let name = `NFT ${mintAddress.slice(0, 8)}...`
-                    let image = ''
-                    let collectionName = 'Solana NFTs'
+                        const metadataAccount = await connection.getAccountInfo(metadataPDA)
 
-                    if (metadataAccount) {
-                        // Parse metadata account data (Borsh structure)
-                        // Layout: key(1) + updateAuth(32) + mint(32) + data
-                        // data: name(4+string) + symbol(4+string) + uri(4+string)
+                        let name = `NFT ${mintAddress.slice(0, 8)}...`
+                        let image = ''
+                        let collectionName = 'Solana NFTs'
+                        let collectionId = ''
+                        let floorPrice = ''
 
-                        const data = metadataAccount.data
-                        let offset = 1 + 32 + 32 // Skip key, updateAuth, mint
+                        if (metadataAccount) {
+                            // Parse metadata account data (Borsh structure)
+                            const data = metadataAccount.data
+                            let offset = 1 + 32 + 32 // Skip key, updateAuth, mint
 
-                        // Helper to read Borsh string
-                        const readString = () => {
-                            const len = new DataView(data.buffer, data.byteOffset, data.byteLength).getUint32(offset, true)
-                            offset += 4
-                            const bytes = data.slice(offset, offset + len)
-                            offset += len
-                            // Remove null bytes padding if any (common in Metaplex)
-                            return new TextDecoder().decode(bytes).replace(/\0/g, '')
-                        }
+                            const readString = () => {
+                                const len = new DataView(data.buffer, data.byteOffset, data.byteLength).getUint32(offset, true)
+                                offset += 4
+                                const bytes = data.slice(offset, offset + len)
+                                offset += len
+                                return new TextDecoder().decode(bytes).replace(/\0/g, '')
+                            }
 
-                        try {
-                            const onChainName = readString()
-                            const onChainSymbol = readString()
-                            const onChainUri = readString()
+                            try {
+                                const onChainName = readString()
+                                const onChainSymbol = readString()
+                                const onChainUri = readString()
 
-                            name = onChainName || name
+                                name = onChainName || name
 
-                            if (onChainUri) {
-                                // Fetch off-chain JSON metadata
-                                try {
-                                    // Use CORS proxy for metadata JSON if needed, but many are on Arweave/IPFS with CORS enabled
-                                    // Helper to resolve IPFS/Arweave URIs
-                                    const resolveUri = (uri: string) => {
-                                        if (!uri) return ''
-                                        if (uri.startsWith('ipfs://')) {
-                                            return uri.replace('ipfs://', 'https://ipfs.io/ipfs/')
-                                        }
-                                        if (uri.startsWith('ar://')) {
-                                            return uri.replace('ar://', 'https://arweave.net/')
-                                        }
-                                        return uri
-                                    }
-
-                                    const jsonUri = resolveUri(onChainUri)
-                                    let json: any = null
-
+                                if (onChainUri) {
+                                    // Fetch off-chain JSON metadata
                                     try {
-                                        // Try direct fetch first (most gateways support CORS)
-                                        const response = await fetch(jsonUri)
-                                        if (response.ok) {
-                                            json = await response.json()
-                                        } else {
-                                            throw new Error('Direct fetch failed')
+                                        const resolveUri = (uri: string) => {
+                                            if (!uri) return ''
+                                            if (uri.startsWith('ipfs://')) return uri.replace('ipfs://', 'https://ipfs.io/ipfs/')
+                                            if (uri.startsWith('ar://')) return uri.replace('ar://', 'https://arweave.net/')
+                                            return uri
                                         }
-                                    } catch (directError) {
-                                        // Fallback to proxy
+
+                                        const jsonUri = resolveUri(onChainUri)
+                                        let json: any = null
+
+                                        // Try direct fetch with timeout
+                                        const controller = new AbortController()
+                                        const timeoutId = setTimeout(() => controller.abort(), 5000) // 5s timeout
+
                                         try {
-                                            const corsProxy = 'https://corsproxy.io/?'
-                                            const response = await fetch(corsProxy + encodeURIComponent(jsonUri))
+                                            const response = await fetch(jsonUri, { signal: controller.signal })
+                                            clearTimeout(timeoutId)
                                             if (response.ok) {
                                                 json = await response.json()
                                             }
-                                        } catch (proxyError) {
-                                            console.warn('[Solana NFTs] Failed to fetch metadata via proxy:', proxyError)
+                                        } catch (e) {
+                                            clearTimeout(timeoutId)
+                                            // Fallback to proxy if direct fetch fails
+                                            const corsProxy = 'https://corsproxy.io/?'
+                                            try {
+                                                const proxyResponse = await fetch(corsProxy + encodeURIComponent(jsonUri))
+                                                if (proxyResponse.ok) {
+                                                    json = await proxyResponse.json()
+                                                }
+                                            } catch (proxyError) {
+                                                // Silent fail on proxy
+                                            }
                                         }
-                                    }
 
-                                    if (json) {
-                                        name = json.name || name
-                                        image = json.image || json.image_url || ''
-                                        collectionName = json.collection?.name || json.symbol || onChainSymbol || collectionName
+                                        if (json) {
+                                            name = json.name || name
+                                            image = json.image || json.image_url || ''
+                                            // Recursively resolve image if it points to IPFS/Arweave
+                                            image = resolveUri(image)
 
-                                        // Resolve image URI if it's IPFS/Arweave
-                                        image = resolveUri(image)
+                                            collectionName = json.collection?.name || json.symbol || onChainSymbol || collectionName
+                                            // Try to get collection address if available
+                                            if (json.collection?.family) {
+                                                collectionId = json.collection.family
+                                            }
+                                        }
+                                    } catch (e) {
+                                        // Ignore metadata fetch errors for individual items
                                     }
-                                } catch (e) {
-                                    console.warn('[Solana NFTs] Failed to fetch metadata JSON:', e)
                                 }
+                            } catch (e) {
+                                // Ignore parsing errors
                             }
-                        } catch (e) {
-                            console.warn('[Solana NFTs] Failed to parse on-chain metadata:', e)
                         }
-                    }
 
-                    nfts.push({
-                        id: mintAddress,
-                        tokenId: mintAddress,
-                        contractAddress: mintAddress,
-                        chain: 'solana' as const,
-                        name,
-                        description: `Mint: ${mintAddress}`,
-                        image,
-                        collection: {
-                            id: '',
-                            name: collectionName,
-                        },
-                        owner: address,
-                        marketplace: 'magiceden',
-                        isListed: false,
-                        traits: [],
-                    })
-                } catch (error) {
-                    console.warn('[Solana NFTs] Error fetching metadata for NFT:', error)
-                }
+                        return {
+                            id: mintAddress,
+                            tokenId: mintAddress,
+                            contractAddress: mintAddress,
+                            chain: 'solana' as const,
+                            name,
+                            description: `Mint: ${mintAddress}`,
+                            image,
+                            collection: {
+                                id: collectionId,
+                                name: collectionName,
+                                floorPrice
+                            },
+                            owner: address,
+                            marketplace: 'magiceden',
+                            isListed: false,
+                            traits: [],
+                        } as NFT
+                    } catch (error) {
+                        return null
+                    }
+                })
+
+                // Wait for batch
+                const results = await Promise.all(batchPromises)
+                const validResults = results.filter((item): item is NFT => item !== null)
+                nfts.push(...validResults)
             }
 
             console.log('[Solana NFTs] Successfully loaded', nfts.length, 'NFTs')
