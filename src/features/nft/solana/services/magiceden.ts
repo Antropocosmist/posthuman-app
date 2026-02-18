@@ -1,4 +1,5 @@
 import { PublicKey, Connection, VersionedTransaction } from '@solana/web3.js'
+import type { DasResponse } from '../types/das.types'
 import { isScamNFT } from '../utils/blocklist'
 
 import type { NFT, NFTCollection, MarketplaceListing, NFTFilters, NFTServiceInterface } from '../../types/types'
@@ -63,190 +64,104 @@ export class MagicEdenNFTService implements NFTServiceInterface {
     }
 
     /**
-     * Fetch all NFTs owned by a specific address using direct Solana RPC
-     * This method uses getParsedTokenAccountsByOwner which works with any public RPC
-     * No special API keys required!
+     * Fetch all NFTs owned by a specific address using Solana DAS API (Helius/QuickNode)
+     * This ensures full coverage of Standard, pNFT, cNFT, and Token-2022.
      */
     async fetchUserNFTs(address: string): Promise<NFT[]> {
         try {
             // Validate Solana address
-            const ownerPubkey = new PublicKey(address)
+            new PublicKey(address) // Throws if invalid
 
-            console.log('[Solana NFTs] Fetching NFTs for:', address)
+            console.log('[Solana NFTs] Fetching via DAS API for:', address)
 
-            // Use public Solana RPC
-            const connection = new Connection(SOLANA_RPC_URL, 'confirmed')
-
-            // Get all token accounts owned by this address
-            // Filter for NFTs: amount = 1, decimals = 0
-            // Token Program IDs
-            const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
-            const TOKEN_2022_PROGRAM_ID = new PublicKey('TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb')
-
-            // Fetch from both Token and Token-2022 programs
-            const [tokenAccounts, token2022Accounts] = await Promise.all([
-                connection.getParsedTokenAccountsByOwner(ownerPubkey, { programId: TOKEN_PROGRAM_ID }),
-                connection.getParsedTokenAccountsByOwner(ownerPubkey, { programId: TOKEN_2022_PROGRAM_ID })
-            ])
-
-            console.log('[Solana NFTs] Found', tokenAccounts.value.length, 'Token accounts and', token2022Accounts.value.length, 'Token-2022 accounts')
-
-            // Combine and filter for NFTs (amount = 1, decimals = 0)
-            const allAccounts = [...tokenAccounts.value, ...token2022Accounts.value]
-            const nftAccounts = allAccounts.filter(account => {
-                const tokenAmount = account.account.data.parsed.info.tokenAmount
-                return tokenAmount.uiAmount === 1 && tokenAmount.decimals === 0
-            })
-
-            console.log('[Solana NFTs] Found', nftAccounts.length, 'potential NFT accounts')
-
-            // Fetch metadata for each NFT in batches into nfts array
             const nfts: NFT[] = []
+            let page = 1
+            const limit = 1000 // DAS API max limit is usually 1000
 
-            // Chunk accounts into batches of 10 to avoid rate limits
-            const BATCH_SIZE = 10
-            for (let i = 0; i < nftAccounts.length; i += BATCH_SIZE) {
-                const batch = nftAccounts.slice(i, i + BATCH_SIZE)
-
-                const batchPromises = batch.map(async (account) => {
-                    try {
-                        const mintAddress = account.account.data.parsed.info.mint
-
-                        // Try to fetch metadata from Metaplex
-                        const METADATA_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s')
-                        const [metadataPDA] = PublicKey.findProgramAddressSync(
-                            [
-                                new TextEncoder().encode('metadata'),
-                                METADATA_PROGRAM_ID.toBuffer(),
-                                new PublicKey(mintAddress).toBuffer(),
-                            ],
-                            METADATA_PROGRAM_ID
-                        )
-
-                        const metadataAccount = await connection.getAccountInfo(metadataPDA)
-
-                        let name = `NFT ${mintAddress.slice(0, 8)}...`
-                        let image = ''
-                        let collectionName = 'Solana NFTs'
-                        let collectionId = ''
-                        let floorPrice = ''
-
-                        if (metadataAccount) {
-                            // Parse metadata account data (Borsh structure)
-                            const data = metadataAccount.data
-                            let offset = 1 + 32 + 32 // Skip key, updateAuth, mint
-
-                            const readString = () => {
-                                const len = new DataView(data.buffer, data.byteOffset, data.byteLength).getUint32(offset, true)
-                                offset += 4
-                                const bytes = data.slice(offset, offset + len)
-                                offset += len
-                                return new TextDecoder().decode(bytes).replace(/\0/g, '')
-                            }
-
-                            try {
-                                const onChainName = readString()
-                                const onChainSymbol = readString()
-                                const onChainUri = readString()
-
-                                name = onChainName || name
-
-                                if (onChainUri) {
-                                    // Fetch off-chain JSON metadata
-                                    try {
-                                        const resolveUri = (uri: string) => {
-                                            if (!uri) return ''
-                                            if (uri.startsWith('ipfs://')) return uri.replace('ipfs://', 'https://ipfs.io/ipfs/')
-                                            if (uri.startsWith('ar://')) return uri.replace('ar://', 'https://arweave.net/')
-                                            return uri
-                                        }
-
-                                        const jsonUri = resolveUri(onChainUri)
-                                        let json: any = null
-
-                                        // Try direct fetch with timeout
-                                        const controller = new AbortController()
-                                        const timeoutId = setTimeout(() => controller.abort(), 5000) // 5s timeout
-
-                                        try {
-                                            const response = await fetch(jsonUri, { signal: controller.signal })
-                                            clearTimeout(timeoutId)
-                                            if (response.ok) {
-                                                json = await response.json()
-                                            }
-                                        } catch (e) {
-                                            clearTimeout(timeoutId)
-                                            // Fallback to proxy if direct fetch fails
-                                            const corsProxy = 'https://corsproxy.io/?'
-                                            try {
-                                                const proxyResponse = await fetch(corsProxy + encodeURIComponent(jsonUri))
-                                                if (proxyResponse.ok) {
-                                                    json = await proxyResponse.json()
-                                                }
-                                            } catch (proxyError) {
-                                                // Silent fail on proxy
-                                            }
-                                        }
-
-                                        if (json) {
-                                            name = json.name || name
-                                            image = json.image || json.image_url || ''
-                                            // Recursively resolve image if it points to IPFS/Arweave
-                                            image = resolveUri(image)
-
-                                            collectionName = json.collection?.name || json.symbol || onChainSymbol || collectionName
-                                            // Try to get collection address if available
-                                            if (json.collection?.family) {
-                                                collectionId = json.collection.family
-                                            }
-                                        }
-                                    } catch (e) {
-                                        // Ignore metadata fetch errors for individual items
-                                    }
-                                }
-                            } catch (e) {
-                                // Ignore parsing errors
-                            }
-                        }
-
-                        return {
-                            id: mintAddress,
-                            tokenId: mintAddress,
-                            contractAddress: mintAddress,
-                            chain: 'solana' as const,
-                            name,
-                            description: `Mint: ${mintAddress}`,
-                            image,
-                            collection: {
-                                id: collectionId,
-                                name: collectionName,
-                                floorPrice
+            while (true) {
+                const response = await fetch(SOLANA_RPC_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        jsonrpc: '2.0',
+                        id: 'my-id',
+                        method: 'getAssetsByOwner',
+                        params: {
+                            ownerAddress: address,
+                            page: page,
+                            limit: limit,
+                            displayOptions: {
+                                showFungible: false,
+                                showNativeBalance: false,
                             },
-                            owner: address,
-                            marketplace: 'magiceden',
-                            isListed: false,
-                            traits: [],
-                        } as NFT
-                    } catch (error) {
-                        return null
-                    }
+                        },
+                    }),
                 })
 
-                // Wait for batch
-                const results = await Promise.all(batchPromises)
-                const validResults = results.filter((item): item is NFT => item !== null)
-                nfts.push(...validResults)
+                if (!response.ok) {
+                    throw new Error(`RPC error: ${response.status} ${response.statusText}`)
+                }
+
+                const data: DasResponse = await response.json()
+
+                // DAS API returns items in result.items
+                const items = data.result?.items || []
+
+                if (items.length === 0) break
+
+                console.log(`[Solana NFTs] Page ${page}: Found ${items.length} assets`)
+
+                for (const asset of items) {
+                    // Map DasAsset to NFT
+                    const nft: NFT = {
+                        id: asset.id,
+                        tokenId: asset.id,
+                        contractAddress: asset.id, // Mint address
+                        chain: 'solana',
+                        name: asset.content.metadata.name || asset.content.metadata.symbol || 'Unknown NFT',
+                        description: asset.content.metadata.description || '',
+                        image: asset.content.links?.image || asset.content.files?.[0]?.uri || '',
+                        collection: {
+                            id: '',
+                            name: 'Solana NFTs',
+                        },
+                        owner: address,
+                        marketplace: 'magiceden',
+                        isListed: false, // DAS doesn't explicitly give listing status usually, depends on ownership model
+                        traits: asset.content.metadata.attributes?.map(attr => ({
+                            trait_type: attr.trait_type,
+                            value: attr.value,
+                        })) || [],
+                    }
+
+                    // Resolving collection info from grouping
+                    const collectionGroup = asset.grouping?.find(g => g.group_key === 'collection')
+                    if (collectionGroup) {
+                        nft.collection.id = collectionGroup.group_value
+                        // We might not have the collection name here immediately unless we fetch it or it's in metadata
+                        // DAS doesn't always populate collection name in grouping
+                    }
+
+                    // Use isScamNFT filter
+                    if (!isScamNFT(nft)) {
+                        nfts.push(nft)
+                    }
+                }
+
+                // If less than limit, we're done
+                if (items.length < limit) break
+
+                // Next page
+                page++
             }
 
-            console.log('[Solana NFTs] Successfully loaded', nfts.length, 'NFTs')
+            console.log(`[Solana NFTs] Total Valid NFTs loaded: ${nfts.length}`)
+            return nfts
 
-            // Filter out scam NFTs
-            const filteredNFTs = nfts.filter(nft => !isScamNFT(nft))
-            console.log(`[Solana NFTs] Filtered ${nfts.length - filteredNFTs.length} scam NFTs`)
-
-            return filteredNFTs
         } catch (error) {
-            console.error('[Solana NFTs] Error fetching NFTs:', error)
+            console.error('[Solana NFTs] Error fetching NFTs via DAS:', error)
             return []
         }
     }
