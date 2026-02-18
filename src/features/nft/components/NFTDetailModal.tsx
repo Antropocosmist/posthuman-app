@@ -33,7 +33,8 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
         transferNFT,
         burnNFT,
         marketplaceNFTs,
-        fetchCollectionStats
+        fetchCollectionStats,
+        error
     } = useNFTStore()
 
     const { wallets } = useWalletStore() // Moved up to satisfy Rules of Hooks
@@ -493,6 +494,13 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
                                                     </>
                                                 )}
                                             </button>
+
+                                            {/* Show Store Error if any */}
+                                            {error && (
+                                                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs mt-2">
+                                                    Error: {error}
+                                                </div>
+                                            )}
                                         </div>
                                     )}
 

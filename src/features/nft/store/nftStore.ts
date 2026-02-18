@@ -768,9 +768,11 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
           txHash = await openSeaNFTService.transferNFT(nft, recipientAddress, wallet.address, wallet.walletProvider);
           break;
         case "solana":
-        //   txHash = await magicEdenNFTService.transferNFT(nft, recipientAddress, wallet.address);
-        //   break;
+          console.log(`[NFT Store] Delegating Solana transfer to magicEdenNFTService using provider: ${wallet.walletProvider}`);
+          txHash = await magicEdenNFTService.transferNFT(nft, recipientAddress, wallet.address, wallet.walletProvider);
+          break;
         default:
+          console.error(`[NFT Store] Transfer generic error: Chain ${nft.chain} not supported`);
           throw new Error(`Transfer not supported for ${nft.chain} yet`);
       }
 

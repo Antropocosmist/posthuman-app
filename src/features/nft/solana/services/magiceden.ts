@@ -1,4 +1,11 @@
 import { PublicKey, Connection, VersionedTransaction } from '@solana/web3.js'
+import {
+    createTransferCheckedInstruction,
+    getAssociatedTokenAddress,
+    createAssociatedTokenAccountInstruction,
+    TOKEN_2022_PROGRAM_ID,
+    ASSOCIATED_TOKEN_PROGRAM_ID
+} from '@solana/spl-token'
 import type { DasResponse } from '../types/das.types'
 import { isScamNFT } from '../utils/blocklist'
 
@@ -59,8 +66,143 @@ export class MagicEdenNFTService implements NFTServiceInterface {
         }
     }
 
-    async transferNFT(_nft: NFT, _recipientAddress: string, _senderAddress: string, _walletProvider?: string): Promise<string> {
-        throw new Error('Transfer not supported for Solana yet')
+    async transferNFT(nft: NFT, recipientAddress: string, senderAddress: string, walletProvider?: any): Promise<string> {
+        try {
+            console.log(`[Solana] Initializing transfer for NFT ${nft.tokenId} to ${recipientAddress}`)
+            console.log(`[Solana] Sender: ${senderAddress}, ProviderType: ${walletProvider}`)
+
+            // 1. Setup Connection & Keys
+            const connection = new Connection(SOLANA_RPC_URL, 'confirmed')
+            const senderPublicKey = new PublicKey(senderAddress)
+            const recipientPublicKey = new PublicKey(recipientAddress)
+            const mintPublicKey = new PublicKey(nft.contractAddress) // Contract address is Mint address on Solana
+
+            // 2. Determine Program ID (Standard vs Token-2022)
+            // We need to check account info of the mint to see its owner program
+            const mintAccountInfo = await connection.getAccountInfo(mintPublicKey)
+            if (!mintAccountInfo) throw new Error('Mint account not found on chain')
+
+            const tokenProgramId = mintAccountInfo.owner
+            const isToken2022 = tokenProgramId.equals(TOKEN_2022_PROGRAM_ID)
+
+            console.log(`[Solana] Detected Token Program: ${isToken2022 ? 'Token-2022' : 'Standard Token Program'}`)
+
+            // 3. Get Associated Token Addresses (ATA)
+            // For Token-2022, we must explicitly pass the program ID
+            const senderATA = await getAssociatedTokenAddress(
+                mintPublicKey,
+                senderPublicKey,
+                false,
+                tokenProgramId,
+                ASSOCIATED_TOKEN_PROGRAM_ID
+            )
+
+            const recipientATA = await getAssociatedTokenAddress(
+                mintPublicKey,
+                recipientPublicKey,
+                false,
+                tokenProgramId,
+                ASSOCIATED_TOKEN_PROGRAM_ID
+            )
+
+            console.log(`[Solana] Sender ATA: ${senderATA.toBase58()}`)
+            console.log(`[Solana] Recipient ATA: ${recipientATA.toBase58()}`)
+
+            // 4. Build Transaction Instructions
+            // We use VersionedTransaction for better compatibility (though legacy tx works too)
+            // But first, let's collect instructions
+            const instructions = []
+
+            // Check if recipient ATA exists
+            const recipientATAInfo = await connection.getAccountInfo(recipientATA)
+            if (!recipientATAInfo) {
+                console.log('[Solana] Recipient ATA does not exist. Adding create instruction.')
+                instructions.push(
+                    createAssociatedTokenAccountInstruction(
+                        senderPublicKey, // Payer
+                        recipientATA,
+                        recipientPublicKey, // Owner
+                        mintPublicKey,
+                        tokenProgramId,
+                        ASSOCIATED_TOKEN_PROGRAM_ID
+                    )
+                )
+            }
+
+            // Add Transfer Instruction
+            // NFTs have decimals = 0, amount = 1
+            instructions.push(
+                createTransferCheckedInstruction(
+                    senderATA, // Source
+                    mintPublicKey, // Mint
+                    recipientATA, // Destination
+                    senderPublicKey, // Owner
+                    1, // Amount
+                    0, // Decimals
+                    [], // Multi-signers
+                    tokenProgramId
+                )
+            )
+
+            // 5. Create & Send Transaction using the Provider
+            // We need the 'walletProvider' object which should be the window.solana or window.phantom.solana object
+            // If passed as string 'Phantom', 'Solflare', we need to find it in window
+
+            // In posthuman-app, the walletStore passes the raw provider as 'walletProvider' property if available?
+            // Actually, looking at Types, 'walletProvider' is a string. 
+            // We need to find the actual provider object from window.
+
+            let provider = null
+            if (typeof window !== 'undefined') {
+                if ('phantom' in window && (window as any).phantom?.solana?.isPhantom) {
+                    // Prefer Phantom if connected
+                    if (walletProvider === 'Phantom' || !walletProvider) provider = (window as any).phantom.solana;
+                }
+
+                if (!provider && 'solflare' in window && (window as any).solflare?.isSolflare) {
+                    if (walletProvider === 'Solflare' || !walletProvider) provider = (window as any).solflare;
+                }
+
+                // Fallback to standard window.solana
+                if (!provider && 'solana' in window) {
+                    provider = (window as any).solana;
+                }
+            }
+
+            if (!provider) throw new Error('Solana wallet provider not found')
+
+            // Fetch latest blockhash
+            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
+
+            // Construct Transaction
+            // Using legacy Transaction because it's easier to ensure compatibility with all adapters 
+            // for simple transfers without lookuptables
+            const { Transaction } = await import('@solana/web3.js')
+            const transaction = new Transaction({
+                feePayer: senderPublicKey,
+                blockhash,
+                lastValidBlockHeight
+            }).add(...instructions)
+
+            // Sign and Send
+            // Most adapters support 'signAndSendTransaction'
+            const { signature } = await provider.signAndSendTransaction(transaction)
+
+            console.log('[Solana] Transfer successful. Signature:', signature)
+
+            // Wait for confirmation (optional but good UI UX)
+            await connection.confirmTransaction({
+                signature,
+                blockhash,
+                lastValidBlockHeight
+            }, 'confirmed')
+
+            return signature
+
+        } catch (error) {
+            console.error('[Solana] Transfer failed:', error)
+            throw error
+        }
     }
 
     /**
