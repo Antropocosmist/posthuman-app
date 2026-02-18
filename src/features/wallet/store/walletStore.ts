@@ -171,14 +171,18 @@ export const useWalletStore = create<WalletState>()(
                     } else if (name === 'Phantom') {
                         const wallets = await PhantomService.connect((updatedWallets) => {
                             // Background callback: replace the 0-balance placeholder with real balances
+                            console.log('[WalletStore] Phantom background callback received:', updatedWallets)
                             if (updatedWallets.length > 0) {
                                 const address = updatedWallets[0].address
-                                set((state) => ({
-                                    wallets: [
+                                console.log('[WalletStore] Updating Phantom wallet for address:', address)
+                                set((state) => {
+                                    const nextWallets = [
                                         ...state.wallets.filter(w => !(w.address === address && w.chain === 'Solana')),
                                         ...updatedWallets
                                     ]
-                                }))
+                                    console.log('[WalletStore] Next wallets state:', nextWallets)
+                                    return { wallets: nextWallets }
+                                })
                             }
                         })
                         // Replace any existing Solana wallets for this address
