@@ -1,4 +1,6 @@
 import { PublicKey, Connection, VersionedTransaction } from '@solana/web3.js'
+import { isScamNFT } from '../utils/blocklist'
+
 import type { NFT, NFTCollection, MarketplaceListing, NFTFilters, NFTServiceInterface } from '../../types/types'
 
 // Magic Eden API configuration
@@ -224,7 +226,12 @@ export class MagicEdenNFTService implements NFTServiceInterface {
             }
 
             console.log('[Solana NFTs] Successfully loaded', nfts.length, 'NFTs')
-            return nfts
+
+            // Filter out scam NFTs
+            const filteredNFTs = nfts.filter(nft => !isScamNFT(nft))
+            console.log(`[Solana NFTs] Filtered ${nfts.length - filteredNFTs.length} scam NFTs`)
+
+            return filteredNFTs
         } catch (error) {
             console.error('[Solana NFTs] Error fetching NFTs:', error)
             return []
