@@ -69,7 +69,8 @@ export function AvatarSelectionModal({ isOpen, onClose, onSelect }: AvatarSelect
             const promises = wallets.map(async (w) => {
                 try {
                     if (w.chain === 'Cosmos' && w.address.startsWith('stars')) {
-                        return await stargazeNFTService.fetchUserNFTs(w.address)
+                        // Stargaze supports offset pagination (limit 100 default)
+                        return await stargazeNFTService.fetchUserNFTs(w.address, 100, currentOffset)
                     }
                     if (w.chain === 'Solana') {
                         // Magic Eden service requires provider. If not available, might fail or return empty.
