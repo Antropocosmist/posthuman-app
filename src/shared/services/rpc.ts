@@ -1,3 +1,9 @@
+/**
+ * RPC Service — Multi-Chain Balance & Token Queries
+ * Dependencies: ethers, @solana/web3.js, @cosmjs/stargate, @cosmjs/cosmwasm-stargate
+ * Used by: wallet provider submodules, nftStore.ts
+ */
+
 import { ethers } from 'ethers'
 import { Connection, PublicKey } from '@solana/web3.js'
 import { StargateClient } from '@cosmjs/stargate'

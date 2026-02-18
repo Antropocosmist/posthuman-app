@@ -1,3 +1,9 @@
+/**
+ * Price Service — CoinGecko USD Price Fetching with 1-minute Cache
+ * Dependencies: none (uses native fetch)
+ * Used by: wallet provider submodules, nftStore.ts
+ */
+
 // CoinGecko API IDs
 const COIN_IDS = {
     ETH: 'ethereum',
