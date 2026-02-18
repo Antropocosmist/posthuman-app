@@ -20,6 +20,8 @@ const getMagicEdenApiKey = () => {
     return import.meta.env.VITE_MAGICEDEN_API_KEY || ''
 }
 
+export const hasMagicEdenApiKey = () => !!getMagicEdenApiKey()
+
 const MAGICEDEN_API_KEY = getMagicEdenApiKey() // Default initialization for non-critical paths
 const MAGICEDEN_API_URL = 'https://api-mainnet.magiceden.dev/v2'
 // Solana RPC: use env var if set, otherwise fall back to public node (no API key required)

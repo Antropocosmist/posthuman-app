@@ -425,23 +425,60 @@ export function NFTDetailModal({ nft, onClose }: NFTDetailModalProps) {
                                                 </div>
                                             )}
 
-                                            <button
-                                                onClick={handleList}
-                                                disabled={!price || isListing}
-                                                className="w-full py-4 rounded-xl bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white font-bold transition-colors flex items-center justify-center gap-2 shadow-lg shadow-green-500/20"
-                                            >
-                                                {isListing ? (
-                                                    <>
-                                                        <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                                                        Listing...
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Tag className="w-4 h-4" />
-                                                        List for Sale
-                                                    </>
-                                                )}
-                                            </button>
+                                            {/* Solana API Key Warning */}
+                                            {nft.chain === 'solana' && !hasMagicEdenApiKey() ? (
+                                                <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20 space-y-3">
+                                                    <div className="flex items-start gap-3">
+                                                        <div className="p-2 rounded-full bg-purple-500/20 text-purple-400">
+                                                            <Key className="w-4 h-4" />
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="text-sm font-medium text-white">Magic Eden API Key Required</h4>
+                                                            <p className="text-xs text-gray-400 mt-1">
+                                                                To list NFTs on Magic Eden, you need to provide your own API Key.
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            onClick={() => {
+                                                                onClose()
+                                                                // Navigate to settings (assuming we have a way, or just close and let user navigate)
+                                                                window.location.hash = '#/settings'
+                                                            }}
+                                                            className="flex-1 py-2 px-3 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium transition-colors"
+                                                        >
+                                                            Go to Settings
+                                                        </button>
+                                                        <a
+                                                            href="https://dev.magiceden.io/"
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="flex-1 py-2 px-3 rounded-lg bg-white/5 hover:bg-white/10 text-white text-xs font-medium transition-colors text-center"
+                                                        >
+                                                            Get Key
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={handleList}
+                                                    disabled={!price || isListing}
+                                                    className="w-full py-4 rounded-xl bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white font-bold transition-colors flex items-center justify-center gap-2 shadow-lg shadow-green-500/20"
+                                                >
+                                                    {isListing ? (
+                                                        <>
+                                                            <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                                            Listing...
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Tag className="w-4 h-4" />
+                                                            List for Sale
+                                                        </>
+                                                    )}
+                                                </button>
+                                            )}
                                         </div>
                                     )}
 
