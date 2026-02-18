@@ -178,7 +178,18 @@ export const useWalletStore = create<WalletState>()(
                             return
                         }
                     } else if (name === 'Solflare') {
-                        const wallets = await SolflareService.connect()
+                        const wallets = await SolflareService.connect((updatedWallets) => {
+                            // Background callback: replace the 0-balance placeholder with real balances
+                            if (updatedWallets.length > 0) {
+                                const address = updatedWallets[0].address
+                                set((state) => ({
+                                    wallets: [
+                                        ...state.wallets.filter(w => !(w.address === address && w.chain === 'Solana')),
+                                        ...updatedWallets
+                                    ]
+                                }))
+                            }
+                        })
                         if (wallets.length > 0) {
                             const address = wallets[0].address
                             const clean = get().wallets.filter(w => !(w.address === address && w.chain === 'Solana'))
