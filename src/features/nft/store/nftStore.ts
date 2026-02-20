@@ -147,8 +147,8 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
         if (get().currentRequestId !== currentInternalId) return;
         const evmWallets = wallets.filter((w) => w.chain === "EVM");
         const uniqueAddresses = [...new Set(evmWallets.map((w) => w.address.toLowerCase()))];
-        // Focus on Ethereum, Polygon, and Base for now (as per user request)
-        const evmChains = ["ethereum", "polygon", "base"] as const;
+        // Focus on Ethereum, Polygon, Base, BSC, and Arbitrum for now (as per user request)
+        const evmChains = ["ethereum", "polygon", "base", "bsc", "arbitrum"] as const;
 
         for (const address of uniqueAddresses) {
           console.log(`[NFT Store] Fetching EVM for ${address}(ID: ${currentInternalId})`);
@@ -234,7 +234,7 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
       // This ensures that even if logic leaked, we forcefully clean it.
       let filteredByType = fetchedNFTs;
       if (targetEcosystem === "stargaze") filteredByType = filteredByType.filter(n => n.chain === "stargaze");
-      else if (targetEcosystem === "evm") filteredByType = filteredByType.filter(n => ["ethereum", "polygon", "base", "bsc", "gnosis", "arbitrum"].includes(n.chain));
+      else if (targetEcosystem === "evm") filteredByType = filteredByType.filter(n => ["ethereum", "polygon", "base", "bsc", "gnosis", "arbitrum", "optimism"].includes(n.chain));
       else if (targetEcosystem === "solana") filteredByType = filteredByType.filter(n => n.chain === "solana");
 
       // 7. Aggressive Deduplication (Content-Based)
@@ -414,7 +414,7 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
             uniqueWallets.forEach(w => console.log(`[NFT Store] DEBUG: Wallet: ${w.address}`));
 
             // Chains supported by OpenSea Orders API
-            const openseaChains = ["ethereum", "polygon", "base", "arbitrum", "optimism"];
+            const openseaChains = ["ethereum", "polygon", "base", "bsc", "arbitrum", "optimism"];
 
             for (const wallet of uniqueWallets) {
               // OpenSea makers query is chain-specific. We need to check all relevant chains.
@@ -615,12 +615,18 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
           break;
         case "ethereum":
         case "polygon":
+        case "base":
+        case "bsc":
+        case "gnosis":
+        case "arbitrum":
+        case "optimism":
           listingId = await openSeaNFTService.listNFT(
             nft,
             price,
             currency,
             sellerWallet.address,
-            durationInSeconds
+            durationInSeconds,
+            sellerWallet.walletProvider
           );
           break;
         case "solana":
@@ -697,7 +703,13 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
         case "bsc":
         case "gnosis":
         case "arbitrum":
-          await openSeaNFTService.cancelListing(listingId, wallet.address, nft.chain);
+        case "optimism":
+          await openSeaNFTService.cancelListing(
+            listingId,
+            wallet.address,
+            nft.chain,
+            wallet.walletProvider
+          );
           break;
         case "solana":
           await magicEdenNFTService.cancelListing(

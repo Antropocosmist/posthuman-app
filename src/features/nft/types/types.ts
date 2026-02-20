@@ -23,7 +23,7 @@ export interface NFT {
     id: string
     tokenId: string
     contractAddress: string
-    chain: 'stargaze' | 'ethereum' | 'polygon' | 'base' | 'bsc' | 'gnosis' | 'arbitrum' | 'solana'
+    chain: 'stargaze' | 'ethereum' | 'polygon' | 'base' | 'bsc' | 'gnosis' | 'arbitrum' | 'optimism' | 'solana'
 
     // Metadata
     name: string
@@ -95,14 +95,17 @@ export interface NFTServiceInterface {
     fetchNFTDetails(contractAddress: string, tokenId: string): Promise<NFT>
 
     // Buy NFT
-    buyNFT(listing: MarketplaceListing, buyerAddress: string): Promise<string> // returns tx hash
+    // Buy NFT
+    buyNFT(listing: MarketplaceListing, buyerAddress: string, walletProvider?: string): Promise<string> // returns tx hash
 
     // List NFT for sale
+    listNFT(nft: NFT, price: string, currency: string, sellerAddress: string, durationInSeconds?: number, walletProvider?: string): Promise<string>
+
     transferNFT(nft: NFT, recipientAddress: string, senderAddress: string, walletProvider?: string): Promise<string>
     burnNFT?(nft: NFT, ownerAddress: string): Promise<string>
 
     // Cancel listing
-    cancelListing(listingId: string, sellerAddress: string, chain?: string): Promise<string> // returns tx hash
+    cancelListing(listingId: string, sellerAddress: string, chain?: string, walletProvider?: string): Promise<string> // returns tx hash
 
     // Fetch collection stats (floor price, etc)
     getCollectionStats(contractAddress: string): Promise<NFTCollection>

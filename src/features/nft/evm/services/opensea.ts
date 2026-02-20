@@ -65,7 +65,7 @@ async function getEVMProvider(preferredProvider?: string): Promise<any> {
 }
 
 // Helper function to convert OpenSea NFT to our NFT type
-function convertOpenSeaNFT(openseaNFT: any, chain: 'ethereum' | 'polygon' | 'base' | 'bsc' | 'gnosis' | 'arbitrum', ownerAddress?: string): NFT {
+function convertOpenSeaNFT(openseaNFT: any, chain: 'ethereum' | 'polygon' | 'base' | 'bsc' | 'gnosis' | 'arbitrum' | 'optimism', ownerAddress?: string): NFT {
     // OpenSea API v2 can return 'contract' as string or object
     const contractRaw = openseaNFT.contract || openseaNFT.asset_contract
     const contractAddress = typeof contractRaw === 'string' ? contractRaw : (contractRaw?.address || '')
@@ -173,7 +173,7 @@ export class OpenSeaNFTService implements NFTServiceInterface {
     /**
      * Fetch all NFTs owned by a specific address
      */
-    async fetchUserNFTs(address: string, chain: 'ethereum' | 'polygon' | 'base' | 'bsc' | 'gnosis' | 'arbitrum' = 'ethereum'): Promise<NFT[]> {
+    async fetchUserNFTs(address: string, chain: 'ethereum' | 'polygon' | 'base' | 'bsc' | 'gnosis' | 'arbitrum' | 'optimism' = 'ethereum'): Promise<NFT[]> {
         try {
             // Use OpenSea API to fetch NFTs (no SDK needed for this)
             // Include limit parameter for pagination and ensure we get all data
@@ -230,7 +230,7 @@ export class OpenSeaNFTService implements NFTServiceInterface {
      */
     async fetchUserListings(
         address: string,
-        chain: 'ethereum' | 'polygon' | 'base' | 'bsc' | 'gnosis' | 'arbitrum' = 'ethereum'
+        chain: 'ethereum' | 'polygon' | 'base' | 'bsc' | 'gnosis' | 'arbitrum' | 'optimism' = 'ethereum'
     ): Promise<NFT[]> {
         try {
             // Use OpenSea orders API to fetch seller's listings
@@ -422,7 +422,7 @@ export class OpenSeaNFTService implements NFTServiceInterface {
     /**
      * Fetch detailed information about a specific NFT
      */
-    async fetchNFTDetails(contractAddress: string, tokenId: string, chain: 'ethereum' | 'polygon' | 'base' | 'bsc' | 'gnosis' | 'arbitrum' = 'ethereum'): Promise<NFT> {
+    async fetchNFTDetails(contractAddress: string, tokenId: string, chain: 'ethereum' | 'polygon' | 'base' | 'bsc' | 'gnosis' | 'arbitrum' | 'optimism' = 'ethereum'): Promise<NFT> {
         try {
             const response = await fetch(
                 `https://api.opensea.io/api/v2/chain/${chain}/contract/${contractAddress}/nfts/${tokenId}`,
@@ -446,10 +446,10 @@ export class OpenSeaNFTService implements NFTServiceInterface {
     /**
      * Buy an NFT from the marketplace
      */
-    async buyNFT(listing: MarketplaceListing, buyerAddress: string): Promise<string> {
+    async buyNFT(listing: MarketplaceListing, buyerAddress: string, walletProvider?: string): Promise<string> {
         try {
             // Get the correct EVM provider (handles Rabby vs MetaMask)
-            const evmProvider = await getEVMProvider();
+            const evmProvider = await getEVMProvider(walletProvider);
 
             // Create ethers provider and signer
             const provider = new ethers.BrowserProvider(evmProvider)
@@ -463,7 +463,17 @@ export class OpenSeaNFTService implements NFTServiceInterface {
 
             // Determine chain
             const network = await provider.getNetwork()
-            const chain = network.chainId === 1n ? Chain.Mainnet : Chain.Polygon
+            // Map chainId to OpenSea Chain
+            let chain = Chain.Mainnet
+            switch (Number(network.chainId)) {
+                case 137: chain = Chain.Polygon; break;
+                case 8453: chain = Chain.Base; break;
+                case 42161: chain = Chain.Arbitrum; break;
+                case 10: chain = Chain.Optimism; break;
+                case 56: chain = (Chain as any).BNB || (Chain as any).BSC || 'bsc'; break;
+                case 100: chain = (Chain as any).Gnosis || 'gnosis'; break;
+                default: chain = Chain.Mainnet;
+            }
 
             // Initialize OpenSea SDK with signer
             const sdk = new OpenSeaSDK(provider as any, {
@@ -472,8 +482,11 @@ export class OpenSeaNFTService implements NFTServiceInterface {
             })
 
             // Fetch the order from OpenSea API
+            // Use listing.nft.chain directly, assuming it matches API expectations
+            const listingChain = listing.nft.chain === 'bsc' ? 'bsc' : listing.nft.chain
+
             const orderResponse = await fetch(
-                `https://api.opensea.io/api/v2/orders/chain/${listing.nft.chain}/protocol/seaport/listings/${listing.listingId}`,
+                `https://api.opensea.io/api/v2/orders/chain/${listingChain}/protocol/seaport/listings/${listing.listingId}`,
                 {
                     headers: OPENSEA_API_KEY ? { 'X-API-KEY': OPENSEA_API_KEY } : {},
                 }
@@ -506,39 +519,85 @@ export class OpenSeaNFTService implements NFTServiceInterface {
     /**
      * Helper to switch chain
      */
-    private async switchChain(chain: 'ethereum' | 'polygon', provider: any) {
+    /**
+     * Helper to switch chain
+     */
+    private async switchChain(chain: 'ethereum' | 'polygon' | 'base' | 'bsc' | 'gnosis' | 'arbitrum' | 'optimism', provider: any) {
         if (!provider) return
 
-        const chainId = chain === 'ethereum' ? '0x1' : '0x89'
+        const chainMap: Record<string, any> = {
+            'ethereum': {
+                chainId: '0x1',
+                chainName: 'Ethereum Mainnet',
+                nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+                rpcUrls: ['https://eth.llamarpc.com'],
+                blockExplorerUrls: ['https://etherscan.io']
+            },
+            'polygon': {
+                chainId: '0x89',
+                chainName: 'Polygon Mainnet',
+                nativeCurrency: { name: 'MATIC', symbol: 'POL', decimals: 18 },
+                rpcUrls: ['https://polygon-rpc.com'],
+                blockExplorerUrls: ['https://polygonscan.com']
+            },
+            'base': {
+                chainId: '0x2105',
+                chainName: 'Base',
+                nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+                rpcUrls: ['https://mainnet.base.org'],
+                blockExplorerUrls: ['https://basescan.org']
+            },
+            'bsc': {
+                chainId: '0x38',
+                chainName: 'Binance Smart Chain',
+                nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+                rpcUrls: ['https://bsc-dataseed.binance.org'],
+                blockExplorerUrls: ['https://bscscan.com']
+            },
+            'arbitrum': {
+                chainId: '0xa4b1',
+                chainName: 'Arbitrum One',
+                nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+                rpcUrls: ['https://arb1.arbitrum.io/rpc'],
+                blockExplorerUrls: ['https://arbiscan.io']
+            },
+            'optimism': {
+                chainId: '0xa',
+                chainName: 'OP Mainnet',
+                nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+                rpcUrls: ['https://mainnet.optimism.io'],
+                blockExplorerUrls: ['https://optimistic.etherscan.io']
+            },
+            'gnosis': {
+                chainId: '0x64',
+                chainName: 'Gnosis Chain',
+                nativeCurrency: { name: 'xDai', symbol: 'XDAI', decimals: 18 },
+                rpcUrls: ['https://rpc.gnosischain.com'],
+                blockExplorerUrls: ['https://gnosisscan.io']
+            }
+        }
+
+        const config = chainMap[chain]
+        if (!config) throw new Error(`Unsupported chain for switchChain: ${chain}`)
 
         try {
             await provider.request({
                 method: 'wallet_switchEthereumChain',
-                params: [{ chainId }],
+                params: [{ chainId: config.chainId }],
             })
         } catch (switchError: any) {
             // This error code 4902 indicates that the chain has not been added to MetaMask.
             if (switchError.code === 4902) {
-                const chainParams = chain === 'ethereum'
-                    ? {
-                        chainId: '0x1',
-                        chainName: 'Ethereum Mainnet',
-                        nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-                        rpcUrls: ['https://eth.llamarpc.com'],
-                        blockExplorerUrls: ['https://etherscan.io'],
-                    }
-                    : {
-                        chainId: '0x89',
-                        chainName: 'Polygon Mainnet',
-                        nativeCurrency: { name: 'MATIC', symbol: 'POL', decimals: 18 },
-                        rpcUrls: ['https://polygon-rpc.com'],
-                        blockExplorerUrls: ['https://polygonscan.com'],
-                    }
-
                 try {
                     await provider.request({
                         method: 'wallet_addEthereumChain',
-                        params: [chainParams],
+                        params: [{
+                            chainId: config.chainId,
+                            chainName: config.chainName,
+                            nativeCurrency: config.nativeCurrency,
+                            rpcUrls: config.rpcUrls,
+                            blockExplorerUrls: config.blockExplorerUrls
+                        }],
                     })
                 } catch (addError) {
                     console.error('Failed to add chain:', addError)
@@ -554,14 +613,15 @@ export class OpenSeaNFTService implements NFTServiceInterface {
     /**
      * List an NFT for sale on the marketplace
      */
-    async listNFT(nft: NFT, price: string, _currency: string, sellerAddress: string, durationInSeconds: number = 2592000): Promise<string> {
+    async listNFT(nft: NFT, price: string, _currency: string, sellerAddress: string, durationInSeconds: number = 2592000, walletProvider?: string): Promise<string> {
         try {
             // Get the correct EVM provider (handles Rabby vs MetaMask)
-            const evmProvider = await getEVMProvider();
+            const evmProvider = await getEVMProvider(walletProvider);
 
             // Determine chain based on NFT data
-            const nftChain = nft.chain === 'polygon' ? 'polygon' : 'ethereum'
-            await this.switchChain(nftChain, evmProvider)
+            // Supports: ethereum, polygon, base, bsc, arbitrum, optimism, gnosis
+            const nftChain = nft.chain
+            await this.switchChain(nftChain as any, evmProvider)
 
             // Create ethers provider and signer
             const provider = new ethers.BrowserProvider(evmProvider)
@@ -574,19 +634,26 @@ export class OpenSeaNFTService implements NFTServiceInterface {
             }
 
             // Determine chain for SDK
-            const chain = nftChain === 'ethereum' ? Chain.Mainnet : Chain.Polygon
+            let chain = Chain.Mainnet
+            switch (nftChain) {
+                case 'polygon': chain = Chain.Polygon; break;
+                case 'base': chain = Chain.Base; break;
+                case 'arbitrum': chain = Chain.Arbitrum; break;
+                case 'optimism': chain = Chain.Optimism; break;
+                case 'bsc': chain = (Chain as any).BNB || (Chain as any).BSC || 'bsc'; break;
+                case 'gnosis': chain = (Chain as any).Gnosis || 'gnosis'; break;
+                default: chain = Chain.Mainnet;
+            }
 
             console.log('[OpenSea] Initializing SDK with:', { chain, hasApiKey: !!OPENSEA_API_KEY })
             try {
-                console.log('[OpenSea] SDK Class:', OpenSeaSDK)
                 // Initialize OpenSea SDK with provider
-                // With node polyfills enabled, this should work correctly with ethers v6 provider
                 const sdk = new OpenSeaSDK(provider as any, {
                     chain,
                     apiKey: OPENSEA_API_KEY,
                 })
 
-                // Convert price to wei (assuming price is in ETH/MATIC)
+                // Convert price to wei (assuming price is in ETH/MATIC/BNB)
                 const priceInWei = ethers.parseEther(price)
 
                 console.log('[OpenSea] Creating listing for:', { token: nft.contractAddress, id: nft.tokenId, price })
@@ -618,10 +685,10 @@ export class OpenSeaNFTService implements NFTServiceInterface {
     /**
      * Cancel an existing listing
      */
-    async cancelListing(listingId: string, sellerAddress: string, chainName?: string): Promise<string> {
+    async cancelListing(listingId: string, sellerAddress: string, chainName?: string, walletProvider?: string): Promise<string> {
         try {
             // Get the correct EVM provider (handles Rabby vs MetaMask)
-            const evmProvider = await getEVMProvider();
+            const evmProvider = await getEVMProvider(walletProvider);
 
             const provider = new ethers.BrowserProvider(evmProvider)
             const signer = await provider.getSigner()
@@ -641,6 +708,7 @@ export class OpenSeaNFTService implements NFTServiceInterface {
                 else if (chainName === 'base') { chain = Chain.Base; targetChainId = '0x2105'; }
                 else if (chainName === 'arbitrum') { chain = Chain.Arbitrum; targetChainId = '0xa4b1'; }
                 else if (chainName === 'optimism') { chain = Chain.Optimism; targetChainId = '0xa'; }
+                else if (chainName === 'bsc') { chain = (Chain as any).BNB || (Chain as any).BSC || 'bsc'; targetChainId = '0x38'; }
             } else {
                 // Fallback if no chain name provided
                 const network = await provider.getNetwork()
@@ -825,7 +893,7 @@ export class OpenSeaNFTService implements NFTServiceInterface {
     async getCollectionStats(contractAddress: string): Promise<NFTCollection> {
         try {
             // Try Ethereum first, then Polygon (matic/polygon)
-            const chains = ['ethereum', 'matic', 'polygon']
+            const chains = ['ethereum', 'matic', 'polygon', 'bsc', 'base', 'arbitrum', 'optimism']
             let collectionStats: any = null
             let slug = ''
             let foundChain = 'ethereum'
