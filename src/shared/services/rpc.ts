@@ -14,7 +14,7 @@ export const RPC_URLS = {
     // EVM
     ETHEREUM: 'https://ethereum-rpc.publicnode.com',
     BASE: 'https://base-rpc.publicnode.com',
-    POLYGON: 'https://polygon-rpc.com',
+    POLYGON: 'https://polygon.llamarpc.com',
     ARBITRUM: 'https://arb1.arbitrum.io/rpc',
     BSC: 'https://bsc-dataseed.binance.org',
     GNOSIS: 'https://rpc.gnosischain.com',
