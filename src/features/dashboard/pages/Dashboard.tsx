@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowUpRight, ArrowDownLeft, Wallet, ChevronDown, ChevronUp } from 'lucide-react'
+import { ArrowUpRight, ArrowDownLeft, Wallet, ChevronDown, ChevronUp, Search, LayoutGrid, List } from 'lucide-react'
 import { useWalletStore } from '../../wallet/store/walletStore'
 
 const DonutChart = ({ wallets }: { wallets: any[] }) => {
@@ -131,6 +131,8 @@ const DonutChart = ({ wallets }: { wallets: any[] }) => {
 
 export function Dashboard() {
     const { wallets, getTotalBalance, toggleSendModal, toggleReceiveModal, toggleModal } = useWalletStore()
+    const [searchQuery, setSearchQuery] = useState('')
+    const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
 
     const totalBalance = getTotalBalance() === '$0.00' ? '$0' : getTotalBalance()
 
@@ -147,6 +149,11 @@ export function Dashboard() {
             w.chain === 'Solana' ? 'from-emerald-900/20 to-teal-900/20' :
                 'from-gray-700/50 to-gray-600/50'
     }))
+
+    const filteredAssets = displayAssets.filter(asset =>
+        asset.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        asset.symbol.toLowerCase().includes(searchQuery.toLowerCase())
+    )
 
     return (
         <div className="space-y-6">
@@ -196,9 +203,41 @@ export function Dashboard() {
 
             {/* Asset List */}
             <div className="space-y-4">
-                <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest px-2">
-                    {wallets.length > 0 ? 'Connected Assets' : ''}
-                </h2>
+                {wallets.length > 0 && (
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-2">
+                        <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest">
+                            Connected Assets
+                        </h2>
+
+                        <div className="flex items-center gap-3 w-full sm:w-auto">
+                            <div className="relative flex-1 sm:w-64">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                <input
+                                    type="text"
+                                    placeholder="Search assets..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full bg-[#16161e] border border-white/10 rounded-xl py-2 pl-9 pr-4 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-purple-500/50 transition-colors"
+                                />
+                            </div>
+
+                            <div className="flex items-center bg-[#16161e] border border-white/10 rounded-xl p-1">
+                                <button
+                                    onClick={() => setViewMode('list')}
+                                    className={`p-1.5 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-white/10 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
+                                >
+                                    <List className="w-4 h-4" />
+                                </button>
+                                <button
+                                    onClick={() => setViewMode('grid')}
+                                    className={`p-1.5 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-white/10 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
+                                >
+                                    <LayoutGrid className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {wallets.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 px-4 space-y-6 text-center rounded-3xl border border-white/5 bg-gradient-to-b from-white/5 to-transparent backdrop-blur-md">
@@ -217,37 +256,70 @@ export function Dashboard() {
                         </button>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 gap-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-                        {displayAssets.map((asset, i) => (
-                            <motion.div
-                                key={asset.id + i}
-                                initial={{ opacity: 0, x: -20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: i * 0.05 }}
-                                onClick={() => toggleSendModal(asset.id)}
-                                className={`flex items-center justify-between p-4 rounded-2xl border border-white/5 bg-gradient-to-r ${asset.color} hover:border-white/10 transition-all cursor-pointer group shadow-lg`}
-                            >
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-full bg-black/40 flex items-center justify-center text-xl shadow-inner border border-white/5 overflow-hidden">
+                    <div className={`grid gap-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar ${viewMode === 'grid' ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4' : 'grid-cols-1'}`}>
+                        {filteredAssets.length === 0 ? (
+                            <div className="col-span-full py-12 text-center text-gray-500">
+                                No assets found for "{searchQuery}"
+                            </div>
+                        ) : filteredAssets.map((asset, i) => (
+                            viewMode === 'list' ? (
+                                <motion.div
+                                    key={asset.id + i}
+                                    initial={{ opacity: 0, x: -20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: i * 0.05 }}
+                                    onClick={() => toggleSendModal(asset.id)}
+                                    className={`flex items-center justify-between p-4 rounded-2xl border border-white/5 bg-gradient-to-r ${asset.color} hover:border-white/10 transition-all cursor-pointer group shadow-lg`}
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-full bg-black/40 flex items-center justify-center text-xl shadow-inner border border-white/5 overflow-hidden">
+                                            {asset.icon && asset.icon.startsWith('/') ? (
+                                                <img src={asset.icon} alt={asset.symbol} className="w-full h-full object-cover transform animate-image-reveal" />
+                                            ) : (
+                                                asset.icon
+                                            )}
+                                        </div>
+                                        <div className="space-y-0.5">
+                                            <h3 className="font-bold text-white group-hover:text-purple-400 transition-colors">{asset.symbol}</h3>
+                                            <div className="text-[10px] text-gray-500 font-medium">
+                                                {asset.chain === 'Cosmos' ? asset.name : `${asset.chain} • ${asset.name}`}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="text-right">
+                                        <div className="font-bold text-white text-lg leading-none">{asset.balance} <span className="text-[10px] text-gray-500">{asset.symbol}</span></div>
+                                        <div className="text-xs text-gray-500 mt-1 font-mono">${asset.value}</div>
+                                    </div>
+                                </motion.div>
+                            ) : (
+                                <motion.div
+                                    key={asset.id + i}
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    transition={{ delay: i * 0.05 }}
+                                    onClick={() => toggleSendModal(asset.id)}
+                                    className={`flex flex-col items-center justify-center p-6 rounded-2xl border border-white/5 bg-gradient-to-b ${asset.color} hover:border-white/10 hover:-translate-y-1 transition-all cursor-pointer group shadow-lg text-center gap-3 relative overflow-hidden`}
+                                >
+                                    <div className="w-16 h-16 rounded-full bg-black/40 flex items-center justify-center text-3xl shadow-inner border border-white/5 overflow-hidden z-10">
                                         {asset.icon && asset.icon.startsWith('/') ? (
-                                            <img src={asset.icon} alt={asset.symbol} className="w-full h-full object-cover transform animate-image-reveal" />
+                                            <img src={asset.icon} alt={asset.symbol} className="w-full h-full object-cover" />
                                         ) : (
                                             asset.icon
                                         )}
                                     </div>
-                                    <div className="space-y-0.5">
-                                        <h3 className="font-bold text-white group-hover:text-purple-400 transition-colors">{asset.symbol}</h3>
-                                        <div className="text-[10px] text-gray-500 font-medium">
-                                            {asset.chain === 'Cosmos' ? asset.name : `${asset.chain} • ${asset.name}`}
+                                    <div className="z-10 space-y-1 mt-2">
+                                        <h3 className="font-bold text-white text-lg group-hover:text-purple-400 transition-colors">{asset.symbol}</h3>
+                                        <div className="text-xs text-gray-500 font-medium whitespace-nowrap overflow-hidden text-ellipsis px-2 max-w-full">
+                                            {asset.chain === 'Cosmos' ? asset.name : `${asset.chain}`}
                                         </div>
                                     </div>
-                                </div>
-
-                                <div className="text-right">
-                                    <div className="font-bold text-white text-lg leading-none">{asset.balance} <span className="text-[10px] text-gray-500">{asset.symbol}</span></div>
-                                    <div className="text-xs text-gray-500 mt-1 font-mono">${asset.value}</div>
-                                </div>
-                            </motion.div>
+                                    <div className="z-10 mt-1 w-full bg-black/20 rounded-xl py-2 px-3 border border-white/5">
+                                        <div className="font-bold text-white text-md overflow-hidden text-ellipsis">{asset.balance}</div>
+                                        <div className="text-xs text-gray-500 font-mono">${asset.value}</div>
+                                    </div>
+                                </motion.div>
+                            )
                         ))}
                     </div>
                 )}
