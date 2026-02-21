@@ -7,6 +7,7 @@ import type {
 } from "../types/types";
 import { stargazeNFTService } from "../cosmos/services/stargaze";
 import { openSeaNFTService } from "../evm/services/opensea";
+import { ankrService } from "../evm/services/ankr";
 import { magicEdenNFTService } from "../solana/services/magiceden";
 import { useWalletStore } from "../../wallet/store/walletStore";
 
@@ -153,26 +154,13 @@ export const useNFTStore = create<NFTStore>((set, get) => ({
         for (const address of uniqueAddresses) {
           console.log(`[NFT Store] Fetching EVM for ${address}(ID: ${currentInternalId})`);
 
-          // Fetch owned NFTs
-          const ownedPromises = evmChains.map(async (chain) => {
-            try {
-              return await openSeaNFTService.fetchUserNFTs(address, chain);
-            } catch (e) { return []; }
-          });
-
-          // Fetch active listings
-          const listingPromises = evmChains.map(async (chain) => {
-            try {
-              return await openSeaNFTService.fetchUserListings(address, chain);
-            } catch (e) { return []; }
-          });
-
-          const [ownedResults, listingResults] = await Promise.all([
-            Promise.all(ownedPromises),
-            Promise.all(listingPromises)
+          // Fetch owned NFTs via Ankr API (all chains at once)
+          // Also fetch active listings via OpenSea
+          const [ownedNFTs, listingResults] = await Promise.all([
+            ankrService.fetchUserEVMNFTs(address),
+            Promise.all(evmChains.map(chain => openSeaNFTService.fetchUserListings(address, chain).catch(() => [])))
           ]);
 
-          const ownedNFTs = ownedResults.flat();
           const listedNFTs = listingResults.flat();
 
           console.log(`[NFT Store] EVM ${address}: ${ownedNFTs.length} owned, ${listedNFTs.length} listed`);
