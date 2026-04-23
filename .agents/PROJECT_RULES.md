@@ -13,11 +13,24 @@
   - Why the change was made (if non-obvious)
 
 ### Deployment Flow
-1. Make changes to code
+1. Make changes to code on `feature/dashboard-redesign`
 2. Immediately commit with descriptive message
-3. Push to current branch
-4. If on `feature/dashboard-redesign`, merge to `main` for deployment
-5. GitHub Actions will automatically deploy to GitHub Pages
+3. Push to `feature/dashboard-redesign`
+4. Automatically merge to `main` branch
+5. Push to `main` to trigger GitHub Actions deployment
+6. Changes appear on https://antropocosmist.github.io/posthuman-app/ within 1-2 minutes
+
+### Auto-Deployment Commands
+After each change, execute:
+```bash
+git add .
+git commit -m "descriptive message"
+git push origin feature/dashboard-redesign
+git checkout main
+git merge feature/dashboard-redesign
+git push origin main
+git checkout feature/dashboard-redesign
+```
 
 ### Branch Strategy
 - Development happens on `feature/dashboard-redesign`
