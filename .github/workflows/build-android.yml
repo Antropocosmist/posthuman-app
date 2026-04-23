@@ -34,8 +34,11 @@ jobs:
       - name: Build web app
         run: npm run build
 
+      - name: Remove existing Android platform
+        run: rm -rf android
+
       - name: Add Android platform
-        run: npx cap add android || echo "Android platform already exists"
+        run: npx cap add android
 
       - name: Sync Capacitor
         run: npx cap sync android
