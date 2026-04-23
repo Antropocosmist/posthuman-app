@@ -43,6 +43,7 @@ export const PriceService = {
       if (!response.ok) throw new Error("Price fetch failed");
 
       const data = await response.json();
+      console.log("[PriceService] CoinGecko response:", data);
 
       const prices: Record<string, number> = {
         ETH: data[COIN_IDS.ETH]?.usd || 0,
@@ -55,6 +56,9 @@ export const PriceService = {
         STARS: data[COIN_IDS.STARS]?.usd || 0,
         CC: data[COIN_IDS.CC]?.usd || 0,
       };
+
+      console.log("[PriceService] Parsed prices:", prices);
+      console.log("[PriceService] STARS price:", prices.STARS);
 
       PriceService._cache = prices;
       PriceService._lastFetch = now;
